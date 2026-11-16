@@ -15,7 +15,10 @@ RETRY_TIMEOUT_SECONDS=${CREDENTIAL_VALIDATION_RETRY_TIMEOUT_SECONDS:-5}
 # TODO: move logs_to_events out of provision_source.sh to an independent script so other provisioning/runtime scripts can cleanly source it as needed.
 logs_to_events() {
     local task=$1; shift
-    local eventsFileName=$(date +%s%3N)
+    # The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+    # timestamp plus the emitting process's PID is unique by construction: two live
+    # processes cannot share a PID, and two forks of date cannot share a nanosecond.
+    local eventsFileName="$(date +%s%N)${BASHPID}"
 
     local startTime=$(date +"%F %T.%3N")
     ${@}

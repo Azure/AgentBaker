@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"unicode/utf8"
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -63,13 +64,31 @@ set -euo pipefail
 
 logger -t aks-boothook "boothook start $(date -Ins)"
 
-mkdir -p /opt/bin /opt/azure/containers /var/log/azure
-
+mkdir -p /opt/bin /opt/azure/containers /var/lib/waagent /var/log/azure
+`
+	boothookProvisionTemplate = `
 nohup /bin/bash /opt/azure/containers/provision_preload.sh >/dev/null 2>&1 &
 
-#hotfix-marker
 %s
 `
+	hotfixMarkerTemplate = `
+#hotfix-marker
+`
+	readyReportCloudConfig = `datasource:
+  Azure:
+    experimental_skip_ready_report: true
+`
+	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
+chmod 0644 /var/lib/waagent/experimental_skip_ready_report
+
+# The patched Azure datasource reads the archive's cloud-config flag before the boothook runs.
+# WALinuxAgent reports Ready independently once ovf-env.xml and the SSH host key exist.
+# A sentinel matching this instance's id makes it skip that report, leaving
+# aks-node-controller as the only reporter.
+if [ -s /sys/class/dmi/id/product_uuid ]; then
+    cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned
+    chmod 0644 /var/lib/waagent/provisioned
+fi`
 	cseDownloaderTemplate = `
 if [ -f /opt/azure/containers/fetch_provision_config.py ]; then
 	python3 /opt/azure/containers/fetch_provision_config.py --output /opt/bin/boothook.sh --timeout 60 >>/var/log/azure/aks-early-boothook.log 2>&1 || exit 0
@@ -144,18 +163,16 @@ func (t *TemplateGenerator) getWindowsNodeBootstrappingPayload(config *datamodel
 }
 
 func (t *TemplateGenerator) getLinuxNodeBootstrappingPayload(config *datamodel.NodeBootstrappingConfiguration) string {
-	if supportsScriptlessPhase2(config) {
+	if supportsScriptlessProvisioning(config) {
 		return t.getScriptlessBoothook(config)
 	}
 
-	// this might seem strange that we're encoding the custom data to a JSON string and then extracting it, but without that serialisation and deserialisation
-	// lots of tests fail.
 	var encoded string
 	if config.IsFlatcar() || config.IsACL() {
 		customData := getCustomDataFromJSON(t.getFlatcarLinuxNodeCustomDataJSONObject(config))
 		encoded = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+		customData := t.getLinuxNodeCustomData(config)
 		encoded = getBase64EncodedGzippedCustomScriptFromStr(customData)
 	}
 	return encoded
@@ -166,13 +183,13 @@ type encodedFile struct {
 	content string
 }
 
-// getScriptlessBoothook builds custom data for the scriptless NBC CSE path.
+// getScriptlessBoothook builds custom data for scriptless provisioning.
 // It encodes the node custom data, cse downloader script
-// into the appropriate format (boothook or flatcar ignition).
+// into the appropriate format (cloud-config, boothook or flatcar ignition).
 func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstrappingConfiguration) string {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
-	nodeCustomData := getCustomDataFromJSON(t.getLinuxNodeCustomDataJSONObject(config))
+	nodeCustomData := t.getLinuxNodeCustomData(config)
 	encodedNodeCustomData := getBase64EncodedGzippedCustomScriptFromStr(nodeCustomData)
 
 	// hotfixJSONFile is optional: only VHDs that bake a static default hotfix
@@ -203,8 +220,13 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		customData = buildScriptlessCustomData(flatcarTemplate, flatcarFileEntry, ",", encodedFiles)
 		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData))
 	} else {
-		customData = buildScriptlessCustomData(boothookTemplate, boothookFileEntry, "\n", encodedFiles)
-		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(customData + cseDownloaderTemplate))
+		provisionCustomData := buildScriptlessCustomData(boothookProvisionTemplate, boothookFileEntry, "\n", encodedFiles)
+		encodedCustomData = base64.StdEncoding.EncodeToString([]byte(boothookTemplate + provisionCustomData + hotfixMarkerTemplate + cseDownloaderTemplate))
+		customData = boothookTemplate
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			customData += readyReportHandoffTemplate
+		}
+		customData += provisionCustomData
 	}
 
 	if config.ScriptlessCSEProvisionMode {
@@ -218,28 +240,64 @@ func (t *TemplateGenerator) getScriptlessBoothook(config *datamodel.NodeBootstra
 		finalCustomData = buildScriptlessCustomData(flatcarAutoTemplate, flatcarFileEntry, ",", encodedFiles)
 	} else {
 		finalCustomData = customData + t.getScriptlessNBCCmd(config)
+		if config.IsCustomDataOnlyProvisioningEnabled() {
+			script := strings.TrimPrefix(finalCustomData, "#cloud-boothook\n")
+			archive, err := buildCloudConfigArchive(script)
+			if err != nil {
+				panic(fmt.Errorf("failed to marshal cloud-config archive: %w", err))
+			}
+			finalCustomData = archive
+		}
 	}
 	encodedFinalCustomData := base64.StdEncoding.EncodeToString([]byte(finalCustomData))
 	if len(encodedFinalCustomData) < MaxCustomDataLength {
 		return encodedFinalCustomData
 	}
+	config.CustomDataOnlyProvisioning = false
 	config.ScriptlessCSEProvisionMode = true
 	return encodedCustomData
 }
 
-// getScriptlessNBCCmd builds cse for the scriptless NBC CSE path.
-// It encodes the nbc-cmd script, and optionally AKSNodeConfig JSON,
+func buildCloudConfigArchive(script string) (string, error) {
+	parts := []struct {
+		Type    string    `yaml:"type"`
+		Content yaml.Node `yaml:"content"`
+	}{
+		{
+			Type: "text/cloud-boothook",
+			// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.DoubleQuotedStyle, Value: script},
+		},
+		{
+			Type:    "text/cloud-config",
+			Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+		},
+	}
+	archive, err := yaml.Marshal(parts)
+	if err != nil {
+		return "", err
+	}
+	return "#cloud-config-archive\n" + string(archive), nil
+}
+
+// getScriptlessNBCCmd builds CSE for scriptless provisioning.
+// It encodes AKSNodeConfig JSON and/or the NBC command according to the selected mode,
 // into a single base64-encoded string for the cse scriptless phase2 template.
 func (t *TemplateGenerator) getScriptlessNBCCmd(config *datamodel.NodeBootstrappingConfiguration) string {
 	encodedFiles := t.getScriptlessConfiguration(config)
 	customData := buildScriptlessCustomData(cseBootHookTemplate, boothookFileEntry, "\n", encodedFiles)
-	customData += serviceStartTemplate
+	customData += hotfixMarkerTemplate + serviceStartTemplate
 	return customData
 }
 
 func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBootstrappingConfiguration) []encodedFile {
 	config.DisableCustomData = true
 	config.EnableScriptlessCSECmd = true
+	if config.EnableScriptlessAKSNodeConfig {
+		return []encodedFile{
+			{aksNodeConfigFilepath, getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)},
+		}
+	}
 	nbcCMD := t.getLinuxNodeCSECommand(config)
 	encodedNBCCMD := getBase64EncodedGzippedCustomScriptFromStr(nbcCMD)
 	var encodedAKSNodeConfig string
@@ -256,8 +314,19 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 	return encodedFiles
 }
 
-func supportsScriptlessPhase2(config *datamodel.NodeBootstrappingConfiguration) bool {
-	return config.EnableScriptlessNBCCSECmd && !config.PreProvisionOnly
+func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return config.EnableScriptlessNBCCSECmd || config.EnableScriptlessAKSNodeConfig || config.IsCustomDataOnlyProvisioningEnabled()
+}
+
+func validateScriptlessAKSNodeConfig(config *datamodel.NodeBootstrappingConfiguration) error {
+	input := strings.TrimSpace(config.AKSNodeConfigJSON)
+	if input == "" {
+		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires non-empty AKSNodeConfigJSON")
+	}
+	if !json.Valid([]byte(input)) || input[0] != '{' {
+		return fmt.Errorf("EnableScriptlessAKSNodeConfig requires AKSNodeConfigJSON to be a valid JSON object")
+	}
+	return nil
 }
 
 // renderEnabledFeatures serializes the feature toggle map into sorted KEY=VALUE lines for
@@ -305,20 +374,17 @@ func buildScriptlessCustomData(cloudInitTemplate, fileListTemplate, separator st
 	return fmt.Sprintf(cloudInitTemplate, strings.Join(fileList, separator))
 }
 
-// GetLinuxNodeCustomDataJSONObject returns Linux customData JSON object in the form.
-// { "customData": "<customData string>" }.
-func (t *TemplateGenerator) getLinuxNodeCustomDataJSONObject(config *datamodel.NodeBootstrappingConfiguration) string {
-	// get parameters
-	parameters := getParameters(config)
-	// get variable cloudInit
-	variables := getCustomDataVariables(config)
-	str, e := t.getSingleLineForTemplate(kubernetesNodeCustomDataYaml, config.AgentPoolProfile, getBakerFuncMap(config, parameters, variables), true)
-
-	if e != nil {
-		panic(e)
+func (t *TemplateGenerator) getLinuxNodeCustomData(config *datamodel.NodeBootstrappingConfiguration) string {
+	b, err := parts.Templates.ReadFile(kubernetesNodeCustomDataYaml)
+	if err != nil {
+		panic(err)
+	}
+	str, err := RenderLinuxNodeCustomDataTemplate(b, config)
+	if err != nil {
+		panic(err)
 	}
 
-	return fmt.Sprintf("{\"customData\": \"%s\"}", str)
+	return str
 }
 
 const (
@@ -534,7 +600,7 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 	if config.AgentPoolProfile.IsWindows() {
 		return t.getWindowsNodeCSECommand(config)
 	}
-	if supportsScriptlessPhase2(config) {
+	if supportsScriptlessProvisioning(config) {
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
@@ -636,6 +702,8 @@ func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface
 // same variables and functions used by the production AgentBaker path.
 // Callers must supply a complete configuration, as required by the production
 // rendering helpers.
+// File entries must use GetCloudInitFileEncodingLine and GetCloudInitFileContent
+// to select the encoding for the delivery mode.
 func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel.NodeBootstrappingConfiguration) (string, error) {
 	parameters := getParameters(config)
 	variables := getCustomDataVariables(config)
@@ -653,19 +721,52 @@ func RenderLinuxNodeCustomDataTemplate(templateContent []byte, config *datamodel
 	return buffer.String(), nil
 }
 
+// Traditional custom data is gzipped as a whole, so its files need no inner encoding.
+func usePlainCloudInit(config *datamodel.NodeBootstrappingConfiguration) bool {
+	return !config.EnableScriptlessCSECmd && !config.IsFlatcar() && !config.IsACL()
+}
+
+func getCloudInitFileEncodingLine(config *datamodel.NodeBootstrappingConfiguration) string {
+	if usePlainCloudInit(config) {
+		return ""
+	}
+	return "encoding: " + encodingGZIP
+}
+
+func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, content string) (string, error) {
+	if usePlainCloudInit(config) {
+		if !utf8.ValidString(content) {
+			return "", fmt.Errorf("cloud-init file content contains invalid UTF-8")
+		}
+		// YAML quoting preserves Unicode line breaks that JSON leaves unescaped.
+		encoded, err := yaml.Marshal(&yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Style: yaml.DoubleQuotedStyle,
+			Value: content,
+		})
+		return strings.TrimSuffix(string(encoded), "\n"), err
+	}
+	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
 
+	funcMap["GetCloudInitFileEncodingLine"] = func() string {
+		return getCloudInitFileEncodingLine(config)
+	}
+	funcMap["GetCloudInitFileContent"] = func(content string) (string, error) {
+		return getCloudInitFileContent(config, content)
+	}
+
 	funcMap["GetParameter"] = func(s string) interface{} {
-		if v, ok := params[s].(paramsMap); ok && v != nil {
-			if v["value"] == nil {
-				// return empty string so we don't get <no value> from go template
-				return ""
-			}
-			return v["value"]
+		v, ok := params[s].(paramsMap)
+		if !ok || v["value"] == nil {
+			// return empty string so we don't get <no value> from go template
+			return ""
 		}
-		return ""
+		return v["value"]
 	}
 
 	// TODO: GetParameterPropertyLower
@@ -750,6 +851,17 @@ func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBoo
 
 // ValidateAndSetLinuxNodeBootstrappingConfigurationWithError validates and updates Linux node bootstrapping configuration.
 func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamodel.NodeBootstrappingConfiguration) error {
+	if err := validateAndSetCustomDataOnlyProvisioning(config); err != nil {
+		return err
+	}
+
+	if config.EnableScriptlessAKSNodeConfig {
+		if err := validateScriptlessAKSNodeConfig(config); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	if err := validateCustomLinuxOSConfig(config.AgentPoolProfile.GetCustomLinuxOSConfig()); err != nil {
 		return err
 	}
@@ -784,6 +896,15 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 		kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RotateKubeletServerCertificate", true)
 	}
 
+	// The gate makes kubelet pass the RuntimeClass handler to PullImage, so kata-v2 images unpack straight into erofs.
+	if config.AgentPoolProfile != nil && config.AgentPoolProfile.Distro.IsKataDistro() &&
+		IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.29.0") {
+		// Default only, so the RP can still turn it off.
+		if _, set := strKeyValToMapBool(kubeletFlags["--feature-gates"], ",", "=")["RuntimeClassInImageCriApi"]; !set {
+			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RuntimeClassInImageCriApi", true)
+		}
+	}
+
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.24.0") {
 		kubeletFlags["--feature-gates"] = removeFeatureGateString(kubeletFlags["--feature-gates"], "DynamicKubeletConfig")
 	} else if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.11.0") {
@@ -815,6 +936,18 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	// It must not appear on the command line or in the config file for those versions.
 	if IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.34.0") {
 		delete(kubeletFlags, "--streaming-connection-idle-timeout")
+	}
+	return nil
+}
+
+func validateAndSetCustomDataOnlyProvisioning(config *datamodel.NodeBootstrappingConfiguration) error {
+	if config.IsCustomDataOnlyProvisioningEnabled() && (config.IsFlatcar() || config.IsACL() || config.IsAzureLinux()) {
+		config.CustomDataOnlyProvisioning = false
+	}
+	if config.IsCustomDataOnlyProvisioningEnabled() &&
+		!config.AgentPoolProfile.Distro.Is2404VHDDistro() &&
+		!config.AgentPoolProfile.Distro.Is2604VHDDistro() {
+		return fmt.Errorf("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init")
 	}
 	return nil
 }
@@ -885,7 +1018,7 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
-//nolint:gocognit, funlen, cyclop, gocyclo
+//nolint:gocognit, funlen
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -965,6 +1098,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			}
 			return GetTLSBootstrapTokenForKubeConfig(config.KubeletClientTLSBootstrapToken)
 		},
+		"RemoveBootstrapKubeconfig": func() bool {
+			return config.RemoveBootstrapKubeconfig
+		},
 		"EnableKubeletServingCertificateRotation": func() bool {
 			return IsKubeletServingCertificateRotationEnabled(config)
 		},
@@ -974,15 +1110,15 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetKubeletConfigKeyValsPsh": func() string {
 			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeletConfigArgsForWindows(profile.CustomKubeletConfig)))
 		},
-		"GetKubeletHealthzEndpoint": func() string {
-			return config.GetKubeletHealthzEndpoint(profile.CustomKubeletConfig)
-		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
 			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeproxyConfigArgsForWindows()))
 		},
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
 				config.IsAzureLinux() || config.IsFlatcar() || config.IsACL()
+		},
+		"IsCustomDataOnlyProvisioningEnabled": func() bool {
+			return config.IsCustomDataOnlyProvisioningEnabled()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
 			return powerShellLiteralList(cs.Properties.GetKubeProxyFeatureGatesForWindows())
@@ -1070,6 +1206,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"IsKata": func() bool {
 			return profile.Distro.IsKataDistro()
+		},
+		"IsAzureLinuxV3KataCC": func() bool {
+			return profile.Distro == datamodel.AKSAzureLinuxV3Gen2KataCC
 		},
 		"IsAzlOSGuard": func() bool {
 			return profile.Distro.IsAzureLinuxOSGuardDistro() ||
@@ -1431,8 +1570,8 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"GetCSEConfigNetworkScriptFilepath": func() string {
 			return cseConfigNetworkScriptFilepath
 		},
-		"GetCSEConfigAddonsScriptFilepath": func() string {
-			return cseConfigAddonsScriptFilepath
+		"GetCSEConfigChronyScriptFilepath": func() string {
+			return cseConfigChronyScriptFilepath
 		},
 		"GetCustomSearchDomainsCSEScriptFilepath": func() string {
 			return customSearchDomainsCSEScriptFilepath
@@ -1625,6 +1764,9 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"InsertIMDSRestrictionRuleToMangleTable": func() bool {
 			return config.InsertIMDSRestrictionRuleToMangleTable
 		},
+		"EnableKMPP": func() bool {
+			return config.EnableKMPP
+		},
 		"ShouldEnableLocalDNS": func() bool {
 			return profile.ShouldEnableLocalDNS()
 		},
@@ -1687,7 +1829,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetPreProvisionOnly": func() bool { return config.PreProvisionOnly },
 		"GetCSETimeout":       func() string { return datamodel.GetCSETimeout(config.CSETimeout) },
-		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessPhase2(config) },
+		"GetSkipWaAgentHold":  func() bool { return supportsScriptlessProvisioning(config) },
 		"BlockIptables": func() bool {
 			return cs.Properties.OrchestratorProfile.KubernetesConfig.BlockIptables
 		},
@@ -2065,10 +2207,10 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2160,10 +2302,10 @@ root = "{{GetDataDir}}"{{- end}}
   runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2175,6 +2317,15 @@ root = "{{GetDataDir}}"{{- end}}
   pod_annotations = ["io.katacontainers.*"]
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-cc.options]
     ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- if IsAzureLinuxV3KataCC }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
 {{- end}}
 `
 	containerdV2NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -2239,17 +2390,26 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
-	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
+{{- if IsAzureLinuxV3KataCC }}
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
+{{- end}}
 {{- end}}
 `
 	containerdV1NoGPUConfigTemplate ContainerdConfigTemplate = `version = 2
@@ -2319,13 +2479,13 @@ root = "{{GetDataDir}}"{{- end}}
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata.options]
     ConfigPath = "/usr/share/defaults/kata-containers/configuration.toml"
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2]
-	runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
+  runtime_path = "/usr/local/bin/containerd-shim-kata-v2-rs"
   runtime_type = "io.containerd.kata.v2"
   privileged_without_host_devices = true
-	pod_annotations = ["io.katacontainers.snapshot-name"]
+  pod_annotations = ["io.katacontainers.snapshot-name"]
   snapshotter = "erofs"
   [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.kata-v2.options]
-	ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
+    ConfigPath = "/usr/share/defaults/kata-containers/configuration-clh-azure-runtime-rs-v2.toml"
 [proxy_plugins]
   [proxy_plugins.tardev]
     type = "snapshot"
@@ -2406,6 +2566,7 @@ const localDNSCoreFileTemplateString = `# **************************************
 # whoami (used for health check of DNS)
 health-check.localdns.local:53 {
     bind {{$.NodeListenerIP}} {{$.ClusterListenerIP}}
+    reload
     whoami
 }
 # VnetDNS overrides apply to DNS traffic from pods with dnsPolicy:default or kubelet (referred to as VnetDNS traffic).
@@ -2476,6 +2637,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns
     prometheus :9253
@@ -2556,6 +2718,7 @@ health-check.localdns.local:53 {
         {{- end }}
         servfail 0
     }
+    loadbalance
     loop
     nsid localdns-pod
     prometheus :9253

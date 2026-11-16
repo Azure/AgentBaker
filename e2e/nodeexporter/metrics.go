@@ -1,6 +1,7 @@
 package nodeexporter
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -12,10 +13,33 @@ var (
 	nodeExporterVersionPattern = regexp.MustCompile(`(?m)^node_exporter_build_info\{[^\n}]*version="v([0-9]+)\.([0-9]+)\.[^"}]+"[^\n}]*\} 1$`)
 )
 
+// pressureMetric is the PSI metric retained by the AKS default Prometheus profile.
+const pressureMetric = "node_pressure_cpu_waiting_seconds_total"
+
 // ValidateMetrics verifies that a node-exporter scrape contains every metric
 // retained by the AKS default Prometheus profile.
-func ValidateMetrics(metricsText string) error {
+//
+// requirePressure is false only on kernels built without pressure stall
+// information (CONFIG_PSI). The Azure Linux 3 Kata host kernel (kernel-mshv)
+// currently lacks it: https://github.com/microsoft/azurelinux/issues/19417.
+// node-exporter's pressure collector then returns no data rather than failing,
+// so the scrape must report that collector as unsuccessful and expose no PSI
+// metrics. Every other metric is still required.
+func ValidateMetrics(metricsText string, requirePressure bool) error {
 	metricNames := parseMetricNames(metricsText)
+
+	if !requirePressure {
+		var errs []error
+		if !strings.Contains(metricsText, `node_scrape_collector_success{collector="pressure"} 0`) {
+			errs = append(errs, fmt.Errorf("pressure collector must report no data on a kernel without PSI"))
+		}
+		if _, exists := metricNames[pressureMetric]; exists {
+			errs = append(errs, fmt.Errorf("%s is present although the kernel reports no PSI", pressureMetric))
+		}
+		if err := errors.Join(errs...); err != nil {
+			return err
+		}
+	}
 
 	requiredMetrics := []string{
 		"node_disk_read_time_seconds_total",
@@ -30,9 +54,11 @@ func ValidateMetrics(metricsText string) error {
 		"node_network_transmit_errs_total",
 		"node_network_transmit_packets_total",
 		"node_netstat_Tcp_RetransSegs",
-		"node_pressure_cpu_waiting_seconds_total",
 		"node_filesystem_free_bytes",
 		"node_filesystem_size_bytes",
+	}
+	if requirePressure {
+		requiredMetrics = append(requiredMetrics, pressureMetric)
 	}
 	var missingMetrics []string
 	for _, name := range requiredMetrics {

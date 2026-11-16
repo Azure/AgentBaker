@@ -134,6 +134,19 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return &usageError{message: "no scenarios matched the configured filters"}
 	}
 
+	if opts.randomNBCCoverage {
+		seed := nbcSamplingSeed(config.Config.BuildID, time.Now())
+		sampled, err := sampleNBCScenarios(runnable, seed)
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(a.stdout, "NBC sample seed: %q; adding %d scenarios\n", seed, len(sampled))
+		for _, s := range sampled {
+			_, _ = fmt.Fprintf(a.stdout, "NBC sample: %s\n", s.Name)
+		}
+		runnable = append(runnable, sampled...)
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, config.Config.SuiteTimeout)
 	defer cancel()
 
@@ -218,22 +231,24 @@ func (e *usageError) Error() string {
 }
 
 type runOptions struct {
-	parallel   int
-	retries    int
-	logDir     string
-	junitFile  string
-	outputMode string
-	tagFilter  tagFilter
-	selectors  []string
+	randomNBCCoverage bool
+	parallel          int
+	retries           int
+	logDir            string
+	junitFile         string
+	outputMode        string
+	tagFilter         tagFilter
+	selectors         []string
 }
 
 func runOptionsFromConfig(selectors []string) runOptions {
 	return runOptions{
-		parallel:   config.Config.Parallel,
-		retries:    config.Config.Retries,
-		logDir:     config.Config.E2ELoggingDir,
-		junitFile:  config.Config.JUnitFile,
-		outputMode: config.Config.OutputMode,
+		randomNBCCoverage: config.Config.RandomNBCCoverage,
+		parallel:          config.Config.Parallel,
+		retries:           config.Config.Retries,
+		logDir:            config.Config.E2ELoggingDir,
+		junitFile:         config.Config.JUnitFile,
+		outputMode:        config.Config.OutputMode,
 		tagFilter: tagFilter{
 			run:  config.Config.TagsToRun,
 			skip: config.Config.TagsToSkip,

@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/containerd/v2/core/images"
 	"github.com/containerd/platforms"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -19,13 +20,14 @@ const (
 	// full pull (~200 MiB compressed ≈ ~400 MiB unpacked).
 	pullSizeThreshold = 200 * 1024 * 1024 // 200 MiB
 )
-
 // fetchImage uses client.Fetch() which:
 //   - Downloads all blobs (manifest, config, layers) into the content store
 //   - Creates an image record in the metadata database
 //   - Does NOT unpack layers into the snapshotter
 //
-// If the total image content size is below pullSizeThreshold (150 MiB),
+// Otherwise, it can delegate registry fetching to the host Transfer service.
+//
+// If the total image content size is below pullSizeThreshold (200 MiB),
 // client.Pull() is called to additionally unpack the layers. Pull reuses
 // already-fetched content from the store and handles snapshotter resolution
 // internally (namespace label → platform default).
@@ -41,9 +43,16 @@ func fetchImage(ctx context.Context, client *containerd.Client, ref string) erro
 	}
 	platformMatcher := platforms.OnlyStrict(p)
 
-	imageMeta, err := client.Fetch(ctx, ref,
-		containerd.WithPlatformMatcher(platformMatcher),
-	)
+	var imageMeta images.Image
+	useTransfer := os.Getenv(useTransferEnv) == "true"
+	if useTransfer {
+		imageMeta, err = transferImage(ctx, client, ref, p)
+		if err != nil {
+			return fmt.Errorf("transfer failed: %w", err)
+		}
+	} else {
+		imageMeta, err = client.Fetch(ctx, ref, containerd.WithPlatformMatcher(platformMatcher))
+	}
 	if err != nil {
 		return fmt.Errorf("fetch failed: %w", err)
 	}

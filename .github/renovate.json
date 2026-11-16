@@ -110,6 +110,7 @@
       "matchPackageNames": [
         "aks-secure-tls-bootstrap-client",
         "azure-acr-credential-provider",
+        "az-oras",
         "containernetworking-plugins",
         "containerd2",
         "datacenter-gpu-manager-4-core",
@@ -123,7 +124,10 @@
         "moby-containerd",
         "moby-runc",
         "node-exporter-kubernetes",
-        "nvidia-device-plugin"
+        "node-problem-detector-aks-config",
+        "node-problem-detector-kubernetes",
+        "nvidia-device-plugin",
+        "oras"
       ],
       "extractVersion": "^(?:\\d+:)?(?<version>\\d+\\.\\d+\\.\\d+)(?:[-+].*)?$",
       "versioning": "semver"
@@ -647,7 +651,8 @@
       ],
       "matchPackageNames": [
         "oss/v2/kubernetes/*-sysext",
-        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext"
+        "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
+        "azurecontainerregistry/v2/artifact-streaming-sysext"
       ],
       "matchCurrentVersion": "/-azlinux3$/",
       "extractVersion": "^(?<version>.+-azlinux3)-x86-64$",
@@ -708,6 +713,7 @@
       ],
       "groupName": "nvidia-gpu-grid",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)(?:\\.(?<patch>\\d+))?-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^580\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -732,6 +738,7 @@
       ],
       "groupName": "nvidia-gpu-grid-v20",
       "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<prerelease>\\d{14})$",
+      "allowedVersions": "/^595\\./",
       "automerge": false,
       "enabled": true,
       "ignoreUnstable": false,
@@ -1024,42 +1031,42 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/20.04/prod/dists/focal/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2204": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/22.04/prod/dists/jammy/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-deb2204": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2404": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-deb2404": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-deb2604": {
       "defaultRegistryUrlTemplate": "https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "nvidia-rpm-azl3": {
@@ -1073,14 +1080,14 @@
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/24.04/prod/dists/testing/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     },
     "deb2604": {
       "defaultRegistryUrlTemplate": "https://packages.microsoft.com/ubuntu/26.04/prod/dists/resolute/main/binary-amd64/Packages",
       "format": "plain",
       "transformTemplates": [
-        "{\"releases\": $map(($index := releases#$i[version=\"Package: {{packageName}}\"].$i; $map($index, function($i) { $substringAfter(releases[$i + 1].version, \"Version: \") })), function($v) { {\"version\": $v} })[]}"
+        "{\"releases\": [$split($replace($join(releases.version, \"\\n\"), /^\\n+/, \"\"), /\\n{2,}/)[$substringBefore($, \"\\n\") = \"Package: {{packageName}}\"].{\"version\": $substringAfter($split($, \"\\n\")[1], \"Version: \")}]}"
       ]
     }
   }

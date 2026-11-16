@@ -42,6 +42,7 @@ func PrivateACRName(location string) string {
 }
 
 type Configuration struct {
+	ACLBaseImageSigned                     bool
 	ACRSecretName                          string
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
@@ -55,12 +56,14 @@ type Configuration struct {
 	MANAVMSKU                              string
 	DisableScriptless                      bool
 	DisableScriptLessCompilation           bool
+	RandomNBCCoverage                      bool
 	E2ELoggingDir                          string
 	EnableSecureTLSBootstrapping           bool
 	ExtendedTests                          string
 	GalleryLinux                           Gallery
 	GalleryWindows                         Gallery
 	IgnoreScenariosWithMissingVHD          bool
+	InADO                                  bool
 	KeepVMSS                               bool
 	NetworkIsolatedNSGName                 string
 	Parallel                               int
@@ -90,6 +93,7 @@ type Configuration struct {
 
 func DefaultConfiguration() *Configuration {
 	return &Configuration{
+		ACLBaseImageSigned:                     true,
 		ACRSecretName:                          "acr-secret-code2",
 		AzureContainerRegistrytargetRepository: "aks-managed-repository/*",
 		BlobContainer:                          "abe2e",
@@ -103,6 +107,7 @@ func DefaultConfiguration() *Configuration {
 		MANAVMSKU:                              "Standard_D2ds_v6",
 		E2ELoggingDir:                          "scenario-logs",
 		EnableSecureTLSBootstrapping:           false,
+		InADO:                                  strings.EqualFold(os.Getenv("TF_BUILD"), "true"),
 		GalleryLinux: Gallery{
 			Name:              "PackerSigGalleryEastUS",
 			ResourceGroupName: "aksvhdtestbuildrg",

@@ -333,26 +333,6 @@ function Start-NodeResetScriptTask {
         Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "NodeResetScriptTask failed with result $($taskInfo.LastTaskResult)"
     }
 
-    if ([string]::IsNullOrEmpty($global:KubeletHealthzEndpoint)) {
-        $kubeletService=Get-Service -Name "kubelet" -ErrorAction SilentlyContinue
-        if ($null -eq $kubeletService -or $kubeletService.Status -ne "Running") {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet service is not running after NodeResetScriptTask completed"
-        }
-    } else {
-        try {
-            $healthCheckArgs=@{
-                Uri=$global:KubeletHealthzEndpoint
-                UseBasicParsing=$true
-                TimeoutSec=1
-                ErrorAction="Stop"
-            }
-            # Observed NSSM recovery took over 12 seconds; allow 30 attempts for slower hosts.
-            Retry-Command -Command "Invoke-WebRequest" -Args $healthCheckArgs -Retries 30 -RetryDelaySeconds 1 | Out-Null
-        } catch {
-            Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_START_NODE_RESET_SCRIPT_TASK -ErrorMessage "kubelet did not become healthy after NodeResetScriptTask completed. Error: $($_.Exception.Message)"
-        }
-    }
-
     Write-Log -Message "We waited [$($timer.Elapsed.TotalSeconds)] seconds on NodeResetScriptTask"
 }
 
@@ -549,14 +529,6 @@ function Install-Containerd-Based-On-Kubernetes-Version {
         }
         $containerdPackage=[string]::Format($global:ContainerdPackageTemplate, $containerdVersion)
         $ContainerdUrl=$ContainerdUrl + $containerdPackage
-    } elseif ( $windowsVersion -eq $global:WindowsVersion2025) {
-        # TODO (beileihuang) : remove this else if block when RP is release to set the correct versions for 2025
-        $containerdPattern="v\d+\.\d+\.\d+-azure\.\d+/binaries/containerd-v\d+\.\d+\.\d+-azure\.\d+-windows-amd64\.tar\.gz"
-        if ($ContainerdUrl -match $containerdPattern) {
-            $matchedPath=$matches[0]
-            $containerd2Package=[string]::Format($global:ContainerdPackageTemplate, $global:LatestContainerd2Version)
-            $ContainerdUrl=$ContainerdUrl.Replace($matchedPath, $containerd2Package)
-        }
     }
 
     Write-Log "Install Containerd with resolved containerd pacakge url: $ContainerdUrl, Kubernetes version: $KubernetesVersion, Windows version: $windowsVersion."

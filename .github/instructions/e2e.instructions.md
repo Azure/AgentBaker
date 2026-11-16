@@ -15,6 +15,12 @@ Report bugs in `e2e/**`, not missing test coverage.
 - Before completing a rename, update in-repository selectors and documentation examples. Report the old and new names in the PR because external selectors and report history also use them.
 - Unit tests for scenario definitions are usually unnecessary. Focus unit tests on validator and framework behavior, rather than repeating scenario names, counts, or configuration values.
 
+# E2E test artifacts
+
+- Prefer checked-in fixtures, VHD-cached installers/images, or versioned CI artifacts over runtime downloads from external resources.
+- If an expected artifact is missing, fail with its name and the required image/build. Do not silently download a replacement; that hides incomplete images and adds a network dependency.
+- Fetch external data only when the scenario requires it, such as testing download or registry access. Explain the need in the scenario or PR, use approved sources, and pin artifact versions.
+
 # E2E shared-environment rules
 
 E2E scenarios run concurrently across branches and share predefined AKS clusters with unrelated tests.

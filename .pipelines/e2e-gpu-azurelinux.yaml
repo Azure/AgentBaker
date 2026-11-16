@@ -1,6 +1,10 @@
 name: $(Date:yyyyMMdd)$(Rev:.r)
+parameters:
+  - name: tagsToRun
+    type: string
+    default: "gpu=true"
 variables:
-  TAGS_TO_RUN: "gpu=true"
+  TAGS_TO_RUN: ${{ parameters.tagsToRun }}
   TAGS_TO_SKIP: "os=windows,os=ubuntu"
   SKIP_E2E_TESTS: false
   SKIP_TESTS_WITH_SKU_CAPACITY_ISSUE: true
@@ -13,11 +17,13 @@ schedules:
     branches:
       include:
         - main
+        - dev
     always: true
 trigger:
   branches:
     include:
       - main
+      - dev
   paths:
     include:
       - e2e/**
@@ -28,6 +34,7 @@ pr:
       - official/*
       - windows/*
       - main
+      - dev
   paths:
     include:
       - e2e/**

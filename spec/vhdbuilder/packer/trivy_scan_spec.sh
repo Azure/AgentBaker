@@ -43,6 +43,18 @@ Describe 'install_trivy'
       amd64 arm64
     End
 
+    Describe 'install_azure_cli'
+      BeforeAll "eval \"\$(sed -n '/^install_azure_cli()/,/^}$/p' vhdbuilder/packer/trivy-scan.sh)\""
+
+      installAzCLIFromUbuntuPMC() { echo "installAzCLIFromUbuntuPMC $*"; }
+
+      It 'installs Azure CLI from PMC on Ubuntu 26.04'
+        When call install_azure_cli Ubuntu 26.04 X86_64 azureuser
+        The status should be success
+        The output should eq "installAzCLIFromUbuntuPMC X86_64"
+      End
+    End
+
     It "installs the latest matching Ubuntu $1 revision on $2"
       TEST_OS_VERSION="$1"
       TEST_ARCH="$2"

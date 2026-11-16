@@ -1,0 +1,6 @@
+[Unit]
+Description=Emit execution telemetry for %I
+
+[Service]
+Type=oneshot
+ExecStart=/opt/scripts/service-execution-telemetry.sh %I

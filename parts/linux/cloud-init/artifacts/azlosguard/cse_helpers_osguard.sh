@@ -56,5 +56,3 @@ tdnf_download() {
     done
     echo Executed tdnf install -y \"$@\" $i times;
 }
-
-#EOF

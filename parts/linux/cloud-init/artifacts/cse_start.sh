@@ -28,7 +28,10 @@ KUBELET_START_TIME_FORMATTED=$(date -d "${KUBELET_START_TIME}" +"%F %T.%3N" )
 KUBELET_READY_TIME_FORMATTED="$(date -d "$(journalctl -u kubelet | grep NodeReady | cut -d' ' -f1-3)" +"%F %T.%3N")"
 SYSTEMD_SUMMARY=$(systemd-analyze || true)
 CSE_ENDTIME_FORMATTED=$(date +"%F %T.%3N")
-EVENTS_FILE_NAME=$(date +%s%3N)
+# The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+# timestamp plus the emitting process's PID is unique by construction: two live
+# processes cannot share a PID, and two forks of date cannot share a nanosecond.
+EVENTS_FILE_NAME="$(date +%s%N)${BASHPID}"
 EXECUTION_DURATION=$(($(date +%s) - $(date -d "$CSE_STARTTIME" +%s)))
 SCRIPTLESS_MODE="none"
 
@@ -95,6 +98,7 @@ EVENT_JSON=$( jq -n \
 )
 echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
 
+
 # force a log upload to the host after the provisioning script finishes
 # if we failed, wait for the upload to complete so that we don't remove
 # the VM before it finishes.
@@ -113,15 +117,17 @@ upload_logs() {
     fi
 }
 # Create the marker for the completed provisioning stage.
+mkdir -p /opt/azure/containers
 if [ "${PRE_PROVISION_ONLY}" = "true" ]; then
     # Stage 1: Create marker indicating Stage 2 is needed
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/base_prep.complete
+    touch /opt/azure/containers/base_prep.complete
     echo "Stage 1 complete - kubelet configuration skipped, Stage 2 required" >> /var/log/azure/cluster-provision.log
     echo "Created base_prep.complete marker file" >> /var/log/azure/cluster-provision.log
-else
-    # provision.complete signals that a normal provisioning attempt finished.
-    mkdir -p /opt/azure/containers && touch /opt/azure/containers/provision.complete
 fi
+# provision.complete signals that this CSE run finished, so `aks-node-controller provision-wait`
+# reports the result of a pre-provision run as well as a normal one. Image generalization removes
+# it before capture, so a node created from the image never inherits it.
+touch /opt/azure/containers/provision.complete
 
 if [ "$EXIT_CODE" -ne 0 ]; then
     upload_logs

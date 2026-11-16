@@ -34,6 +34,7 @@ import (
 
 const (
 	loadBalancerBackendAddressPoolIDTemplate = "/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/loadBalancers/kubernetes/backendAddressPools/aksOutboundBackendPool"
+	hotfixMarker                             = "#hotfix-marker"
 )
 
 type scriptHotfixFixtureNodeCustomData struct {
@@ -50,6 +51,15 @@ type scriptHotfixFixtureWriteFile struct {
 
 func compileAndUploadAKSNodeController(ctx context.Context, arch string) (string, error) {
 	binary, err := compileAKSNodeController(ctx, arch)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
+func compileAndUploadAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (string, error) {
+	binary, err := compileAKSNodeControllerWithVersion(ctx, arch, version)
 	if err != nil {
 		return "", err
 	}
@@ -100,24 +110,41 @@ func uploadAKSNodeController(ctx context.Context, binary *os.File) (string, erro
 }
 
 func compileAKSNodeController(ctx context.Context, arch string) (*os.File, error) {
+	return compileAKSNodeControllerWithVersion(ctx, arch, "")
+}
+
+func compileAKSNodeControllerWithVersion(ctx context.Context, arch, version string) (*os.File, error) {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return nil, err
 	}
-	return compileAKSNodeControllerInDir(
-		ctx,
-		arch,
-		filepath.Join(repoRoot, "aks-node-controller"),
-	)
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, filepath.Join(repoRoot, "aks-node-controller"), version)
 }
 
 func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (*os.File, error) {
+	return compileAKSNodeControllerInDirWithVersion(ctx, arch, buildDir, "")
+}
+
+func compileAKSNodeControllerInDirWithVersion(ctx context.Context, arch, buildDir, version string) (*os.File, error) {
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		return nil, fmt.Errorf("failed to find go binary in PATH: %w", err)
 	}
-	binName := "aks-node-controller-" + arch
-	cmd := exec.CommandContext(ctx, goBin, "build", "-o", binName, "-v")
+	// Each build gets its own output directory. Scenarios compile concurrently (see
+	// --parallel, default 60) and the caches in cache.go are per-function, so a shared
+	// output path lets an unversioned build and a version-stamped build overwrite each
+	// other between `go build` and the upload's read - handing a scenario the wrong
+	// binary. A unique directory removes the shared path entirely.
+	outDir, err := os.MkdirTemp("", "aks-node-controller-out-*")
+	if err != nil {
+		return nil, fmt.Errorf("create aks-node-controller output directory: %w", err)
+	}
+	outPath := filepath.Join(outDir, "aks-node-controller-"+arch)
+	args := []string{"build", "-o", outPath, "-v"}
+	if version != "" {
+		args = append(args, "-ldflags", "-X main.Version="+version)
+	}
+	cmd := exec.CommandContext(ctx, goBin, args...)
 	cmd.Dir = buildDir
 	cmd.Env = append(os.Environ(),
 		"CGO_ENABLED=0",
@@ -127,10 +154,16 @@ func compileAKSNodeControllerInDir(ctx context.Context, arch, buildDir string) (
 	logging.Logf(ctx, "compiling aks-node-controller: %q", cmd.String())
 	log, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to compile aks-node-controller: %s", string(log))
 	}
-	f, err := os.Open(filepath.Join(cmd.Dir, binName))
+	f, err := os.Open(outPath)
+	// Do not remove outDir here: the returned file handle must remain usable after this
+	// function returns, and deleting its containing directory while the file is still
+	// open is not portable across platforms (notably Windows). Keep the directory for
+	// the lifetime of the returned file and only clean it up on error paths here.
 	if err != nil {
+		os.RemoveAll(outDir)
 		return nil, fmt.Errorf("failed to open compiled aks-node-controller binary: %w", err)
 	}
 	return f, nil
@@ -335,8 +368,134 @@ func CustomDataWithNBCCmdHack(customData, binaryURL string) (string, error) {
 	}
 
 	binaryDownloadCmd := fmt.Sprintf("curl -fSL --retry 10 --retry-delay 2 --retry-connrefused \"%s\" -o /opt/azure/containers/aks-node-controller-hotfix && chmod +x /opt/azure/containers/aks-node-controller-hotfix", binaryURL)
-	customData = strings.Replace(string(decoded), "#hotfix-marker", binaryDownloadCmd, -1)
-	return base64.StdEncoding.EncodeToString([]byte(customData)), nil
+	rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+		if !strings.Contains(script, hotfixMarker) {
+			return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+		}
+		return strings.ReplaceAll(script, hotfixMarker, binaryDownloadCmd), nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(rendered), nil
+}
+
+// Mutate the script rather than the serialized YAML so multiline shell commands
+// retain their indentation and cannot overwrite the datasource configuration.
+func mutateScriptlessCustomData(decoded []byte, mutate func(string) (string, error)) ([]byte, error) {
+	header, _, _ := strings.Cut(string(decoded), "\n")
+	if header != "#cloud-config-archive" {
+		script, err := mutate(string(decoded))
+		return []byte(script), err
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal(decoded, &document); err != nil {
+		return nil, fmt.Errorf("parse scriptless cloud-config: %w", err)
+	}
+	if len(document.Content) != 1 {
+		return nil, fmt.Errorf("scriptless custom data must contain one YAML document")
+	}
+	root := document.Content[0]
+	var scriptNode *yaml.Node
+	if root.Kind != yaml.SequenceNode {
+		return nil, fmt.Errorf("scriptless cloud-config-archive must contain a sequence")
+	}
+	for _, part := range root.Content {
+		if part.Kind != yaml.MappingNode {
+			return nil, fmt.Errorf("scriptless archive parts must be mappings")
+		}
+		var content *yaml.Node
+		var contentType string
+		for i := 0; i+1 < len(part.Content); i += 2 {
+			switch part.Content[i].Value {
+			case "type":
+				contentType = part.Content[i+1].Value
+			case "content":
+				content = part.Content[i+1]
+			}
+		}
+		if contentType != "text/cloud-boothook" {
+			continue
+		}
+		if scriptNode != nil || content == nil || content.Kind != yaml.ScalarNode || content.Tag != "!!str" {
+			return nil, fmt.Errorf("scriptless archive requires exactly one string boothook")
+		}
+		scriptNode = content
+	}
+	if scriptNode == nil {
+		return nil, fmt.Errorf("scriptless custom data missing provisioning script")
+	}
+	script, err := mutate(scriptNode.Value)
+	if err != nil {
+		return nil, err
+	}
+	scriptNode.Value = script
+	// The user-data header is emitted explicitly below.
+	document.HeadComment = ""
+	root.HeadComment = ""
+	root.Content[0].HeadComment = ""
+	rendered, err := yaml.Marshal(&document)
+	if err != nil {
+		return nil, fmt.Errorf("serialize scriptless cloud-config: %w", err)
+	}
+	return append([]byte(header+"\n"), rendered...), nil
+}
+
+// CustomDataWithANCHotfixFlowFixture seeds the hotfix pointer that download-hotfix reads,
+// replaces the VHD-baked ANC with a PR-built binary stamped to the hotfix base version, and
+// replaces the generated NBC command with a trivial successful command.
+//
+// Stamping the binary is what keeps the scenario honest: download-hotfix only upgrades when the
+// running binary shares the pointer's YYYYMM.DD base and sits at a strictly lower patch, so an
+// unstamped node would silently log "ANC version not targeted by hotfix" and still pass.
+//
+// It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
+// on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
+// check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
+func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	if err != nil {
+		return "", fmt.Errorf("decode custom data: %w", err)
+	}
+
+	fixtureCmd := fmt.Sprintf(`cat >%[1]s <<'EOF'
+{"hotfixes":{%[2]q:%[3]q}}
+EOF
+chmod 0644 %[1]s
+
+curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
+chmod +x %[5]s
+
+cat >%[6]s <<'EOF'
+set -eu
+echo "ok"
+mkdir -p %[7]s
+echo '{"ExitCode":"0","Error":"","Output":"%[9]s"}' >%[7]s/provision.json
+touch %[8]s
+echo "%[9]s"
+EOF
+chmod 0600 %[6]s`,
+		ancHotfixPointerPath,
+		hotfixBaseVersion(ancHotfixFlowBaseVersion),
+		ancHotfixFlowTargetVersion,
+		binaryURL,
+		ancBakedBinaryPath,
+		ancNBCCmdPath,
+		filepath.Dir(provisionJSONPath),
+		provisionCompletePath,
+		ancNBCCmdMarker,
+	)
+
+	rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+		if !strings.Contains(script, hotfixMarker) {
+			return "", fmt.Errorf("hotfix marker %q not found in custom data", hotfixMarker)
+		}
+		return strings.Replace(script, hotfixMarker, fixtureCmd, 1), nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(rendered), nil
 }
 
 func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachineScaleSet, error) {
@@ -355,6 +514,11 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 	var cse, customData, aksNodeConfig string
 
 	if s.Runtime.AKSNodeConfig != nil {
+		if s.Runtime.NBC != nil && s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+			if err := nodeconfigutils.Validate(s.Runtime.AKSNodeConfig); err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("validate AKS node config: %w", err)
+			}
+		}
 		aksNodeConfigBytes, err := nodeconfigutils.MarshalConfigurationV1(s.Runtime.AKSNodeConfig)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("marshal AKS node config: %w", err)
@@ -376,11 +540,25 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("node bootstrapping artifacts are nil")
 	}
 
-	scriptlessNBCCSECmdEnabled := usesScriptlessNBCCSECmd(s)
+	scriptlessProvisioningEnabled := usesScriptlessProvisioning(s)
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ScriptHotfixFixture != nil {
+	if s.Config.ANCHotfixFlowFixture {
+		if !enableScriptlessCompilation(s) {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
+				"ANC hotfix flow fixture requires scriptless ANC compilation",
+			)
+		}
+		binaryURL, err := compileAndUploadAKSNodeControllerWithVersion(ctx, s.VHD.Arch, ancHotfixFlowBaseVersion)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile and upload version-stamped aks-node-controller binary: %w", err)
+		}
+		customData, err = CustomDataWithANCHotfixFlowFixture(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("generate custom data with ANC hotfix flow fixture: %w", err)
+		}
+	} else if s.Config.ScriptHotfixFixture != nil {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"script-hotfix fixture requires scriptless ANC compilation",
@@ -420,7 +598,7 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}
 	}
-	if !config.Config.DisableScriptless && !scriptlessNBCCSECmdEnabled && s.VHD.SupportsScriptless() {
+	if !config.Config.DisableScriptless && !scriptlessProvisioningEnabled && s.VHD.SupportsScriptless() {
 		// Validate that the custom data doesn't contain any script content,
 		// which indicates that the scriptless CSE is working as intended
 		decodedCustomData, err := base64.StdEncoding.DecodeString(customData)
@@ -442,6 +620,10 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		if !strings.Contains(string(result), "/opt/azure/containers/scriptless-cse-overrides.txt") {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("custom data contains other script content, but scriptless CSE CMD is enabled")
 		}
+	}
+
+	if s.Runtime.NBC.IsCustomDataOnlyProvisioningEnabled() {
+		cse = ""
 	}
 
 	// These two links are really for local development
@@ -500,17 +682,20 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
+	return usesScriptlessProvisioning(s) && !s.Runtime.NBC.EnableScriptlessAKSNodeConfig
+}
+
+func usesScriptlessProvisioning(s *Scenario) bool {
 	if s == nil || s.Runtime == nil || s.Runtime.NBC == nil || s.VHD == nil {
 		return false
 	}
 	nbc := s.Runtime.NBC
-	return nbc.EnableScriptlessNBCCSECmd &&
-		!nbc.PreProvisionOnly &&
+	return (nbc.EnableScriptlessAKSNodeConfig || nbc.EnableScriptlessNBCCSECmd) &&
 		s.VHD.SupportsScriptless()
 }
 
 func enableScriptlessCompilation(s *Scenario) bool {
-	return usesScriptlessNBCCSECmd(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
+	return usesScriptlessProvisioning(s) && len(s.Config.CustomDataWriteFiles) <= 0 && !config.Config.DisableScriptLessCompilation && !s.Tags.NetworkIsolated && !s.VHD.Flatcar
 }
 
 func CreateVMSSWithRetry(ctx context.Context, s *Scenario) (*ScenarioVM, error) {
@@ -1426,6 +1611,24 @@ func injectWriteFilesEntriesToCustomData(customData string, entries []CustomData
 		return "", fmt.Errorf("failed to decode customData: %w", err)
 	}
 
+	if strings.HasPrefix(string(decoded), "#cloud-config-archive\n") {
+		rendered, err := mutateScriptlessCustomData(decoded, func(script string) (string, error) {
+			entryBlock, err := renderBoothookWriteFilesEntries(entries)
+			if err != nil {
+				return "", err
+			}
+			// Write fixtures before any provisioning processes are launched.
+			const launch = "nohup /bin/bash /opt/azure/containers/provision_preload.sh"
+			if !strings.Contains(script, launch) {
+				return "", fmt.Errorf("scriptless archive boothook missing provision preload command")
+			}
+			return strings.Replace(script, launch, entryBlock+launch, 1), nil
+		})
+		if err != nil {
+			return "", err
+		}
+		return base64.StdEncoding.EncodeToString(rendered), nil
+	}
 	if strings.Contains(string(decoded), "#cloud-boothook") {
 		return injectWriteFilesEntriesToBoothookCustomData(decoded, entries)
 	}
@@ -1517,13 +1720,18 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 		return "", err
 	}
 
-	insertPos := strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	// Install fixtures outside the conditional so both startup paths see them.
+	insertPos := strings.Index(boothookStr, "if [ -f /opt/azure/containers/aks-node-controller-launcher.sh ]; then")
+	if insertPos == -1 {
+		insertPos = strings.Index(boothookStr, "/bin/bash /opt/azure/containers/aks-node-controller-launcher.sh")
+	}
 	if insertPos == -1 {
 		insertPos = strings.Index(boothookStr, "systemctl start --no-block aks-node-controller.service")
 	}
 	if insertPos == -1 {
 		return "", fmt.Errorf("cloud-boothook customData missing aks-node-controller service start")
 	}
+	insertPos = strings.LastIndex(boothookStr[:insertPos], "\n") + 1
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
 	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil

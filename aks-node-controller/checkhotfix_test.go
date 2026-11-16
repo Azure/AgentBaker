@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -565,6 +567,68 @@ func TestAttestedToken_InjectionOverridesIMDS(t *testing.T) {
 		_, err := tt.App.attestedToken(context.Background())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "imds down")
+	})
+}
+
+func TestVMResourceID_InjectionOverridesIMDS(t *testing.T) {
+	t.Run("injected resource ID is returned without networking", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+			return "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", nil
+		}
+		rid, err := tt.App.vmResourceID(context.Background())
+		require.NoError(t, err)
+		assert.Equal(t, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", rid)
+	})
+
+	t.Run("injected error propagates", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		tt.App.fetchVMResourceID = func(context.Context) (string, error) {
+			return "", errors.New("imds down")
+		}
+		_, err := tt.App.vmResourceID(context.Background())
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "imds down")
+	})
+}
+
+func TestGetIMDSJSON(t *testing.T) {
+	t.Run("sends Metadata header and decodes the body", func(t *testing.T) {
+		var gotHeader string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotHeader = r.Header.Get("Metadata")
+			_, _ = w.Write([]byte(`{"resourceId":"/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm","name":"vm"}`))
+		}))
+		defer server.Close()
+
+		var compute struct {
+			ResourceID string `json:"resourceId"`
+		}
+		require.NoError(t, getIMDSJSON(context.Background(), server.URL, &compute))
+		assert.Equal(t, "true", gotHeader)
+		assert.Equal(t, "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm", compute.ResourceID)
+	})
+
+	t.Run("non-200 status is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		var out map[string]any
+		err := getIMDSJSON(context.Background(), server.URL, &out)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "500")
+	})
+
+	t.Run("malformed body is an error", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`not json`))
+		}))
+		defer server.Close()
+
+		var out map[string]any
+		require.Error(t, getIMDSJSON(context.Background(), server.URL, &out))
 	})
 }
 

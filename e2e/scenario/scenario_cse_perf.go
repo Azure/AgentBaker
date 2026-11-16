@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
@@ -265,6 +266,11 @@ var _ = Register(&Scenario{
 			// In production, many nodes use the PMC deb package path, not the URL path.
 			nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubernetesVersion = "1.34.8"
+			cfg.KubeProxyUrl = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.7-2"
+			cfg.KubeBinaryConfig.KubeBinaryUrl = ""
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {
 				vmss.Tags = map[string]*string{}
@@ -319,6 +325,11 @@ var _ = Register(&Scenario{
 			nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.7-2"
 			nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
 		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubernetesVersion = "1.34.8"
+			cfg.KubeProxyUrl = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.34.7-2"
+			cfg.KubeBinaryConfig.KubeBinaryUrl = ""
+		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {
 				vmss.Tags = map[string]*string{}
@@ -369,6 +380,11 @@ var _ = Register(&Scenario{
 			nbc.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.36.1"
 			nbc.AgentPoolProfile.KubernetesConfig.CustomKubeProxyImage = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.1-4"
 			nbc.AgentPoolProfile.KubernetesConfig.CustomKubeBinaryURL = ""
+		},
+		AKSNodeConfigMutator: func(_ *Cluster, cfg *aksnodeconfigv1.Configuration) {
+			cfg.KubernetesVersion = "1.36.1"
+			cfg.KubeProxyUrl = "mcr.microsoft.com/oss/v2/kubernetes/kube-proxy:v1.36.1-4"
+			cfg.KubeBinaryConfig.KubeBinaryUrl = ""
 		},
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			if vmss.Tags == nil {

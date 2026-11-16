@@ -195,6 +195,8 @@ function Update-DefenderPreferences {
     Add-MpPreference -ExclusionPath "C:\k\containerd.err.log"
     Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.err.log"
     Add-MpPreference -ExclusionPath "C:\k\aks-windows-exporter.log"
+    Add-MpPreference -ExclusionPath "C:\k\windows-exporter.err.log"
+    Add-MpPreference -ExclusionPath "C:\k\windows-exporter.log"
 
     # Azure CNI
     Add-MpPreference -ExclusionProcess "C:\k\azurecni\bin\azure-cns.exe"
@@ -408,6 +410,11 @@ function Get-CACertificates {
 
             foreach ($certificate in $caCerts.Certificates) {
                 $name = $certificate.Name
+                if ([string]::IsNullOrWhiteSpace($name) -or $name -in @('.', '..') -or
+                    $name -match '[\\/:*?"<>|\x00-\x1f]' -or [IO.Path]::GetFileName($name) -cne $name) {
+                    Write-Log "Warning: rejecting invalid certificate filename: '$name'"
+                    continue
+                }
                 $certFilePath = Join-Path $caFolder $name
                 $certificate.CertBody | Out-File -Encoding ascii -FilePath $certFilePath
                 # The legacy endpoint returns trusted root certificates only.
@@ -417,6 +424,14 @@ function Get-CACertificates {
                 } catch {
                     throw "Failed to import CA certificate '$name' into Cert:\LocalMachine\Root. Error: $_"
                 }
+            }
+
+            if ($importedCount -eq 0) {
+                if ($FailOnError) {
+                    throw "No CA certificates were imported from legacy endpoint"
+                }
+                Write-Log "Warning: no CA certificates were imported from legacy endpoint"
+                return $false
             }
 
             Write-Log "CA certificates refresh completed: imported $importedCount certificates."

@@ -15,7 +15,59 @@ EOF
     systemctlEnableAndStart mig-partition 300
 }
 
+loginGPUDriverRegistry() {
+    if [ -n "${CSE_STARTTIME_SECONDS:-}" ]; then
+        # Keep the shell body behind a function: logs_to_events splits its command arguments.
+        # Bound all nested login retries by the same CSE-aware guard used for the copy.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 1 0 120 bash -c '
+            source "$1" || exit $?
+            ORAS_REGISTRY_CONFIG_FILE="$2"
+            ARM_RESOURCE_ENDPOINT="$3"
+            oras_login_with_kubelet_identity "$4" "$5" "$6"
+        ' gpu-driver-login "$CSE_HELPERS_FILEPATH" "$ORAS_REGISTRY_CONFIG_FILE" \
+            "${ARM_RESOURCE_ENDPOINT:-https://management.azure.com/}" \
+            "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    else
+        oras_login_with_kubelet_identity "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+            "${USER_ASSIGNED_IDENTITY_ID:-}" "${TENANT_ID:-}"
+    fi
+}
+
 pullGPUDriverImage() {
+    if [ -n "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-}" ]; then
+        # PIS nodes skip basePrep. The shared helper returns early for incomplete identity,
+        # so clear baked credentials before that anonymous path instead of reusing them.
+        if [ -z "${USER_ASSIGNED_IDENTITY_ID:-}" ] || [ -z "${TENANT_ID:-}" ]; then
+            oras logout "${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%%/*}" \
+                --registry-config "$ORAS_REGISTRY_CONFIG_FILE" || return $?
+        fi
+        logs_to_events "AKS.CSE.configGPUDrivers.orasLogin" loginGPUDriverRegistry || return $?
+
+        local download_dir
+        download_dir=$(mktemp -d /opt/gpu/driver-image.XXXXXX) || return 1
+        local pull_result=0
+        local image="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER%/}/${NVIDIA_DRIVER_IMAGE#*/}:${NVIDIA_DRIVER_IMAGE_TAG}"
+        echo "Pulling GPU driver image with authentication for $image"
+
+        # ctr does not use the CRI mirror or kubelet credentials. Use the refreshed ORAS login
+        # and bound the copy, archive and import together by the existing CSE retry budget.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 3 5 120 bash -c '
+            mkdir -p "$2/layout" &&
+            oras cp "$1" "$2/layout:$3" --to-oci-layout --platform "$4" --from-registry-config "$5" &&
+            tar -cf "$2/driver-image.tar" -C "$2/layout" . &&
+            ctr -n k8s.io image import --base-name "$6" "$2/driver-image.tar"
+        ' gpu-driver-cache \
+            "$image" \
+            "$download_dir" "$NVIDIA_DRIVER_IMAGE_TAG" "linux/$(getCPUArch)" \
+            "$ORAS_REGISTRY_CONFIG_FILE" "$NVIDIA_DRIVER_IMAGE" || pull_result=$?
+
+        rm -rf -- "$download_dir" || return 1
+        return "$pull_result"
+    fi
+
     # Cache-miss path only. Retry to ride out a transient blip, but stay tight: a truly missing image
     # should fail fast rather than eat the shared CSE window the driver install needs next. retrycmd
     # also self-caps to the CSE budget, so this can't overrun provisioning.
@@ -40,13 +92,29 @@ installGPUDriverImage() {
 # three known codes: 1 (MIG mode on with no MIG instances, which never succeeds), 2 (panic before the
 # driver userspace is ready), 127 (nvidia-smi missing on pre-reorder aks-gpu images). Anything else
 # still fails the unit. GPU pods reach the device via containerd's nvidia-container-runtime, not CDI.
+#
+# Multi-GPU nodes on both architectures need a wider start timeout. Toolkit 1.20.1 sets
+# TimeoutStartSec=90s in 10-container-engines.conf. CDI discovery can exceed that limit on
+# x86 A100 (Standard_NC96ads_A100_v4) as well as ARM64 Grace-Blackwell nodes while NVML checks
+# GPU peer connectivity. A timeout is result=timeout (SIGTERM), not a tolerated exit code,
+# so install.sh's blocking service restart fails and CSE exits 84. Use the same bounded
+# timeout for every GPU SKU; architecture alone does not predict discovery time.
+#
+# The timeout override lives in a SEPARATE, higher-sorted drop-in. systemd merges drop-ins in lexical
+# filename order (last wins) across all dirs, so to beat the toolkit's 10-container-engines.conf our
+# file must sort AFTER it -- hence the 90- prefix. (A 10-aks-* name sorts before 10-container-engines
+# and loses -- verified: it leaves TimeoutStartUSec at 90s.) Verified live on GB300 that the 90- file
+# raises TimeoutStartUSec 90s -> 5min.
 NVIDIA_CDI_REFRESH_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/10-aks-tolerate-generate-failure.conf"
+NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN="/etc/systemd/system/nvidia-cdi-refresh.service.d/90-aks-cdi-refresh-timeout.conf"
+NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC="${NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC:-300}"
 
 configureNvidiaCDIRefresh() {
     mkdir -p "$(dirname "$NVIDIA_CDI_REFRESH_DROP_IN")" || return 1
     printf '[Service]\nSuccessExitStatus=1 2 127\n' > "$NVIDIA_CDI_REFRESH_DROP_IN" || return 1
-    # Drop-ins are read when systemd loads a unit, so writing this before the toolkit is installed
-    # means the unit picks it up on its very first start.
+    printf '[Service]\nTimeoutStartSec=%s\n' "$NVIDIA_CDI_REFRESH_TIMEOUT_START_SEC" > "$NVIDIA_CDI_REFRESH_TIMEOUT_DROP_IN" || return 1
+    # Drop-ins are read when systemd loads a unit, so writing these before the toolkit is installed
+    # means the unit picks them up on its very first start.
     systemctl daemon-reload || true
 }
 
@@ -101,9 +169,17 @@ configGPUDrivers() {
 
     systemctlEnableAndStart containerd 30 || exit $ERR_GPU_DRIVERS_INSTALL_TIMEOUT
 
-    # NPD is installed as a VM extension, which might happen before/after/during CSE, so this
-    # line may fail. This will need to be updated when NPD is shipped in the VHD - we can control
-    # the startup ordering in that case.
+    restartExtensionManagedNPD
+}
+
+# Extension-managed NPD may be installed before/after/during CSE, so this restart
+# may fail. VHD-baked NPD (skip_vhd_npd) is started later by
+# configureNodeProblemDetector, after kubelet and GPU setup; starting it here
+# would also pull in kubelet (Wants=kubelet.service) before it is configured.
+restartExtensionManagedNPD() {
+    if [ -f "${NPD_SKIP_FILE:-/etc/node-problem-detector.d/skip_vhd_npd}" ]; then
+        return 0
+    fi
     systemctl restart node-problem-detector || true
 }
 
@@ -117,7 +193,7 @@ validateGPUDrivers() {
     fi
     SMI_STATUS=$?
     if [ "$SMI_STATUS" -ne 0 ]; then
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ $SMI_RESULT == *"infoROM is corrupted"* ]]; then
             exit $ERR_GPU_INFO_ROM_CORRUPTED
         else
@@ -185,9 +261,20 @@ cleanUpGridNodeCudaPrebake() {
 }
 
 ensureGPUDrivers() {
+    # arm64 GPU is supported in two cases; skip otherwise:
+    #  - AzureLinux 3.0 arm64 base image (non-FIPS) -- the existing arm64 GPU path.
+    #  - Grace-Blackwell (GB200/GB300): managed install on an AKS-managed Ubuntu VHD when the driver
+    #    was requested (CONFIG_GPU_DRIVER_IF_NEEDED = --gpu-driver Install / managed experience).
+    #    BYOI/custom images are IS_VHD=false (e.g. MAI's driver-baked GB image) -- skip so we never
+    #    run the aks-gpu install over a customer-baked driver.
     local cpu_arch
     cpu_arch=$(getCPUArch)
-    if [ "$cpu_arch" = "arm64" ]; then
+    # arm64 Ubuntu (GB) is handled first so it isn't caught by the AzureLinux arm64 gate below.
+    if [ "$cpu_arch" = "arm64" ] && [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+        if [ "${CONFIG_GPU_DRIVER_IF_NEEDED}" != true ] || [ "${IS_VHD,,}" != "true" ]; then
+            return
+        fi
+    elif [ "$cpu_arch" = "arm64" ]; then
         if [ "$OS_VERSION" != "3.0" ] || [ "${ENABLE_FIPS,,}" = "true" ] || ! isAzureLinuxArm64BaseImage "$OS" "$cpu_arch" "$OS_VARIANT"; then
             return
         fi
@@ -291,11 +378,49 @@ setupAmdAma() {
           exit $ERR_AMDAMA_INSTALL_FAIL
         fi
         # Configure huge pages
-        sh -c "echo 'vm.nr_hugepages=4096' > /etc/sysctl.d/99-ama_transcoder.conf"
-        sh -c "echo 4096 > /proc/sys/vm/nr_hugepages"
+        local num_devs
+        num_devs=$(find /dev -maxdepth 1 -name 'ama_transcoder[0-9]*' -printf 1 | wc -c)
+        if [ "$num_devs" -eq 1 ]; then
+            sh -c "echo 'vm.nr_hugepages=2144' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 2144 > /proc/sys/vm/nr_hugepages"
+        elif [ "$num_devs" -eq 20 ]; then
+            sh -c "echo 'vm.nr_hugepages=41056' > /etc/sysctl.d/99-ama_transcoder.conf"
+            sh -c "echo 41056 > /proc/sys/vm/nr_hugepages"
+        else
+          echo "Incorrect number of ama_transcoder devices found, exiting..."
+          exit $ERR_AMDAMA_INSTALL_FAIL
+        fi
         if [ "$(systemctl is-active kubelet)" = "active" ]; then
             systemctl restart kubelet
         fi
+    fi
+}
+
+# Records the caller-selected gpuProfile.nvidia.driverMode as "DRA" or
+# "DevicePlugin" in a root-owned, readable file. Missing or unrecognized modes
+# succeed without changing the file. This is configuration, not evidence of service
+# enablement or health. The destination is replaced on success, never removed on failure.
+# The optional second argument overrides the destination for another filesystem root.
+configureNvidiaGPUDriverMode() {
+    local driver_mode="${1:-}"
+    local driver_mode_file="${2:-/opt/azure/containers/nvidia-gpu-driver-mode}"
+    local temp_file
+
+    case "${driver_mode}" in
+        DRA|DevicePlugin) ;;
+        *) return 0 ;;
+    esac
+
+    [ ! -d "${driver_mode_file}" ] || return 1
+    mkdir -p "$(dirname "${driver_mode_file}")" || return 1
+    temp_file=$(mktemp "${driver_mode_file}.XXXXXX") || return 1
+    # Publish only the complete value, with its final ownership and permissions.
+    if ! { printf '%s\n' "${driver_mode}" > "${temp_file}" &&
+        chown root:root "${temp_file}" &&
+        chmod 0644 "${temp_file}" &&
+        mv -f "${temp_file}" "${driver_mode_file}"; }; then
+        rm -f "${temp_file}"
+        return 1
     fi
 }
 
@@ -307,14 +432,17 @@ configureManagedGPUExperience() {
         echo "Error: ENABLE_MANAGED_GPU_EXPERIENCE and ENABLE_MANAGED_GPU_EXPERIENCE_DRA cannot both be true"
         exit $ERR_ENABLE_MANAGED_GPU_EXPERIENCE
     fi
+
     local managed_gpu_marker="/opt/azure/containers/managed-gpu-experience.enabled"
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode "DevicePlugin" || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         logs_to_events "AKS.CSE.startNvidiaManagedExpServices" "startNvidiaManagedExpServices" || exit $ERR_NVIDIA_DCGM_EXPORTER_FAIL
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
         mkdir -p "$(dirname "${managed_gpu_marker}")"
         touch "${managed_gpu_marker}"
     elif [ "${ENABLE_MANAGED_GPU_EXPERIENCE_DRA}" = "true" ]; then
+        logs_to_events "AKS.CSE.configureNvidiaGPUDriverMode" configureNvidiaGPUDriverMode "DRA" || exit "${ERR_ENABLE_MANAGED_GPU_EXPERIENCE}"
         logs_to_events "AKS.CSE.installNvidiaManagedExpPkgFromCache" "installNvidiaManagedExpPkgFromCache" || exit $ERR_NVIDIA_DCGM_INSTALL
         # defer startNvidiaManagedExpServices() after kubelet starts
         addKubeletNodeLabel "kubernetes.azure.com/dcgm-exporter=enabled"
@@ -329,6 +457,7 @@ configureManagedGPUExperience() {
         logs_to_events "AKS.CSE.stop.dra-driver-nvidia-gpu" "systemctlDisableAndStop dra-driver-nvidia-gpu"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm" "systemctlDisableAndStop nvidia-dcgm"
         logs_to_events "AKS.CSE.stop.nvidia-dcgm-exporter" "systemctlDisableAndStop nvidia-dcgm-exporter"
+        logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
         rm -f "${managed_gpu_marker}"
     fi
 }
@@ -345,7 +474,6 @@ startNvidiaManagedExpServices() {
             # MIG strategy controls how nvidia-device-plugin exposes MIG instances to Kubernetes:
             #   - "single": All MIG devices exposed as generic nvidia.com/gpu resources
             #   - "mixed": MIG devices exposed with specific types like nvidia.com/mig-1g.5gb
-            #
             # We only use "mixed" when explicitly specified via NVIDIA_MIG_STRATEGY.
             # Otherwise, we default to "single" which is the safer/simpler option.
             # Note: NVIDIA_MIG_STRATEGY values from RP are "None", "Single", "Mixed".
@@ -379,19 +507,83 @@ EOF
         DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR="/etc/systemd/system/dra-driver-nvidia-gpu.service.d"
         mkdir -p "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}"
 
-        tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+        # Match kubelet's RFC-1123 (lowercased) Node name: the DRA plugins run as
+        # system:node:<name> and the ResourceSlice NodeRestriction only permits publishing
+        # slices whose spec.nodeName matches. Azure uppercases VMSS hostnames for base-36
+        # instance suffixes >= 10 (e.g. ...vmss00000J), which would otherwise mismatch.
+        local NODE_NAME_DRA
+        NODE_NAME_DRA=$(echo "${NODE_NAME}" | tr '[:upper:]' '[:lower:]')
+
+        # If either GPU_INSTANCE_PROFILE or NVIDIA_MIG_PROFILE_LAYOUT is set, start the DRA driver after MIG is ready.
+        if [ -n "${GPU_INSTANCE_PROFILE}" ] || [ -n "${NVIDIA_MIG_PROFILE_LAYOUT}" ]; then
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=mig-partition.service kubelet.service
+[Service]
+ExecStart=
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
+EOF
+        else
+            tee "${DRA_DRIVER_NVIDIA_GPU_OVERRIDE_DIR}/10-dra-driver-nvidia-gpu.conf" > /dev/null <<EOF
 [Unit]
 Requires=kubelet.service
 After=kubelet.service
 [Service]
 ExecStart=
-ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME}
+ExecStart=/usr/bin/gpu-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --container-driver-root / --image-name "" --node-name=${NODE_NAME_DRA}
 EOF
-
+        fi
         # Reload systemd to pick up the override
         systemctl daemon-reload
 
         logs_to_events "AKS.CSE.start.dra-driver-nvidia-gpu" "systemctlEnableAndStart dra-driver-nvidia-gpu 30" || exit $ERR_DRA_DRIVER_START_FAIL
+
+        # Grace-Blackwell (arm64 MNNVL) nodes also run the compute-domain kubelet plugin
+        # (device class compute-domain.nvidia.com) for cross-node IMEX. The dra-driver-nvidia-gpu deb
+        # (>= 0.5.0) ships the compute-domain-kubelet-plugin binary + the /templates it reads, plus an
+        # args-less compute-domain-kubelet-plugin.service; override it in place with our node args
+        # (same pattern as dra-driver-nvidia-gpu above). --namespace must match where the
+        # microsoft.managedcomputedomain controller extension installs; that chart hard-pins kube-system.
+        if [ "$(isARM64)" -eq 1 ]; then
+            local COMPUTE_DOMAIN_OVERRIDE_DIR="/etc/systemd/system/compute-domain-kubelet-plugin.service.d"
+            mkdir -p "${COMPUTE_DOMAIN_OVERRIDE_DIR}"
+
+            # NVIDIA_VISIBLE_DEVICES=void: this plugin orchestrates IMEX/ComputeDomain and is not a GPU
+            # consumer (the per-domain daemon is), so it claims no GPUs. Overrides the deb unit's
+            # NVIDIA_VISIBLE_DEVICES=all; matches the controller in the microsoft.managedcomputedomain chart.
+            tee "${COMPUTE_DOMAIN_OVERRIDE_DIR}/10-compute-domain-kubelet-plugin.conf" > /dev/null <<EOF
+[Unit]
+Requires=kubelet.service
+After=kubelet.service dra-driver-nvidia-gpu.service
+[Service]
+Environment="NVIDIA_VISIBLE_DEVICES=void"
+ExecStart=
+ExecStart=/usr/bin/compute-domain-kubelet-plugin --kubeconfig /var/lib/kubelet/kubeconfig --node-name=${NODE_NAME_DRA} --namespace kube-system --nvidia-driver-root / --container-driver-root /
+EOF
+
+            # Reload systemd to pick up the override
+            systemctl daemon-reload
+
+            # Clear any start-limit/failed state left by the deb's args-less vendor unit auto-starting
+            # and crash-looping at install: the non-blocking enqueue below returns once the job is
+            # queued and can't observe or retry an async start-limit failure, and daemon-reload does
+            # not reset it -- without this the unit could stay failed and ComputeDomains unavailable.
+            systemctl reset-failed compute-domain-kubelet-plugin 2>/dev/null || true
+
+            # Off the critical path and non-fatal (same treatment as nvidia-dcgm below): a successful
+            # start only means the process spawned, not that the ComputeDomain reached Ready (that needs
+            # the control-plane controller + node RBAC), so a failure must not block node provisioning.
+            # Use the non-blocking enqueue -- the blocking systemctlEnableAndStart retries restart 100x
+            # with 5s backoff and no CSE-budget check, so a unit that keeps failing to start could burn
+            # the provisioning window; --no-block returns once the job is queued and surfaces a warning.
+            logs_to_events "AKS.CSE.start.compute-domain-kubelet-plugin" "systemctlEnableAndStartNoBlock compute-domain-kubelet-plugin 30" || echo "warning: compute-domain-kubelet-plugin could not be enqueued; cross-node IMEX (ComputeDomain) will be unavailable on this node"
+        else
+            # Non-GB (x86) managed-DRA nodes don't run compute-domain, but the same dra-driver-nvidia-gpu
+            # deb still enables+starts the args-less compute-domain-kubelet-plugin.service at install;
+            # stop+disable it so it isn't left running/failing on nodes that never use it.
+            logs_to_events "AKS.CSE.stop.compute-domain-kubelet-plugin" "systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin"
+        fi
     fi
 
     # 2. Start the nvidia-dcgm service.
@@ -423,5 +615,3 @@ EOF
     # path and treat a slow/failed start as non-fatal.
     logs_to_events "AKS.CSE.start.nvidia-dcgm-exporter" "systemctlEnableAndStartNoBlock nvidia-dcgm-exporter 30" || echo "warning: nvidia-dcgm-exporter could not be enqueued; GPU metrics will start asynchronously"
 }
-
-#EOF

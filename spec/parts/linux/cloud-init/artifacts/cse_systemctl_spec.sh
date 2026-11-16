@@ -170,3 +170,42 @@ systemctl restart --no-block $1"
         The stderr should include "CSE timeout approaching, exiting early."
     End
 End
+
+Describe 'systemctlDisableStopAndResetFailed'
+    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+
+    systemctl_stop() { echo "systemctl_stop $*"; }
+    systemctl_disable() { echo "systemctl_disable $*"; }
+
+    Context 'when the unit exists'
+        # cat succeeds (unit present); echo every systemctl call so reset-failed is visible
+        # (reset-failed's stderr is suppressed by the helper, but its stdout is not).
+        systemctl() { echo "systemctl $*"; return 0; }
+
+        It 'stops, disables, and clears any lingering failed state'
+            When call systemctlDisableStopAndResetFailed compute-domain-kubelet-plugin
+            The output should include "systemctl_stop 20 5 25 compute-domain-kubelet-plugin"
+            The output should include "systemctl_disable 20 5 25 compute-domain-kubelet-plugin"
+            # reset-failed clears the failed state a stop/disable leaves behind (e.g. the
+            # vendor compute-domain-kubelet-plugin.service after its args-less auto-start exits non-zero).
+            The output should include "systemctl reset-failed compute-domain-kubelet-plugin"
+        End
+
+        It 'leaves the shared systemctlDisableAndStop unchanged (no reset-failed)'
+            When call systemctlDisableAndStop compute-domain-kubelet-plugin
+            The output should include "systemctl_stop 20 5 25 compute-domain-kubelet-plugin"
+            The output should not include "reset-failed"
+        End
+    End
+
+    Context 'when the unit does not exist'
+        # cat fails (unit absent) -> stop/disable skipped and reset-failed guarded out.
+        systemctl() { return 1; }
+
+        It 'is a no-op'
+            When call systemctlDisableStopAndResetFailed ghost.service
+            The output should not include "systemctl_stop"
+            The output should not include "reset-failed"
+        End
+    End
+End

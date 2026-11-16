@@ -12,6 +12,7 @@ import (
 
 func TestValidateRxBufferDefaultDoesNotSkipBySKU(t *testing.T) {
 	for _, distro := range []datamodel.Distro{
+		datamodel.AKSAzureLinuxV2Gen2,
 		datamodel.AKSAzureLinuxV3Gen2,
 		datamodel.AKSACLGen2TL,
 		datamodel.AKSUbuntuContainerd2404Gen2,
@@ -31,6 +32,16 @@ func TestValidateRxBufferDefaultDoesNotSkipBySKU(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestValidateRxBufferDefaultSkipsOldVHDs(t *testing.T) {
+	s := &Scenario{
+		Config: Config{VHD: &config.Image{
+			Distro:                datamodel.AKSAzureLinuxV2Gen2,
+			SkipOldVHDValidations: true,
+		}},
+	}
+	require.NoError(t, ValidateRxBufferDefault(logging.WithLogger(t.Context(), t), s))
 }
 
 func TestParseCurrentRxBuffer(t *testing.T) {

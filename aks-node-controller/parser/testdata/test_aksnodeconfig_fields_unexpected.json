@@ -1,5 +1,11 @@
 {
     "version": "v1",
+    "auth_config": {
+        "subscription_id": "test-subscription"
+    },
+    "api_server_config": {
+        "api_server_name": "test.hcp.example.com"
+    },
     "bootstrapping_config": {
         "bootstrapping_auth_method": "BOOTSTRAPPING_AUTH_METHOD_BOOTSTRAP_TOKEN"
     },
@@ -7,8 +13,12 @@
     "cluster_config": {
         "vm_type": 2,
         "cluster_network_config": {
-            "subnet": "aks-subnet"
+            "vnet_name": "aks-vnet",
+            "subnet": "aks-subnet",
+            "route_table": "aks-routetable"
         },
+        "resource_group": "test-rg",
+        "location": "westus2",
         "use_instance_metadata": true,
         "load_balancer_config": {
             "exclude_master_from_standard_load_balancer": true,

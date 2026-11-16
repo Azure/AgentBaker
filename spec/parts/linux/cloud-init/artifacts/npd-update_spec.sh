@@ -1,0 +1,923 @@
+#!/bin/bash
+# shellcheck disable=SC2317
+
+Describe 'NPD component selection'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        printf 'ID=ubuntu\nVERSION_ID="26.04"\n' > "${NPD_OS_RELEASE_FILE}"
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    It 'selects nothing by default'
+        When call printf '%s' "${NPD_COMPONENT}${NPD_PACKAGE}${NPD_PENDING_FILE}"
+        The output should equal ''
+    End
+
+    It 'rejects an unknown component'
+        When call npd_select_component npdFoo
+        The status should be failure
+        The stderr should include 'unsupported NPD component: npdFoo'
+        The variable NPD_COMPONENT should equal ''
+        The variable NPD_PACKAGE should equal ''
+    End
+
+    It 'rejects an empty component'
+        When call npd_select_component ''
+        The status should be failure
+        The stderr should include 'unsupported NPD component: <none>'
+    End
+
+    It 'selects the config package, marker and hooks'
+        When call npd_select_component npdConfig
+        The status should be success
+        The variable NPD_PACKAGE should equal node-problem-detector-aks-config
+        The variable NPD_PENDING_FILE should equal "${TEST_DIR}/work/pending"
+        The variable NPD_RELEASE_HOOK should equal npd_config_release
+        The variable NPD_VALIDATE_HOOK should equal npd_validate_config_stage
+        The variable NPD_POST_INSTALL_HOOK should equal npd_remove_obsolete_configs
+        The variable NPD_ACTIVATION_CHECK should equal ':'
+    End
+
+    It 'selects the binary package, marker and hooks'
+        When call npd_select_component npdBinary
+        The status should be success
+        The variable NPD_PACKAGE should equal node-problem-detector-kubernetes
+        The variable NPD_PENDING_FILE should equal "${TEST_DIR}/work/pending-binary"
+        The variable NPD_RELEASE_HOOK should equal npd_node_release
+        The variable NPD_VALIDATE_HOOK should equal npd_validate_binary_stage
+        The variable NPD_POST_INSTALL_HOOK should equal ':'
+        The variable NPD_ACTIVATION_CHECK should equal npd_check_reporting
+    End
+
+    It 'fails selection when a hook is missing'
+        unset -f npd_check_reporting
+        When call npd_select_component npdBinary
+        The status should be failure
+        The stderr should include 'missing hook npd_check_reporting'
+    End
+
+    It 'uses the node release repository for the binary on 26.04'
+        npd_select_component npdBinary
+        When call npd_apt_conf
+        The status should be success
+        The output should equal ''
+    End
+
+    It 'fails when the config source mapping does not match the followed release'
+        npd_select_component npdConfig
+        npd_ubuntu_config_source() { printf '22.04 jammy'; }
+        npd_config_release() { printf '24.04'; }
+        When call npd_apt_conf
+        The status should be failure
+        The stderr should include 'no repository for 24.04 on 26.04'
+    End
+
+    It 'fails when the config source mapping has no codename'
+        npd_select_component npdConfig
+        npd_ubuntu_config_source() { printf '24.04'; }
+        When call npd_apt_conf
+        The status should be failure
+        The stderr should include 'no repository for 24.04 on 26.04'
+    End
+
+    It 'uses the 24.04 repository for the config on 26.04'
+        npd_select_component npdConfig
+        When call npd_apt_conf
+        The status should be success
+        The output should equal "${TEST_DIR}/work/apt/apt.conf"
+        The contents of file "${TEST_DIR}/work/apt/sources.list" should equal 'deb [arch=amd64,arm64] https://packages.microsoft.com/ubuntu/24.04/prod noble main'
+    End
+End
+
+Describe 'NPD config handler'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        printf 'ID=ubuntu\nVERSION_ID="24.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        INSTALLED_VERSION="1.0.0-ubuntu24.04u1"
+        TEST_DESIRED='{"ubuntuPackageVersions":{"24.04":"1.1.0-ubuntu24.04u1"}}'
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}"
+        TEST_CALLS="${TEST_DIR}/calls"
+        touch "${TEST_CALLS}"
+        FAIL_ACTIVATION=false
+        FAIL_DOWNLOAD=false
+        export TEST_CALLS FAIL_ACTIVATION FAIL_DOWNLOAD INSTALLED_VERSION
+        npd_select_component npdConfig
+    }
+
+    npd_stop_for_reporting_baseline() { date +%s; }
+
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    npd_installed_version() { printf '%s' "${INSTALLED_VERSION}"; }
+    npd_find_cached_package() {
+        [ "$1" = "${INSTALLED_VERSION}" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.deb" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    npd_refresh_metadata() { echo refresh >> "${TEST_CALLS}"; }
+    npd_download_package() {
+        echo download >> "${TEST_CALLS}"
+        [ "${FAIL_DOWNLOAD}" = false ] || return 1
+        touch "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    npd_validate_package() { echo validate >> "${TEST_CALLS}"; }
+    npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    # dpkg journal repair runs through timeout; record it instead of touching dpkg.
+    Mock timeout
+        echo "repair $*" >> "${TEST_CALLS}"
+        exit "${REPAIR_STATUS:-0}"
+    End
+    npd_restart_and_check() {
+        echo restart >> "${TEST_CALLS}"
+        if [ "${FAIL_ACTIVATION}" = true ]; then
+            FAIL_ACTIVATION=false
+            return 1
+        fi
+    }
+
+    It 'does not touch extension-managed NPD'
+        rm "${NPD_SKIP_FILE}"
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be success
+        The output should include 'extension-managed'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not touch Azure Container Linux even with a skip marker'
+        printf 'ID=azurelinux\nVERSION_ID="3.0"\nVARIANT_ID=azurecontainerlinux\n' > "${NPD_OS_RELEASE_FILE}"
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be success
+        The output should include 'unsupported'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'ignores the Azure Linux map on Ubuntu'
+        When call updateNPDConfigs '{"azureLinuxPackageVersions":{"3.0":"1.1.0-1.azl3"}}' '{}'
+        The status should be success
+        The output should include 'no package selected for ubuntu 24.04'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'treats an untargeted Ubuntu release as no action'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"22.04":"1.0.0-ubuntu22.04u1"}}' '{}'
+        The status should be success
+        The output should include 'no package selected'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not download an equal baked version'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u1"}}' '{}'
+        The status should be success
+        The output should include 'satisfies'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'uses Debian version order and keeps a newer installed revision'
+        INSTALLED_VERSION='1.0.0-ubuntu24.04u10'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u9"}}' '{}'
+        The status should be success
+        The output should include 'satisfies'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'rejects a targeted version for the wrong Ubuntu release'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu22.04u1"}}' '{}'
+        The status should be failure
+        The output should include 'InvalidConfig'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'accepts a future release using the same RP version grammar'
+        When call npd_desired_version '{"ubuntuPackageVersions":{"28.04":"1.0.0-ubuntu28.04u1"}}' ubuntu 28.04
+        The status should be success
+        The output should equal '1.0.0-ubuntu28.04u1'
+    End
+
+    It 'rejects a version with a trailing newline that command substitution would strip'
+        When call npd_desired_version '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u1\n"}}' ubuntu 24.04
+        The status should be failure
+        The stderr should include 'invalid version'
+    End
+
+    It 'rejects a malformed version map'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":[]}' '{}'
+        The status should be failure
+        The output should include 'InvalidConfig'
+        The stderr should include 'invalid version map'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'stages the update before installation and checkpoints only after health'
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be success
+        The output should include 'updated successfully'
+        The contents of file "${TEST_CALLS}" should include 'download'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/1.1.0-ubuntu24.04u1.deb"
+        The contents of file "${TEST_CALLS}" should include 'restart'
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'keeps running files untouched when the download fails'
+        FAIL_DOWNLOAD=true
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'PackageDownload'
+        The contents of file "${TEST_CALLS}" should include 'download'
+        The contents of file "${TEST_CALLS}" should not include 'install'
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'reinstalls the prior deb and restarts after activation failure'
+        FAIL_ACTIVATION=true
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'PackageActivation'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/1.0.0-ubuntu24.04u1.deb"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'retains pending recovery when recovery also fails'
+        npd_restart_and_check() { return 1; }
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'PackageActivation'
+        The contents of file "${NPD_UPDATE_DIR}/pending" should equal "${INSTALLED_VERSION}"
+    End
+
+    It 'repairs interrupted work even when the new goal has no target'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        When call updateNPDConfigs '{}' '{}'
+        The status should be success
+        The output should include 'no package selected'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'finishes an interrupted package-manager transaction before restoring the prior package'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        When call npd_recover_pending
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal "repair 300 dpkg --force-confdef --force-confold --configure -a
+install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb
+restart"
+    End
+
+    It 'still restores the prior package when package-manager repair fails'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        export REPAIR_STATUS=1
+        When call npd_recover_pending
+        The status should be success
+        The output should include 'repair failed; attempting rollback'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'keeps the pending marker when both repair and rollback fail'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        export REPAIR_STATUS=1
+        npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; return 1; }
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'RecoveryFailed'
+        The path "${NPD_UPDATE_DIR}/pending" should be exist
+    End
+
+    It 'recognizes checkpointed work with an installed matching version'
+        INSTALLED_VERSION='1.1.0-ubuntu24.04u1'
+        When call npdConfigsIsCurrent "${TEST_DESIRED}" "${TEST_DESIRED}" '{}'
+        The status should be success
+    End
+
+    It 'recovers interrupted work before rejecting a malformed new goal'
+        printf '%s' "${INSTALLED_VERSION}" > "${NPD_UPDATE_DIR}/pending"
+        When call updateNPDConfigs '{"ubuntuPackageVersions":[]}' '{}'
+        The status should be failure
+        The output should include 'InvalidConfig'
+        The stderr should include 'invalid version map'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/${INSTALLED_VERSION}.deb"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'does not skip a pending transaction based on version alone'
+        INSTALLED_VERSION='1.1.0-ubuntu24.04u1'
+        touch "${NPD_UPDATE_DIR}/pending"
+        When call npdConfigsIsCurrent "${TEST_DESIRED}" "${TEST_DESIRED}" '{}'
+        The status should be failure
+    End
+
+    It 'does not inherit securityPatch snapshot-only apt configuration'
+        export APT_CONFIG=/var/lib/security-patch/apt.conf
+        npd_refresh_metadata() {
+            test -z "${APT_CONFIG+x}" || return 1
+            echo refresh >> "${TEST_CALLS}"
+        }
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be success
+        The output should include 'updated successfully'
+        The variable APT_CONFIG should equal /var/lib/security-patch/apt.conf
+    End
+End
+
+Describe 'NPD config handler on Ubuntu 26.04 (shared 24.04 config)'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        printf 'ID=ubuntu\nVERSION_ID="26.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}"
+        TEST_CALLS="${TEST_DIR}/calls"; touch "${TEST_CALLS}"
+        INSTALLED_VERSION="1.0.0-ubuntu24.04u1"
+        export TEST_CALLS INSTALLED_VERSION NPD_PACKAGE_CACHE
+        npd_select_component npdConfig
+    }
+
+    npd_stop_for_reporting_baseline() { date +%s; }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    npd_installed_version() { printf '%s' "${INSTALLED_VERSION}"; }
+    npd_find_cached_package() {
+        [ "$1" = "${INSTALLED_VERSION}" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.deb" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    Mock apt-get
+        echo "APT_CONFIG=${APT_CONFIG:-} apt-get $*" >> "${TEST_CALLS}"
+        case "$*" in *download*) v="${*: -1}"; touch "${NPD_PACKAGE_CACHE}/${v#*=}.deb" ;; esac
+    End
+    npd_validate_package() { :; }
+    npd_install_package() { echo "install $1" >> "${TEST_CALLS}"; }
+    npd_restart_and_check() { :; }
+
+    It 'maps 26.04 to the 24.04 config source'
+        When call npd_config_release ubuntu 26.04
+        The output should equal '24.04'
+    End
+
+    It 'keeps releases with their own config build'
+        When call npd_config_release ubuntu 24.04
+        The output should equal '24.04'
+    End
+
+    It 'follows the 24.04 entry and downloads through a private 24.04 apt configuration'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u2","26.04":"9.0.0-ubuntu26.04u1"}}' '{}'
+        The status should be success
+        The output should include 'updated successfully: 1.0.0-ubuntu24.04u2'
+        The contents of file "${TEST_CALLS}" should include "APT_CONFIG=${NPD_UPDATE_DIR}/apt/apt.conf apt-get"
+        The contents of file "${TEST_CALLS}" should include 'download node-problem-detector-aks-config=1.0.0-ubuntu24.04u2'
+        The contents of file "${NPD_UPDATE_DIR}/apt/sources.list" should equal 'deb [arch=amd64,arm64] https://packages.microsoft.com/ubuntu/24.04/prod noble main'
+    End
+
+    It 'treats a payload without a 24.04 entry as no action'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"26.04":"1.0.0-ubuntu26.04u1"}}' '{}'
+        The status should be success
+        The output should include 'no package selected for ubuntu 24.04'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not use a private apt configuration on releases with their own build'
+        printf 'ID=ubuntu\nVERSION_ID="24.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        When call npd_apt_conf
+        The status should be success
+        The output should equal ''
+    End
+End
+
+Describe 'NPD config handler on Azure Linux 3'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        NPD_CONFIG_DIR="${TEST_DIR}/etc/node-problem-detector.d"
+        NPD_UNIT_FILE="${TEST_DIR}/etc/systemd/system/node-problem-detector.service"
+        NPD_TDNF_CONFIG="${TEST_DIR}/etc/tdnf/tdnf.conf"
+        NPD_TDNF_LOCK_FILE="${TEST_DIR}/etc/tdnf/locks.d/node-problem-detector.conf"
+        printf 'NAME="Microsoft Azure Linux"\nID=azurelinux\nVERSION_ID="3.0"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        INSTALLED_VERSION="1.0.0-1.azl3"
+        TEST_DESIRED='{"ubuntuPackageVersions":{"24.04":"9.0.0-ubuntu24.04u1"},"azureLinuxPackageVersions":{"3.0":"1.1.0-1.azl3"}}'
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}" "${NPD_CONFIG_DIR}/plugin" "$(dirname "${NPD_UNIT_FILE}")" "$(dirname "${NPD_TDNF_CONFIG}")"
+        printf '[main]\ngpgcheck=1\n' > "${NPD_TDNF_CONFIG}"
+        TEST_CALLS="${TEST_DIR}/calls"
+        touch "${TEST_CALLS}"
+        FAIL_ACTIVATION=false
+        export TEST_CALLS FAIL_ACTIVATION INSTALLED_VERSION TEST_DIR
+        npd_select_component npdConfig
+    }
+
+    npd_stop_for_reporting_baseline() { date +%s; }
+
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    # The shellspec image has no rpm; compare like rpm.vercmp for these versions.
+    Mock rpm
+        case "$1" in
+            --define)
+                a="${2#_npd_installed }"; b="${4#_npd_desired }"
+                if [ "$a" = "$b" ]; then echo 0
+                elif dpkg --compare-versions "$a" gt "$b"; then echo 1
+                else echo -1; fi
+                ;;
+            -U|-e) echo "rpm $*" >> "${TEST_CALLS}" ;;
+            -qp) printf 'node-problem-detector-aks-config-1.0.0-1.azl3.x86_64' ;;
+            -q) printf '%s\n' ${RPM_ENTRIES:-node-problem-detector-aks-config-1.0.0-1.azl3.x86_64} ;;
+            *) exit 1 ;;
+        esac
+    End
+    Mock tdnf
+        echo "tdnf $*" >> "${TEST_CALLS}"
+    End
+    npd_installed_version() { printf '%s' "${INSTALLED_VERSION}"; }
+    npd_find_cached_package() {
+        [ "$1" = "${INSTALLED_VERSION}" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.rpm" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/$1.rpm"
+    }
+    npd_download_package() {
+        echo download >> "${TEST_CALLS}"
+        touch "${NPD_PACKAGE_CACHE}/$1.rpm"
+    }
+    npd_validate_package() { echo validate >> "${TEST_CALLS}"; }
+    npd_restart_and_check() {
+        echo restart >> "${TEST_CALLS}"
+        if [ "${FAIL_ACTIVATION}" = true ]; then
+            FAIL_ACTIVATION=false
+            return 1
+        fi
+    }
+
+    It 'selects the Azure Linux map for this release and ignores Ubuntu entries'
+        When call npd_desired_version "${TEST_DESIRED}" azurelinux 3.0
+        The status should be success
+        The output should equal '1.1.0-1.azl3'
+    End
+
+    It 'rejects a package built for another Azure Linux release'
+        When call updateNPDConfigs '{"azureLinuxPackageVersions":{"3.0":"1.1.0-1.azl4"}}' '{}'
+        The status should be failure
+        The output should include 'InvalidConfig'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'rejects Debian-style versions in the Azure Linux map'
+        When call npd_desired_version '{"azureLinuxPackageVersions":{"3.0":"1.1.0-ubuntu24.04u1"}}' azurelinux 3.0
+        The status should be failure
+        The stderr should include 'invalid version'
+    End
+
+    It 'treats an untargeted Azure Linux node as no action'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u1"}}' '{}'
+        The status should be success
+        The output should include 'no package selected for azurelinux 3.0'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'uses RPM version order and keeps a newer installed release'
+        INSTALLED_VERSION='1.0.0-10.azl3'
+        When call updateNPDConfigs '{"azureLinuxPackageVersions":{"3.0":"1.0.0-9.azl3"}}' '{}'
+        The status should be success
+        The output should include 'satisfies'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'downloads through an unlocked tdnf config, installs with rpm, and holds the package'
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be success
+        The output should include 'updated successfully: 1.1.0-1.azl3'
+        The contents of file "${TEST_CALLS}" should include "tdnf -c ${NPD_UPDATE_DIR}/tdnf/tdnf.conf makecache --refresh"
+        The contents of file "${TEST_CALLS}" should include "rpm -U --oldpackage --replacepkgs ${NPD_PACKAGE_CACHE}/1.1.0-1.azl3.rpm"
+        The contents of file "${NPD_TDNF_LOCK_FILE}" should equal 'node-problem-detector-aks-config'
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'reinstalls the prior rpm after activation failure'
+        FAIL_ACTIVATION=true
+        When call updateNPDConfigs "${TEST_DESIRED}" '{}'
+        The status should be failure
+        The output should include 'PackageActivation'
+        The contents of file "${TEST_CALLS}" should include "rpm -U --oldpackage --replacepkgs ${NPD_PACKAGE_CACHE}/1.0.0-1.azl3.rpm"
+        The path "${NPD_UPDATE_DIR}/pending" should not be exist
+    End
+
+    It 'replaces locally modified configs and removes stale saved configs'
+        printf old > "${NPD_CONFIG_DIR}/plugin/check.sh"
+        printf new > "${NPD_CONFIG_DIR}/plugin/check.sh.rpmnew"
+        printf stale > "${NPD_CONFIG_DIR}/plugin/dropped.json.rpmsave"
+        printf unit > "${NPD_UNIT_FILE}.rpmnew"
+        When call npd_remove_obsolete_configs
+        The status should be success
+        The contents of file "${NPD_CONFIG_DIR}/plugin/check.sh" should equal new
+        The path "${NPD_CONFIG_DIR}/plugin/check.sh.rpmnew" should not be exist
+        The path "${NPD_CONFIG_DIR}/plugin/dropped.json.rpmsave" should not be exist
+        The contents of file "${NPD_UNIT_FILE}" should equal unit
+        The path "${NPD_SKIP_FILE}" should be exist
+    End
+
+    It 'drops a stale rpm database entry left by an interrupted upgrade'
+        export RPM_ENTRIES='node-problem-detector-aks-config-1.0.0-1.azl3.x86_64 node-problem-detector-aks-config-1.1.0-1.azl3.x86_64'
+        When call npd_remove_stale_rpm_entries "${NPD_PACKAGE_CACHE}/1.0.0-1.azl3.rpm"
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal 'rpm -e --justdb --nodeps --noscripts node-problem-detector-aks-config-1.1.0-1.azl3.x86_64'
+    End
+
+    It 'does not need rpm database repair before restoring'
+        When call npd_repair_package_state
+        The status should be success
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not duplicate the tdnf lock'
+        mkdir -p "$(dirname "${NPD_TDNF_LOCK_FILE}")"
+        printf 'node-problem-detector-kubernetes\nnode-problem-detector-aks-config\n' > "${NPD_TDNF_LOCK_FILE}"
+        When call npd_hold_packages
+        The status should be success
+        The lines of contents of file "${NPD_TDNF_LOCK_FILE}" should equal 2
+    End
+
+    It 'is safe under the Azure Linux dispatcher nounset and errexit options'
+        When run env NPD_OS_RELEASE_FILE="${NPD_OS_RELEASE_FILE}" bash -euc 'source ./parts/linux/cloud-init/artifacts/npd-update.sh; npd_platform; echo; npd_desired_version "$1" azurelinux 3.0' _ "${TEST_DESIRED}"
+        The status should be success
+        The output should include '1.1.0-1.azl3'
+    End
+End
+
+Describe 'NPD binary handler'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_SKIP_FILE="${TEST_DIR}/skip_vhd_npd"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        NPD_REPORT_ATTEMPTS=2
+        printf 'ID=ubuntu\nVERSION_ID="26.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        touch "${NPD_SKIP_FILE}"
+        mkdir -p "${NPD_UPDATE_DIR}" "${NPD_PACKAGE_CACHE}"
+        TEST_CALLS="${TEST_DIR}/calls"; touch "${TEST_CALLS}"
+        BINARY_INSTALLED="0.8.25-ubuntu26.04u24"
+        CONFIG_INSTALLED="1.0.0-ubuntu24.04u2"
+        TEST_NODE='{"metadata":{"name":"node-1"}}'
+        TEST_DESIRED='{"ubuntuPackageVersions":{"24.04":"9.9.9-ubuntu24.04u1","26.04":"0.8.25-ubuntu26.04u25"}}'
+        HEARTBEAT=fresh
+        HB_FILE="${TEST_DIR}/heartbeat"
+        export TEST_CALLS BINARY_INSTALLED CONFIG_INSTALLED HEARTBEAT HB_FILE NPD_PACKAGE_CACHE
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    # Package-specific installed versions prove each component reads only its own package.
+    npd_installed_version() {
+        case "${NPD_PACKAGE}" in
+            node-problem-detector-kubernetes) printf '%s' "${BINARY_INSTALLED}" ;;
+            *) [ -n "${CONFIG_INSTALLED}" ] || return 1; printf '%s' "${CONFIG_INSTALLED}" ;;
+        esac
+    }
+    npd_find_cached_package() {
+        [ "$1" = "$(npd_installed_version)" ] || [ -f "${NPD_PACKAGE_CACHE}/$1.deb" ] || return 1
+        printf '%s' "${NPD_PACKAGE_CACHE}/${NPD_PACKAGE}_$1.deb"
+    }
+    npd_refresh_metadata() { echo "refresh ${NPD_PACKAGE}" >> "${TEST_CALLS}"; }
+    npd_download_package() {
+        echo "download ${NPD_PACKAGE}=$1" >> "${TEST_CALLS}"
+        touch "${NPD_PACKAGE_CACHE}/$1.deb"
+    }
+    npd_validate_package() { echo "validate $1" >> "${TEST_CALLS}"; }
+    # Rollback repairs dpkg state first; record it instead of touching the test host.
+    npd_repair_package_state() { echo repair >> "${TEST_CALLS}"; }
+    npd_install_package() {
+        echo "install $1" >> "${TEST_CALLS}"
+        # The old NPD process heartbeats while the package installs.
+        if [ "${HEARTBEAT}" = during_install ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > "${HB_FILE}"
+            command sleep 1.1
+        fi
+    }
+    # In at_stop mode the old NPD process heartbeats in the same second it stops,
+    # whether an explicit stop or the restart stops it.
+    old_npd_stops() {
+        if [ "${HEARTBEAT}" = at_stop ] && [ ! -f "${HB_FILE}.stopped" ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > "${HB_FILE}"
+            touch "${HB_FILE}.stopped"
+        fi
+    }
+    npd_restart_and_check() {
+        old_npd_stops
+        echo restart >> "${TEST_CALLS}"
+    }
+    systemctl() {
+        echo "systemctl $*" >> "${TEST_CALLS}"
+        if [ "$1" = stop ]; then old_npd_stops; fi
+    }
+    Mock kubectl
+        echo "kubectl $*" >> "${TEST_CALLS}"
+        case "${HEARTBEAT}" in
+            fresh) t="$(date -u -d '+5 sec' +%Y-%m-%dT%H:%M:%SZ)" ;;
+            during_install|at_stop) t="$(cat "${HB_FILE}")" ;;
+            *) t="2020-01-01T00:00:00Z" ;;
+        esac
+        printf '{"status":{"conditions":[{"type":"KernelDeadlock","lastHeartbeatTime":"%s"}]}}' "$t"
+    End
+    sleep() { :; }
+    KUBECTL=kubectl
+
+    It 'updates only the binary package from its own release entry'
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary updated successfully: 0.8.25-ubuntu26.04u25'
+        The contents of file "${TEST_CALLS}" should include 'download node-problem-detector-kubernetes=0.8.25-ubuntu26.04u25'
+        The contents of file "${TEST_CALLS}" should not include 'node-problem-detector-aks-config'
+        The contents of file "${TEST_CALLS}" should not include '9.9.9'
+        The path "${NPD_UPDATE_DIR}/pending-binary" should not be exist
+    End
+
+    It 'rolls back when NPD stops reporting node conditions after the update'
+        export HEARTBEAT=stale
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+        The contents of file "${TEST_CALLS}" should include "install ${NPD_PACKAGE_CACHE}/node-problem-detector-kubernetes_0.8.25-ubuntu26.04u24.deb"
+        The path "${NPD_UPDATE_DIR}/pending-binary" should not be exist
+    End
+
+    It 'does not count a heartbeat from the old NPD during the install'
+        export HEARTBEAT=during_install
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+    End
+
+    It 'does not count a heartbeat from the old NPD in the second it stops'
+        export HEARTBEAT=at_stop
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+    End
+
+    It 'stops the old NPD before the restart and bounds each reporting request'
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary updated successfully'
+        The contents of file "${TEST_CALLS}" should include 'systemctl stop node-problem-detector.service'
+        The contents of file "${TEST_CALLS}" should include '--request-timeout=10s'
+    End
+
+    It 'fails before any package operation when selection fails'
+        unset -f npd_check_reporting
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The stderr should include 'missing hook npd_check_reporting'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does nothing without the config package that owns the NPD unit'
+        export CONFIG_INSTALLED=''
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be success
+        The output should include 'required node-problem-detector-aks-config package is not installed; no action'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'keeps binary and config transactions separate'
+        printf '%s' "${CONFIG_INSTALLED}" > "${NPD_UPDATE_DIR}/pending"
+        When call npdBinaryIsCurrent '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{}'
+        The status should be success
+    End
+
+    It 'does not skip a pending binary transaction'
+        touch "${NPD_UPDATE_DIR}/pending-binary"
+        When call npdBinaryIsCurrent '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u24"}}' '{}'
+        The status should be failure
+    End
+
+    It 'keeps a newer installed binary (forward-only)'
+        When call updateNPDBinary '{"ubuntuPackageVersions":{"26.04":"0.8.25-ubuntu26.04u20"}}' "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdBinary: installed 0.8.25-ubuntu26.04u24 satisfies 0.8.25-ubuntu26.04u20'
+        The contents of file "${TEST_CALLS}" should equal ''
+    End
+
+    It 'does not let the config handler touch the binary'
+        When call updateNPDConfigs '{"ubuntuPackageVersions":{"24.04":"1.0.0-ubuntu24.04u3"}}' "${TEST_NODE}"
+        The status should be success
+        The output should include 'npdConfig updated successfully: 1.0.0-ubuntu24.04u3'
+        The contents of file "${TEST_CALLS}" should not include 'node-problem-detector-kubernetes'
+        The contents of file "${TEST_CALLS}" should not include 'kubectl'
+    End
+
+    It 'validates the binary package by running the staged binary'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho v0.8.25\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be success
+    End
+
+    It 'rejects a binary that prints a version and then exits nonzero'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho v0.8.25\nexit 3\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+
+    It 'rejects a binary whose version output does not start with a version'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\necho error: bad\necho v0.8.25\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+
+    It 'rolls back without touching the host package manager'
+        export HEARTBEAT=stale
+        When call updateNPDBinary "${TEST_DESIRED}" "${TEST_NODE}"
+        The status should be failure
+        The output should include 'npdBinary failed: PackageActivation'
+        The stderr should include 'did not report node conditions'
+        The contents of file "${TEST_CALLS}" should include 'repair'
+    End
+
+    It 'rejects a binary package whose executable does not run'
+        stage="${TEST_DIR}/stage"; mkdir -p "${stage}/usr/bin"
+        for b in node-problem-detector npd-log-counter npd-health-checker; do printf '#!/bin/sh\nexit 1\n' > "${stage}/usr/bin/${b}"; chmod +x "${stage}/usr/bin/${b}"; done
+        When call npd_validate_binary_stage "${stage}"
+        The status should be failure
+    End
+End
+
+Describe 'NPD cached package cleanup'
+    Include ./parts/linux/cloud-init/artifacts/npd-update.sh
+
+    setup() {
+        TEST_DIR="$(mktemp -d)"
+        NPD_OS_RELEASE_FILE="${TEST_DIR}/os-release"
+        NPD_UPDATE_DIR="${TEST_DIR}/work"
+        NPD_PACKAGE_CACHE="${TEST_DIR}/cache"
+        printf 'ID=ubuntu\nVERSION_ID="24.04"\n' > "${NPD_OS_RELEASE_FILE}"
+        mkdir -p "${NPD_PACKAGE_CACHE}"
+        for f in bin-u25 bin-u26 bin-u27 bin-u26-arm64 cfg-u2; do touch "${NPD_PACKAGE_CACHE}/${f}.deb"; done
+        npd_select_component npdBinary
+    }
+    cleanup() { rm -rf "${TEST_DIR}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    npd_native_arch() { printf amd64; }
+    npd_package_fields() {
+        case "$(basename "$1" .deb)" in
+            bin-u25) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u25\tamd64' ;;
+            bin-u26) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u26\tamd64' ;;
+            bin-u27) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u27\tamd64' ;;
+            bin-u26-arm64) printf 'node-problem-detector-kubernetes\t0.8.25-ubuntu24.04u26\tarm64' ;;
+            cfg-u2) printf 'node-problem-detector-aks-config\t1.0.0-ubuntu24.04u2\tamd64' ;;
+        esac
+    }
+
+    It 'keeps only the installed version of the selected package'
+        When call npd_remove_other_cached_packages 0.8.25-ubuntu24.04u27
+        The status should be success
+        The path "${NPD_PACKAGE_CACHE}/bin-u27.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u25.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/cfg-u2.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26-arm64.deb" should be exist
+    End
+
+    It 'runs after a successful update and keeps the new rollback target'
+        npd_installed_version() { printf '0.8.25-ubuntu24.04u26'; }
+        npd_find_cached_package() {
+            case "$1" in
+                0.8.25-ubuntu24.04u26) printf '%s' "${NPD_PACKAGE_CACHE}/bin-u26.deb" ;;
+                0.8.25-ubuntu24.04u27) printf '%s' "${NPD_PACKAGE_CACHE}/bin-u27.deb" ;;
+                *) return 1 ;;
+            esac
+        }
+        npd_missing_required_package() { return 1; }
+        npd_validate_package() { :; }
+        npd_install_package() { :; }
+        npd_stop_for_reporting_baseline() { date +%s; }
+        npd_restart_and_check() { :; }
+        npd_check_reporting() { :; }
+        NPD_SKIP_FILE="${TEST_DIR}/skip"; touch "${NPD_SKIP_FILE}"
+        When call npd_update_component '{"ubuntuPackageVersions":{"24.04":"0.8.25-ubuntu24.04u27"}}' '{}'
+        The status should be success
+        The output should include 'npdBinary updated successfully: 0.8.25-ubuntu24.04u27'
+        The path "${NPD_PACKAGE_CACHE}/bin-u27.deb" should be exist
+        The path "${NPD_PACKAGE_CACHE}/bin-u26.deb" should not be exist
+        The path "${NPD_PACKAGE_CACHE}/cfg-u2.deb" should be exist
+    End
+End
+
+Describe 'CSE baked NPD activation'
+    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
+    Include ./parts/linux/cloud-init/artifacts/cse_config.sh
+    setup_activation() {
+        NPD_SKIP_FILE="$(mktemp)"
+        OS=UBUNTU
+        OS_VARIANT=""
+        ERR_SYSTEMCTL_START_FAIL=4
+    }
+    cleanup_activation() { rm -f "${NPD_SKIP_FILE}"; }
+    BeforeEach setup_activation
+    AfterEach cleanup_activation
+
+    Mock dpkg-query
+        printf installed
+    End
+    Mock rpm
+        [ "${RPM_INSTALLED:-true}" = true ]
+    End
+    systemctlEnableAndStart() { echo "start $*"; }
+
+    It 'starts the held package-owned service'
+        When call configureNodeProblemDetector
+        The status should be success
+        The output should equal 'start node-problem-detector 30'
+    End
+
+    It 'skips old images without the marker'
+        rm "${NPD_SKIP_FILE}"
+        When call configureNodeProblemDetector
+        The status should be success
+        The output should include 'extension-managed'
+    End
+
+    It 'starts Azure Linux 3 NPD from the RPM package'
+        OS=AZURELINUX
+        When call configureNodeProblemDetector
+        The status should be success
+        The output should equal 'start node-problem-detector 30'
+    End
+
+    It 'skips Azure Linux images with the marker but without the config package'
+        OS=AZURELINUX
+        export RPM_INSTALLED=false
+        When call configureNodeProblemDetector
+        The status should be success
+        The output should include 'not installed'
+    End
+
+    It 'leaves Azure Container Linux and Mariner extension-managed'
+        OS=AZURELINUX
+        OS_VARIANT=AZURECONTAINERLINUX
+        When call configureNodeProblemDetector
+        The status should be success
+        The output should include 'extension-managed'
+    End
+
+    It 'propagates activation failure'
+        systemctlEnableAndStart() { return 1; }
+        When call configureNodeProblemDetector
+        The status should equal 4
+    End
+End
+
+Describe 'GPU driver NPD restart'
+    Include ./parts/linux/cloud-init/artifacts/cse_config_gpu.sh
+    setup_gpu() { NPD_SKIP_FILE="$(mktemp)"; }
+    cleanup_gpu() { rm -f "${NPD_SKIP_FILE}"; }
+    BeforeEach setup_gpu
+    AfterEach cleanup_gpu
+    Mock systemctl
+        echo "systemctl $*"
+    End
+
+    It 'leaves baked NPD for nodePrep activation'
+        When call restartExtensionManagedNPD
+        The status should be success
+        The output should equal ''
+    End
+
+    It 'still restarts extension-managed NPD'
+        rm "${NPD_SKIP_FILE}"
+        When call restartExtensionManagedNPD
+        The status should be success
+        The output should equal 'systemctl restart node-problem-detector'
+    End
+End

@@ -49,6 +49,22 @@ EOF
     The output should include "Using pre-CPS ACL image settings derived from $BASE_TEMPLATE"
   End
 
+  validate_cvm_mglru_upload() {
+    ./vhdbuilder/packer/build-acl-cvm.sh &&
+      jq -e '[.provisioners[] | select(.type == "file" and
+        .source == "parts/linux/cloud-init/artifacts/aks-mglru.conf" and
+        .destination == "/home/packer/aks-mglru.conf")] | length == 1' \
+        "$CAPTURED_TEMPLATE" >/dev/null
+  }
+
+  It 'inherits the MGLRU rule upload from the production ACL template'
+    ACL_PACKER_TEMPLATE=vhdbuilder/packer/vhd-image-builder-acl.json
+    export ACL_PACKER_TEMPLATE
+    When call validate_cvm_mglru_upload
+    The status should be success
+    The output should include "Using pre-CPS ACL image settings derived from $ACL_PACKER_TEMPLATE"
+  End
+
   It 'keeps the production Packer destination generalized and uses generalized ACL CVM deployment flags'
     # These assertions intentionally match literal Packer and shell expressions.
     # shellcheck disable=SC2016

@@ -21,6 +21,24 @@ Pull request titles must follow [Conventional Commits](https://www.conventionalc
 
 ## Tests
 
+### Ubuntu GRID driver branches
+
+The Ubuntu A10 GRID path uses `aks-gpu-grid` on the patched R580/vGPU 19.6
+LTS branch. NCv6 RTX PRO 6000 BSE uses `aks-gpu-grid-v20` on the patched
+R595/vGPU 20.2 branch. Driver versions and image tags are pinned in
+`parts/common/components.json`; Renovate is constrained to the corresponding
+branch for each image.
+
+[Azure's Linux GRID support matrix](https://learn.microsoft.com/azure/virtual-machines/linux/n-series-driver-setup#supported-grid-drivers)
+lists v19.6 and v20.2 for NVadsA10_v5, but only v20.2 for NCv6 and NCasT4_v3.
+This does not change existing CUDA selection for compute SKUs, or the separate
+Azure Linux/ACL sysext installation paths. The existing NCads_A10_v4 aliases
+retain their A10 GRID image selection.
+
+The Ubuntu GRID E2E scenarios require the exact configured driver version on
+every GPU, in addition to checking GRID licensing and service health. These
+checks do not establish application-specific renderer compatibility.
+
 ### Shell scripts
 
 For ShellSpec unit test instructions, see the [ShellSpec README](./spec/README.md).

@@ -26,7 +26,7 @@ while IFS= read -r component; do
 	fi
 
 	arch=$(uname -m)
-	# shellcheck disable=SC3010
+	# shellcheck disable=SC3010,SC3014
 	if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
 		versionsToBeDownloaded="${multiArchVersionsV2String}"
 	else

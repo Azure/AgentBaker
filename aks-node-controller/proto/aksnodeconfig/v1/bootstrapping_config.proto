@@ -80,4 +80,8 @@ message BootstrappingConfig {
   // Only used when secure TLS bootstrapping is enabled. Optional override passed to the secure TLS bootstrap client during provisioning.
   // This is the amount of time given to the bootstrap client to retrieve a credential from the bootstrap server.
   optional string secure_tls_bootstrapping_get_credential_timeout = 15;
+
+  // Whether we will remove/cleanup kubelet's bootstrap-kubeconfig
+  // after kubelet successfuly bootstraps its initial client certificate via either form of TLS bootstrapping.
+  optional bool remove_bootstrap_kubeconfig = 16;
 }

@@ -12,4 +12,12 @@ message ContainerdConfig {
 
   // The URL for downloading the containerd package.
   string containerd_package_url = 3;
+
+  // Force filesystem synchronization during image unpacking. Absence preserves
+  // the existing setting. Enabling this may select local pulls on containerd 2.x.
+  optional bool image_pull_with_sync_fs = 4;
+
+  // Maximum time without image download progress, in Go duration format.
+  // Zero disables the timeout. Absence preserves the existing setting.
+  optional string image_pull_progress_timeout = 5;
 }

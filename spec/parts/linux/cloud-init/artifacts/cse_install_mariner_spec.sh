@@ -682,7 +682,7 @@ EOF
         setup_aznfs() {
             mkdir -p "${aznfs_test_dir}/opt/aznfs/downloads"
             # Create a fake aznfs RPM file
-            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+            touch "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.20-1.x86_64.rpm"
         }
 
         cleanup_aznfs() {
@@ -710,7 +710,7 @@ EOF
             OS_VERSION="3.0"
             # Override findAznfsRpm to return our test RPM
             findAznfsRpm() {
-                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.15-1.x86_64.rpm"
+                echo "${aznfs_test_dir}/opt/aznfs/downloads/aznfs-3.0.20-1.x86_64.rpm"
             }
             When call installAznfsPackage
             The output should include "Installing aznfs from pre-downloaded RPM"
@@ -816,6 +816,47 @@ EOF
             When call installPackageFromCache kubelet "$desiredVersion"
             The output should include "Failed to find cached rpm file for kubelet version 1.34.1"
             The status should equal 1
+        End
+    End
+
+    Describe 'installCredentialProviderPackageFromBootstrapProfileRegistry'
+        semverCompare() {
+            [ "$1" = "$2" ] && return 0
+            [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)" = "$1" ]
+        }
+        getLatestPkgVersionFromK8sVersion() {
+            PACKAGE_VERSION="$1-1"
+        }
+        installToolFromBootstrapProfileRegistry() {
+            echo "installToolFromBootstrapProfileRegistry fails"
+            return 1
+        }
+        installCredentialProviderFromUrl() {
+            echo "installCredentialProviderFromUrl"
+        }
+        exit() {
+            echo "mock exit calling with $1"
+        }
+        mkdir() { :; }
+        chown() { :; }
+
+        BeforeEach 'setup_cred_provider'
+        setup_cred_provider() {
+            ERR_ORAS_PULL_CREDENTIAL_PROVIDER=208
+            CREDENTIAL_PROVIDER_BIN_DIR="/tmp/credential-provider"
+        }
+
+        It 'falls back to URL installation for k8s < 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.34.6
+            The output should include "Fall back to install credential provider from url installation"
+            The output should include "installCredentialProviderFromUrl"
+        End
+
+        It 'does not fall back to URL installation for k8s >= 1.35.0'
+            When call installCredentialProviderPackageFromBootstrapProfileRegistry myregistry.azurecr.io 1.35.8
+            The output should include "Failed to install azure-acr-credential-provider 1.35.8 from bootstrap profile registry"
+            The output should include "mock exit calling with 208"
+            The output should not include "installCredentialProviderFromUrl"
         End
     End
 End

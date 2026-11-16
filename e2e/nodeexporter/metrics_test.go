@@ -8,7 +8,7 @@ import (
 )
 
 func TestValidateMetrics(t *testing.T) {
-	err := ValidateMetrics(validMetrics())
+	err := ValidateMetrics(validMetrics(), true)
 
 	require.NoError(t, err)
 }
@@ -17,10 +17,40 @@ func TestValidateMetricsRejectsMissingMetric(t *testing.T) {
 	metrics := strings.Replace(validMetrics(), `node_network_receive_bytes_total{device="eth0"} 1`, "", 1)
 	metrics = strings.Replace(metrics, "node_memory_MemAvailable_bytes 1", "", 1)
 
-	err := ValidateMetrics(metrics)
+	err := ValidateMetrics(metrics, true)
 
 	require.ErrorContains(t, err, "node_memory_MemAvailable_bytes")
 	require.ErrorContains(t, err, "node_network_receive_bytes_total")
+}
+
+func TestValidateMetricsRequiresPressureWhenPSIAvailable(t *testing.T) {
+	err := ValidateMetrics(noPressureMetrics(), true)
+
+	require.ErrorContains(t, err, "node_pressure_cpu_waiting_seconds_total")
+}
+
+// Kata hosts run kernel-mshv without CONFIG_PSI: the collector reports no data
+// and every other metric is still required.
+func TestValidateMetricsAllowsMissingPSI(t *testing.T) {
+	require.NoError(t, ValidateMetrics(noPressureMetrics(), false))
+
+	metrics := strings.Replace(noPressureMetrics(), "node_memory_MemAvailable_bytes 1", "", 1)
+	require.ErrorContains(t, ValidateMetrics(metrics, false), "node_memory_MemAvailable_bytes")
+}
+
+func TestValidateMetricsRejectsPressureDataWithoutPSI(t *testing.T) {
+	err := ValidateMetrics(validMetrics()+`node_scrape_collector_success{collector="pressure"} 0
+`, false)
+	require.ErrorContains(t, err, "present although the kernel reports no PSI")
+
+	err = ValidateMetrics(strings.Replace(noPressureMetrics(), `collector="pressure"} 0`, `collector="pressure"} 1`, 1), false)
+	require.ErrorContains(t, err, "pressure collector must report no data")
+}
+
+func noPressureMetrics() string {
+	metrics := strings.Replace(validMetrics(), "# TYPE node_pressure_cpu_waiting_seconds_total counter\nnode_pressure_cpu_waiting_seconds_total 1\n", "", 1)
+	return metrics + `node_scrape_collector_success{collector="pressure"} 0
+`
 }
 
 func TestValidateCollectors(t *testing.T) {

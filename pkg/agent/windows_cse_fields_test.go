@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/base64"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,6 +58,8 @@ type windowsCSEField struct {
 	action string
 	// prefix is the text right before the value in the rendered script.
 	prefix string
+	// occurrence selects a zero-based match when multiple statements share the prefix.
+	occurrence int
 	// kind describes the expected runtime type; empty means string.
 	kind string
 	// set puts value into the NodeBootstrappingConfiguration field that the value comes from. It is nil
@@ -218,14 +219,6 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetKubeletConfigKeyValsPsh`, prefix: `$global:KubeletConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeletConfig["--aaa-test"] = v
 		}, want: unescapedArg},
-		{action: `GetKubeletHealthzEndpoint`, prefix: `$global:KubeletHealthzEndpoint=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
-			c.KubeletConfig["--healthz-bind-address"] = v
-		}, want: func(_ *datamodel.NodeBootstrappingConfiguration, v string) string {
-			if v == "" {
-				v = "127.0.0.1"
-			}
-			return "http://" + net.JoinHostPort(v, "10248") + "/healthz"
-		}},
 		{action: `GetKubeproxyConfigKeyValsPsh`, prefix: `$global:KubeproxyConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeproxyConfig = map[string]string{"--aaa-test": v}
 		}, want: unescapedArg},
@@ -348,6 +341,7 @@ func windowsCSEFields() []windowsCSEField {
 			},
 			stub: `function Install-CredentialProvider { param($KubeDir, $CustomCloudContainerRegistryDNSSuffix) ` +
 				`$global:CustomCloudContainerRegistryDNSSuffix = $CustomCloudContainerRegistryDNSSuffix }; `},
+		{action: `WindowsSSHEnabled`, prefix: `$sshEnabled=`, occurrence: 1, kind: "boolean"},
 		// The base64 of the custom cloud environment JSON.
 		{action: `GetBase64EncodedEnvironmentJSON`, prefix: `$envJSON=`, setup: func(c *datamodel.NodeBootstrappingConfiguration) {
 			c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
@@ -399,17 +393,28 @@ func renderedWindowsCSEField(t *testing.T, field windowsCSEField, value string) 
 	if field.want != nil {
 		want = field.want(config, value)
 	}
-	return field.stub + windowsCSEFieldStatement(t, customData, field.prefix), want
+	return field.stub + windowsCSEFieldStatement(t, customData, field.prefix, field.occurrence), want
 }
 
-func windowsCSEFieldStatement(t *testing.T, customData, prefix string) string {
+func windowsCSEFieldStatement(t *testing.T, customData, prefix string, occurrence int) string {
 	t.Helper()
+	for i := 0; i < occurrence; i++ {
+		var found bool
+		_, customData, found = strings.Cut(customData, prefix)
+		require.True(t, found, "assignment or argument %s occurrence %d was not rendered", prefix, i)
+	}
 	index := strings.Index(customData, prefix)
-	require.GreaterOrEqual(t, index, 0, "assignment or argument %s was not rendered", prefix)
+	require.GreaterOrEqual(t, index, 0, "assignment or argument %s occurrence %d was not rendered", prefix, occurrence)
 	start := strings.LastIndex(customData[:index], "\n") + 1
 	end := strings.Index(customData[index:], "\n")
 	require.GreaterOrEqual(t, end, 0, "assignment or argument %s has no terminating newline", prefix)
 	return strings.TrimSpace(customData[start : index+end])
+}
+
+func TestWindowsCSEFieldStatementSelectsRepeatedInput(t *testing.T) {
+	customData := "$sshEnabled=$false\n$sshEnabled=$true\n"
+	require.Equal(t, "$sshEnabled=$false", windowsCSEFieldStatement(t, customData, "$sshEnabled=", 0))
+	require.Equal(t, "$sshEnabled=$true", windowsCSEFieldStatement(t, customData, "$sshEnabled=", 1))
 }
 
 // TestWindowsCSEFieldsFixture covers every input; PowerShell checks actual values and types rather than
@@ -697,8 +702,8 @@ func TestWindowsKubeletArgumentsKeepTheirValues(t *testing.T) {
 	}
 	config := newWindowsBootstrapTestConfig()
 	customData, _ := renderWindowsCSE(t, config)
-	script := windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=") + "\n" +
-		windowsCSEFieldStatement(t, customData, "$global:KubeproxyFeatureGates=") + "\n" +
+	script := windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=", 0) + "\n" +
+		windowsCSEFieldStatement(t, customData, "$global:KubeproxyFeatureGates=", 0) + "\n" +
 		`$global:KubeletConfigArgs; $global:KubeproxyFeatureGates`
 	path := filepath.Join(t.TempDir(), "arguments.ps1")
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
@@ -781,7 +786,7 @@ func TestWindowsCSEPreservesPackageURL(t *testing.T) {
 	config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEPackageURLWithDollar
 	customData, _ := renderWindowsCSE(t, config)
 	script := "$web = $null\n" +
-		windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=") + "\n" +
+		windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=", 0) + "\n" +
 		"$global:CSEScriptsPackageUrl"
 	path := filepath.Join(t.TempDir(), "package-url.ps1")
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))

@@ -2,11 +2,14 @@ package nodeconfigutils
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/textproto"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -14,7 +17,48 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"gopkg.in/yaml.v3"
 )
+
+func TestContainerdImagePullPresenceRoundTrip(t *testing.T) {
+	for _, raw := range []string{
+		`{"containerdConfig":{"imagePullWithSyncFs":false,"imagePullProgressTimeout":"0s"}}`,
+		`{"containerd_config":{"image_pull_with_sync_fs":true,"image_pull_progress_timeout":"30s"}}`,
+		`{"containerd_config":{}}`,
+	} {
+		cfg, err := UnmarshalConfigurationV1([]byte(raw))
+		require.NoError(t, err)
+		encoded, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		restored, err := UnmarshalConfigurationV1(encoded)
+		require.NoError(t, err)
+		require.True(t, proto.Equal(cfg, restored))
+		wire, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+		decoded := &aksnodeconfigv1.Configuration{}
+		require.NoError(t, proto.Unmarshal(wire, decoded))
+		require.True(t, proto.Equal(cfg, decoded))
+		if cfg.ContainerdConfig.ImagePullWithSyncFs != nil {
+			require.Contains(t, string(encoded), `"image_pull_with_sync_fs"`)
+			require.NotNil(t, decoded.ContainerdConfig.ImagePullWithSyncFs)
+			require.NotNil(t, decoded.ContainerdConfig.ImagePullProgressTimeout)
+		} else {
+			require.NotContains(t, string(encoded), "image_pull_")
+		}
+	}
+}
+
+func decodeFlatcarCustomData(t *testing.T, cfg *aksnodeconfigv1.Configuration) map[string]any {
+	t.Helper()
+	customData, err := CustomDataFlatcar(cfg)
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+
+	var ignition map[string]any
+	require.NoError(t, json.Unmarshal(decoded, &ignition))
+	return ignition
+}
 
 func TestUnmarshalConfigurationV1(t *testing.T) {
 	tests := []struct {
@@ -272,6 +316,31 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.ErrorIs(t, err, io.EOF)
 }
 
+func TestCustomDataFlatcarDefersArtifactStreamingToProvisioning(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		cfg := &aksnodeconfigv1.Configuration{EnableArtifactStreaming: enabled}
+		ignition := decodeFlatcarCustomData(t, cfg)
+		require.NotContains(t, ignition, "systemd", "Ignition must not start streaming before containerd is configured")
+
+		storage, ok := ignition["storage"].(map[string]any)
+		require.True(t, ok)
+		files, ok := storage["files"].([]any)
+		require.True(t, ok)
+		require.NotEmpty(t, files)
+		file, ok := files[0].(map[string]any)
+		require.True(t, ok)
+		contents, ok := file["contents"].(map[string]any)
+		require.True(t, ok)
+		source, ok := contents["source"].(string)
+		require.True(t, ok)
+		configJSON, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(source, "data:;base64,"))
+		require.NoError(t, err)
+		decoded, err := UnmarshalConfigurationV1(configJSON)
+		require.NoError(t, err)
+		require.Equal(t, enabled, decoded.GetEnableArtifactStreaming())
+	}
+}
+
 // decodeBoothook extracts the decoded cloud-boothook part from the base64-encoded custom data.
 func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 	t.Helper()
@@ -303,7 +372,7 @@ func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 
 func TestEnabledFeaturesBlockEmptyWhenDisabled(t *testing.T) {
 	// The empty return is the load-bearing byte-identity guarantee: with no features set the
-	// boothook template's %[3]s placeholder expands to "", so custom data is byte-identical to
+	// boothook template's %[4]s placeholder expands to "", so custom data is byte-identical to
 	// the output produced before this feature existed. This protects the 6-month VHD window.
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{}), "expected no features block when EnabledFeatures is unset")
 	require.Empty(t, enabledFeaturesBlock(&aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}}))
@@ -314,6 +383,9 @@ func TestCustomDataOmitsEnabledFeaturesWhenHotfixDisabled(t *testing.T) {
 	off := decodeBoothook(t, &aksnodeconfigv1.Configuration{})
 	require.NotContains(t, off, "enabled_features.sh")
 	require.NotContains(t, off, "ENABLE_PROVISIONING_HOTFIX")
+	require.NotContains(t, off, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, off, "experimental_skip_ready_report")
+	require.NotContains(t, off, "/var/lib/waagent/provisioned")
 
 	// Byte-identity: an empty features map must produce the same output as an unset one.
 	emptyMap := decodeBoothook(t, &aksnodeconfigv1.Configuration{EnabledFeatures: map[string]string{}})
@@ -334,6 +406,82 @@ func TestCustomDataWritesEnabledFeaturesWhenHotfixEnabled(t *testing.T) {
 	require.NotEqual(t, -1, featuresIdx)
 	require.NotEqual(t, -1, startIdx)
 	require.Less(t, featuresIdx, startIdx, "enabled_features.sh must be written before the service starts")
+	require.NotContains(t, on, "81_azure_skip_ready_report.cfg")
+	require.NotContains(t, on, "experimental_skip_ready_report")
+	require.NotContains(t, on, "/var/lib/waagent/provisioned")
+}
+
+func TestCustomDataAddsReadyReportHandoffWhenCustomDataOnlyProvisioningEnabled(t *testing.T) {
+	customData, err := CustomData(&aksnodeconfigv1.Configuration{CustomDataOnlyProvisioning: true})
+	require.NoError(t, err)
+	decoded, err := base64.StdEncoding.DecodeString(customData)
+	require.NoError(t, err)
+	on := string(decoded)
+
+	require.True(t, strings.HasPrefix(on, "#cloud-config-archive\n"))
+	require.NotContains(t, on, "MIME-Version:")
+	require.NotContains(t, on, "multipart/mixed")
+	require.NotContains(t, on, "# azure-experimental-node-ready")
+	require.Contains(t, on, "experimental_skip_ready_report: true")
+	require.Contains(t, on, "touch /var/lib/waagent/experimental_skip_ready_report")
+	require.Contains(t, on, "if [ -s /sys/class/dmi/id/product_uuid ]; then")
+	require.Contains(t, on, "cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned")
+	require.Contains(t, on, AKSNodeConfigFilePath)
+	require.Contains(t, on, "systemctl start --no-block aks-node-controller.service")
+	var parts []struct {
+		Type    string `yaml:"type"`
+		Content string `yaml:"content"`
+	}
+	require.NoError(t, yaml.Unmarshal(decoded, &parts))
+	require.Len(t, parts, 2)
+	require.Equal(t, "text/cloud-boothook", parts[0].Type)
+	require.True(t, strings.HasPrefix(parts[0].Content, "#!/bin/bash\n"))
+	require.Contains(t, parts[0].Content, AKSNodeConfigFilePath)
+	require.Contains(t, parts[0].Content, "/var/lib/waagent/provisioned")
+	require.Equal(t, "text/cloud-config", parts[1].Type)
+	var config struct {
+		Datasource map[string]map[string]bool `yaml:"datasource"`
+	}
+	require.NoError(t, yaml.Unmarshal([]byte(parts[1].Content), &config))
+	require.True(t, config.Datasource["Azure"]["experimental_skip_ready_report"])
+	cmd := exec.Command("bash", "-n")
+	cmd.Stdin = strings.NewReader(parts[0].Content)
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(output))
+}
+
+func TestCustomDataArchivePreservesScriptBytes(t *testing.T) {
+	for _, value := range []string{
+		"quoted: # text \"backslash\\\"\ttab",
+		"Unicode: \u0085\u2028\u2029",
+		"",
+	} {
+		cfg := &aksnodeconfigv1.Configuration{
+			CustomDataOnlyProvisioning: true,
+			EnabledFeatures:            map[string]string{"TEST_FEATURE": value},
+		}
+		customData, err := CustomData(cfg)
+		require.NoError(t, err)
+		decoded, err := base64.StdEncoding.DecodeString(customData)
+		require.NoError(t, err)
+		var parts []struct {
+			Type    string `yaml:"type"`
+			Content string `yaml:"content"`
+		}
+		require.NoError(t, yaml.Unmarshal(decoded, &parts))
+		require.Len(t, parts, 2)
+		configJSON, err := MarshalConfigurationV1(cfg)
+		require.NoError(t, err)
+		boothook := fmt.Sprintf(boothookTemplate, readyReportHandoffBlock(cfg),
+			AKSNodeConfigFilePath, base64.StdEncoding.EncodeToString(configJSON), enabledFeaturesBlock(cfg))
+		require.Equal(t, "text/cloud-boothook", parts[0].Type)
+		require.Equal(t, strings.TrimPrefix(boothook, "#cloud-boothook\n"), parts[0].Content)
+		require.Equal(t, "text/cloud-config", parts[1].Type)
+		require.Equal(t, readyReportCloudConfig, parts[1].Content)
+		repeated, err := CustomData(cfg)
+		require.NoError(t, err)
+		require.Equal(t, customData, repeated)
+	}
 }
 
 func TestEnabledFeaturesBlockRendersMultipleSortedFeatures(t *testing.T) {

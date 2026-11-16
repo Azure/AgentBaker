@@ -708,19 +708,54 @@ function Test-WindowsDefenderPlatformUpdate {
     }
 }
 
-function Test-ToolsToCacheOnVHD {
-    $toolsDir = "c:\aks-tools"
-    $toolsList = @("DU\du.exe", "DU\du64.exe", "DU\du64a.exe")
+function Test-WindowsExporterOnVHD {
+    # The Install-WindowsExporterOnVHD step in configure-windows-vhd.ps1 must have:
+    #   1. Extracted windows-exporter.exe into C:\k\windows-exporter
+    #   2. Placed windows-exporter-config.yml alongside it
+    #   3. Created the VHD assets marker and extension skip marker
+    # The service is registered by CSE BasePrep (staging/cse/windows/windowsexporterfunc.ps1),
+    # which does not run during the VHD build, so the service must not exist on the VHD itself.
+    $exporterDir = "C:\k\windows-exporter"
+    $expected = @(
+        (Join-Path $exporterDir "windows-exporter.exe"),
+        (Join-Path $exporterDir "windows-exporter-config.yml"),
+        (Join-Path $exporterDir "windows-exporter-assets.complete"),
+        "C:\k\skip_vhd_windows_exporter"
+    )
 
-    foreach ($tool in $toolsList) {
-        $toolPath = Join-Path -Path $toolsDir -ChildPath $tool
-        if (!(Test-Path -Path $toolPath)) {
-            Write-ErrorWithTimestamp "Failed to get tool: $toolPath"
-            exit 1
+    $missing = @()
+    foreach ($path in $expected)
+    {
+        if (-not (Test-Path -Path $path))
+        {
+            $missing += $path
         }
-        else {
-            Write-OutputWithTimestamp "Got tool: $toolPath"
+        else
+        {
+            Write-OutputWithTimestamp "windows-exporter asset present: $path"
         }
+    }
+
+    if ($missing.Count -gt 0)
+    {
+        Write-ErrorWithTimestamp "Missing windows-exporter VHD assets: $($missing -join ', ')"
+        exit 1
+    }
+
+    $exporterBinary = Join-Path $exporterDir "windows-exporter.exe"
+    $versionOutput = (& $exporterBinary --version 2>&1) -join "`n"
+    if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '(?i)windows[_-]exporter.*version')
+    {
+        Write-ErrorWithTimestamp "windows-exporter binary version check failed (exit code $LASTEXITCODE): $versionOutput"
+        exit 1
+    }
+    Write-OutputWithTimestamp "windows-exporter binary is executable: $versionOutput"
+
+    $svc = Get-Service "aks-windows-exporter" -ErrorAction SilentlyContinue
+    if ($svc)
+    {
+        Write-ErrorWithTimestamp "Service aks-windows-exporter should not be registered on the VHD (CSE registers it at provisioning); found state: $($svc.Status)"
+        exit 1
     }
 }
 
@@ -877,8 +912,8 @@ Test-ExcludeUDPSourcePort
 Write-OutputWithTimestamp "Test: WindowsDefenderPlatformUpdate"
 Test-WindowsDefenderPlatformUpdate
 
-Write-OutputWithTimestamp "Test: ToolsToCacheOnVHD"
-Test-ToolsToCacheOnVHD
+Write-OutputWithTimestamp "Test: WindowsExporterOnVHD"
+Test-WindowsExporterOnVHD
 
 Write-OutputWithTimestamp "Test: ExpandVolumeTask"
 Test-ExpandVolumeTask

@@ -15,6 +15,14 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   enable_tar_index = false
 {{- end}}
 [plugins."io.containerd.cri.v1.images"]
+{{- with .GetContainerdConfig }}
+  {{- if ne .ImagePullWithSyncFs nil }}
+  image_pull_with_sync_fs = {{ .GetImagePullWithSyncFs }}
+  {{- end }}
+  {{- if ne .ImagePullProgressTimeout nil }}
+  image_pull_progress_timeout = "{{ .GetImagePullProgressTimeout }}"
+  {{- end }}
+{{- end }}
 {{- if .GetEnableArtifactStreaming }}
   snapshotter = "overlaybd"
   disable_snapshot_annotations = false
@@ -71,4 +79,11 @@ root = "{{.KubeletConfig.GetContainerDataDir}}"{{- end}}
   [proxy_plugins.tardev]
     type = "snapshot"
     address = "/run/containerd/tardev-snapshotter.sock"
+[plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc]
+  snapshotter = "tardev"
+  runtime_type = "io.containerd.kata-cc.v2"
+  privileged_without_host_devices = true
+  pod_annotations = ["io.katacontainers.*"]
+  [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.kata-cc.options]
+    ConfigPath = "/opt/confidential-containers/share/defaults/kata-containers/configuration-clh-snp.toml"
 {{- end}}

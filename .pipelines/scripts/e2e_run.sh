@@ -32,7 +32,7 @@ az account set -s "${SUBSCRIPTION_ID}"
 echo "Using subscription ${SUBSCRIPTION_ID} for e2e tests"
 
 # Setup go
-GOPATH="$(go env GOPATH)"
+GOPATH="$(go env GOPATH | tr -d "'\"")"
 export GOPATH
 go version
 

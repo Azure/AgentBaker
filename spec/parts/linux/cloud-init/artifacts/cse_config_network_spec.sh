@@ -5,9 +5,80 @@ Describe 'cse_config_network.sh'
     CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
     CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
     CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    CSE_CONFIG_ADDONS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_addons.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Describe 'configPrivateClusterHosts'
+        function [ {
+            case "$*" in
+                "! -f /etc/systemd/system/reconcile-private-hosts.service ]")
+                    test "$private_hosts_service_available" != true ;;
+                *) command [ "$@" ;;
+            esac
+        }
+
+        mkdir() { echo "mkdir $*"; }
+        touch() { echo "touch $*"; }
+        tee() { cat; }
+        systemctlEnableAndStart() { echo "systemctlEnableAndStart $*"; }
+
+        It 'configures and starts the baked service when available'
+            private_hosts_service_available=true
+            API_SERVER_NAME="api.example.com"
+            When call configPrivateClusterHosts
+            The status should be success
+            The output should include 'mkdir -p /etc/systemd/system/reconcile-private-hosts.service.d/'
+            The output should include 'touch /etc/systemd/system/reconcile-private-hosts.service.d/10-fqdn.conf'
+            The output should include 'systemctlEnableAndStart reconcile-private-hosts 30'
+            The output should not include 'Skipping'
+        End
+
+        It 'skips reconciliation when the baked service is absent'
+            private_hosts_service_available=false
+            When call configPrivateClusterHosts
+            The status should be success
+            The output should equal 'Skipping private hosts reconciliation: service is absent'
+        End
+    End
+    Describe 'ensureAzureNetworkConfig'
+        function [ {
+            case "$*" in
+                "! -x /opt/azure-network/configure-azure-network.sh ]")
+                    test "$network_script_available" != true ;;
+                "! -f /etc/udev/rules.d/99-azure-network.rules ]")
+                    test "$network_rule_available" != true ;;
+                *) command [ "$@" ;;
+            esac
+        }
+
+        udevadm() {
+            echo "udevadm $*"
+        }
+
+        It 'reloads and triggers udev when both baked artifacts are available'
+            network_script_available=true
+            network_rule_available=true
+            When call ensureAzureNetworkConfig
+            The status should be success
+            The output should include 'udevadm control --reload-rules'
+            The output should include 'udevadm trigger --subsystem-match=net --action=add'
+            The output should include 'udevadm settle --timeout=10'
+            The output should not include 'Skipping'
+        End
+
+        Parameters
+            false true
+            true false
+            false false
+        End
+
+        It 'skips tuning when either baked artifact is unavailable'
+            network_script_available="$1"
+            network_rule_available="$2"
+            When call ensureAzureNetworkConfig
+            The status should be success
+            The output should equal 'Skipping Azure NIC tuning: image does not contain required files'
+        End
+    End
     Describe 'getPrimaryNicIP'
         It 'should return the correct IP when a single network interface is attached to the VM'
             IMDS_INSTANCE_METADATA_CACHE_FILE="spec/parts/linux/cloud-init/artifacts/imds_mocks/network/single_nic.json"

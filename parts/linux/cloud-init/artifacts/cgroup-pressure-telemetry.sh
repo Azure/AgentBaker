@@ -1,6 +1,9 @@
 #!/bin/bash
 set -uo pipefail
 
+# shellcheck source=./cgroup-telemetry-events.sh
+source /opt/scripts/cgroup-telemetry-events.sh || exit 1
+
 getServicePressure() {
     local service_cgroup="$1"
     local cpu_pressure
@@ -41,7 +44,10 @@ getServicePressure() {
 }
 
 EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/
-EVENTS_FILE_NAME=$(date +%s%3N)
+# The name must stay digits-only for WALinuxAgent to collect it. A nanosecond
+# timestamp plus the emitting process's PID is unique by construction: two live
+# processes cannot share a PID, and two forks of date cannot share a nanosecond.
+EVENTS_FILE_NAME="$(date +%s%N)${BASHPID}"
 STARTTIME_FORMATTED=$(date +"%F %T.%3N")
 ENDTIME_FORMATTED=$(date +"%F %T.%3N")
 CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)
@@ -304,17 +310,6 @@ fi
 
 message_string=$(echo $message_string | sed 's/\\//g' | sed 's/^.\(.*\).$/\1/')
 
-EVENT_JSON=$( jq -n \
-    --arg Timestamp     "${STARTTIME_FORMATTED}" \
-    --arg OperationId   "${ENDTIME_FORMATTED}" \
-    --arg Version       "1.23" \
-    --arg TaskName      "${TASK_NAME}" \
-    --arg EventLevel    "${eventlevel}" \
-    --arg Message       "${message_string}" \
-    --arg EventPid      "0" \
-    --arg EventTid      "0" \
-    '{Timestamp: $Timestamp, OperationId: $OperationId, Version: $Version, TaskName: $TaskName, EventLevel: $EventLevel, Message: $Message, EventPid: $EventPid, EventTid: $EventTid}'
-)
-
-mkdir -p "${EVENTS_LOGGING_DIR}"
-echo ${EVENT_JSON} > ${EVENTS_LOGGING_DIR}${EVENTS_FILE_NAME}.json
+publishCgroupTelemetry "${EVENTS_LOGGING_DIR}" "${EVENTS_FILE_NAME}" \
+    "${STARTTIME_FORMATTED}" "${ENDTIME_FORMATTED}" "${TASK_NAME}" "${eventlevel}" \
+    "${message_string}" Pressure pressure || exit 1

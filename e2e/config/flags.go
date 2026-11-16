@@ -5,6 +5,7 @@ import "github.com/urfave/cli/v3"
 func Flags() []cli.Flag {
 	defaults := DefaultConfiguration()
 	return []cli.Flag{
+		&cli.BoolFlag{Name: "acl-base-image-signed", Value: defaults.ACLBaseImageSigned, Destination: &Config.ACLBaseImageSigned, Sources: cli.EnvVars("ACL_BASE_IMAGE_SIGNED"), Usage: "Whether the ACL base image is signed (default true). Set to false for non-prod (e.g. acldevel-sourced) images whose kernel/shim is not enrolled in the platform Secure Boot db, which disables Secure Boot for ACL scenarios"},
 		&cli.StringFlag{Name: "acr-secret-name", Value: defaults.ACRSecretName, Destination: &Config.ACRSecretName, Sources: cli.EnvVars("ACR_SECRET_NAME")},
 		&cli.StringFlag{Name: "acr-target-repository", Value: defaults.AzureContainerRegistrytargetRepository, Destination: &Config.AzureContainerRegistrytargetRepository, Sources: cli.EnvVars("ACR_TARGET_REPOSITORY")},
 		&cli.StringFlag{Name: "blob-container", Value: defaults.BlobContainer, Destination: &Config.BlobContainer, Sources: cli.EnvVars("BLOB_CONTAINER")},
@@ -18,6 +19,7 @@ func Flags() []cli.Flag {
 		&cli.StringFlag{Name: "mana-vm-sku", Value: defaults.MANAVMSKU, Destination: &Config.MANAVMSKU, Sources: cli.EnvVars("MANA_VM_SKU"), Usage: "VM size for MANA scenarios; must support MANA and NVMe"},
 		&cli.BoolFlag{Name: "disable-scriptless", Value: defaults.DisableScriptless, Destination: &Config.DisableScriptless, Sources: cli.EnvVars("DISABLE_SCRIPTLESS")},
 		&cli.BoolFlag{Name: "disable-scriptless-compilation", Value: defaults.DisableScriptLessCompilation, Destination: &Config.DisableScriptLessCompilation, Sources: cli.EnvVars("DISABLE_SCRIPTLESS_COMPILATION")},
+		&cli.BoolFlag{Name: "random-nbc-coverage", Destination: &Config.RandomNBCCoverage, Sources: cli.EnvVars("E2E_RANDOM_NBC_COVERAGE"), Usage: "Add two random NBC-command variants per active Linux OS/version"},
 		&cli.StringFlag{Name: "log-dir", Value: defaults.E2ELoggingDir, Destination: &Config.E2ELoggingDir, Sources: cli.EnvVars("LOGGING_DIR")},
 		&cli.BoolFlag{Name: "secure-tls-bootstrapping", Value: defaults.EnableSecureTLSBootstrapping, Destination: &Config.EnableSecureTLSBootstrapping, Sources: cli.EnvVars("ENABLE_SECURE_TLS_BOOTSTRAPPING")},
 		&cli.StringFlag{Name: "extended-tests", Value: defaults.ExtendedTests, Destination: &Config.ExtendedTests, Sources: cli.EnvVars("EXTENDED_TESTS")},

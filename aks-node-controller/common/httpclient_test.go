@@ -124,3 +124,59 @@ func TestRetryStringFetch(t *testing.T) {
 		}
 	})
 }
+
+func TestRetryFetch(t *testing.T) {
+	t.Run("returns a non-string result on retry success", func(t *testing.T) {
+		type result struct{ n int }
+		calls := 0
+		v, err := RetryFetch(context.Background(), 2, nil, func(context.Context) (result, error) {
+			calls++
+			if calls == 1 {
+				return result{}, errors.New("transient")
+			}
+			return result{n: 7}, nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 7, v.n)
+		assert.Equal(t, 2, calls)
+	})
+
+	t.Run("stops on an error the predicate reports as permanent", func(t *testing.T) {
+		permanent := errors.New("permanent")
+		calls := 0
+		_, err := RetryFetch(context.Background(), 3, func(err error) bool {
+			return !errors.Is(err, permanent)
+		}, func(context.Context) (int, error) {
+			calls++
+			return 0, permanent
+		})
+		require.ErrorIs(t, err, permanent)
+		assert.Equal(t, 1, calls)
+	})
+
+	t.Run("retries errors the predicate accepts and returns the zero value on exhaustion", func(t *testing.T) {
+		calls := 0
+		v, err := RetryFetch(context.Background(), 3, func(error) bool { return true },
+			func(context.Context) (*int, error) {
+				calls++
+				n := calls
+				return &n, fmt.Errorf("attempt %d", calls)
+			})
+		require.Error(t, err)
+		assert.Nil(t, v, "a failed fetch must not leak a partial result")
+		assert.Equal(t, 3, calls)
+		assert.Contains(t, err.Error(), "attempt 3")
+	})
+
+	t.Run("stops when the context ends during an attempt", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		calls := 0
+		_, err := RetryFetch(ctx, 3, func(error) bool { return true }, func(context.Context) (int, error) {
+			calls++
+			cancel()
+			return 0, errors.New("boom")
+		})
+		require.Error(t, err)
+		assert.Equal(t, 1, calls)
+	})
+}

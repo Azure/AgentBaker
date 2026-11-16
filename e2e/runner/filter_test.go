@@ -122,7 +122,7 @@ func restoreRunnerConfig(t *testing.T) {
 }
 
 func TestMatchFiltersPreservesTagPolicy(t *testing.T) {
-	tags := scenario.Tags{Name: "Ubuntu2204", OS: "linux", GPU: true}
+	tags := scenario.Tags{Name: "Ubuntu2204", OS: "linux", GPU: true, CVM: true}
 	for _, test := range []struct {
 		filter string
 		all    bool
@@ -132,6 +132,7 @@ func TestMatchFiltersPreservesTagPolicy(t *testing.T) {
 		{filter: "Name=Ubuntu2204,GPU=false", all: true, match: false},
 		{filter: "Name=Ubuntu2204,GPU=false", all: false, match: true},
 		{filter: " os = LINUX , gpu = true ", all: true, match: true},
+		{filter: "CVM=true", all: true, match: true},
 		{filter: "", all: true, match: true},
 	} {
 		t.Run(test.filter, func(t *testing.T) {

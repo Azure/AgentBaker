@@ -29,6 +29,14 @@ disableNtpAndTimesyncdInstallChrony() {
     systemctlEnableAndStart chronyd 30 || exit $ERR_SYSTEMCTL_START_FAIL
 }
 
+enableTridentACLAgent() {
+    if ! systemctl cat trident-acl-agent.service >/dev/null 2>&1; then
+        echo "Trident ACL agent is not installed in this base image; skipping startup trigger"
+        return 0
+    fi
+    systemctlEnableAndStart trident-acl-agent.path 30
+}
+
 installFIPS() {
     echo "Installing FIPS..."
 

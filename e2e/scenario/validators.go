@@ -22,12 +22,10 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/e2e/logging"
-	"github.com/Masterminds/semver/v3"
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 
 	"github.com/Azure/agentbaker/e2e/assert"
-	"github.com/Azure/agentbaker/e2e/components"
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/nodeexporter"
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -40,6 +38,48 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+func ValidateKubeletConfigFile(ctx context.Context, s *Scenario) error {
+	if !s.KubeletConfigFileEnabled() {
+		return nil
+	}
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, `set -euo pipefail
+systemctl is-active --quiet kubelet
+pid=$(systemctl show kubelet --property MainPID --value)
+test "$pid" -gt 0
+sudo cat /proc/"$pid"/cmdline | tr '\000' '\n'
+`, 0, "could not inspect running kubelet")
+	if err != nil {
+		return err
+	}
+	const configPath = "/etc/default/kubeletconfig.json"
+	args := strings.Fields(result.stdout)
+	hasConfig := false
+	for i, arg := range args {
+		if arg == "--config="+configPath || (arg == "--config" && i+1 < len(args) && args[i+1] == configPath) {
+			hasConfig = true
+			break
+		}
+	}
+	if !hasConfig {
+		return fmt.Errorf("running kubelet does not use --config %s", configPath)
+	}
+	content, err := getFileContent(ctx, s, configPath)
+	if err != nil {
+		return err
+	}
+	var config struct {
+		Kind       string `json:"kind"`
+		APIVersion string `json:"apiVersion"`
+	}
+	if err := json.Unmarshal([]byte(content), &config); err != nil {
+		return fmt.Errorf("decode kubelet configuration file: %w", err)
+	}
+	if config.Kind != "KubeletConfiguration" || config.APIVersion != "kubelet.config.k8s.io/v1beta1" {
+		return fmt.Errorf("unexpected kubelet configuration file type: %+v", config)
+	}
+	return nil
+}
 
 func ValidateTLSBootstrapping(ctx context.Context, s *Scenario) error {
 	switch s.VHD.OS {
@@ -93,6 +133,11 @@ func validateTLSBootstrappingLinux(ctx context.Context, s *Scenario) error {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubeletconfig.json", "\"rotateCertificates\": true"))
 	} else {
 		errs = append(errs, ValidateFileHasContent(ctx, s, "/etc/default/kubelet", "--rotate-certificates=true"))
+	}
+	if s.RemoveBoostrapKubeconfig() {
+		errs = append(errs, ValidateFileDoesNotExist(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
+	} else {
+		errs = append(errs, ValidateFileExists(ctx, s, "/var/lib/kubelet/bootstrap-kubeconfig"))
 	}
 	errs = append(errs,
 		ValidateDirectoryContent(ctx, s, "/var/lib/kubelet", []string{"kubeconfig"}),
@@ -630,6 +675,31 @@ func ValidateNvidiaGridV20DriverInstalled(ctx context.Context, s *Scenario) erro
 	return err
 }
 
+func nvidiaDriverVersionValidationScript(expected string) (string, error) {
+	if !regexp.MustCompile(`^[0-9]+(\.[0-9]+)+$`).MatchString(expected) {
+		return "", fmt.Errorf("invalid expected NVIDIA driver version %q; check GPUContainerImages in components.json", expected)
+	}
+	return strings.Join([]string{
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		"driver_versions=$(sudo nvidia-smi --query-gpu=driver_version --format=csv,noheader)",
+		"echo \"nvidia driver_versions=$driver_versions\"",
+		"while IFS= read -r driver_version; do",
+		"  driver_version=${driver_version//[[:space:]]/}",
+		fmt.Sprintf("  if [ \"$driver_version\" != %q ]; then echo \"expected NVIDIA driver %s, got '$driver_version'\"; exit 1; fi", expected, expected),
+		"done <<< \"$driver_versions\"",
+	}, "\n"), nil
+}
+
+func ValidateNvidiaDriverVersion(ctx context.Context, s *Scenario, expected string) error {
+	script, err := nvidiaDriverVersionValidationScript(expected)
+	if err != nil {
+		return err
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, fmt.Sprintf("expected NVIDIA driver version %s on every GPU", expected))
+	return err
+}
+
 func ValidateNonEmptyDirectory(ctx context.Context, s *Scenario, dirName string) error {
 	command := []string{
 		"set -ex",
@@ -652,7 +722,7 @@ func ValidateInspektorGadget(ctx context.Context, s *Scenario) error {
 	servicePath := "/usr/lib/systemd/system/" + serviceName
 
 	// Check if IG is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux non-OSGuard).
+	// The skip file is only present on VHDs that have IG installed (Ubuntu and Azure Linux 3 non-OSGuard, including Kata).
 	// Flatcar, OSGuard, and older VHDs do not have IG installed and will not have the skip file.
 	skipFileExists, err := fileExist(ctx, s, skipFile)
 	if err != nil {
@@ -890,6 +960,15 @@ func ValidateFileHasContent(ctx context.Context, s *Scenario, fileName string, c
 		return fmt.Errorf("expected file %s to have contents %q. Could not determine actual contents due to %w", fileName, contents, err)
 	}
 	return fmt.Errorf("expected file %s to have contents %q, but it does not. It had contents %s", fileName, contents, actualContents)
+}
+
+func ValidateReportReadyRan(ctx context.Context, s *Scenario) error {
+	return ValidateFileHasContent(
+		ctx,
+		s,
+		"/var/log/azure/aks-node-controller.log",
+		"Successfully reported Ready to Azure fabric.",
+	)
 }
 
 // ValidateFileExcludesContent fails the test if the specified file contains the specified contents.
@@ -1306,6 +1385,156 @@ func ValidateWindowsSystemServicesRestartConfiguration(ctx context.Context, s *S
 	)
 }
 
+const (
+	windowsExporterSkipMarker   = `C:\k\skip_vhd_windows_exporter`
+	windowsExporterAssetsMarker = `C:\k\windows-exporter\windows-exporter-assets.complete`
+	windowsExporterServiceName  = "aks-windows-exporter"
+)
+
+// windowsExporterIsCSEOwned reports whether the VHD carries baked exporter assets,
+// meaning CSE (not aks-vm-extension) owns the aks-windows-exporter service.
+func windowsExporterIsCSEOwned(ctx context.Context, s *Scenario) (bool, error) {
+	ownershipCheck := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'SKIP'; exit 0 }", windowsExporterAssetsMarker),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { Write-Output 'MISSING'; exit 0 }", windowsExporterSkipMarker),
+		"Write-Output 'PRESENT'",
+	}
+	res, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(ownershipCheck, "\n"), 0,
+		fmt.Sprintf("could not check aks-windows-exporter markers on %s", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return false, fmt.Errorf("check aks-windows-exporter markers: %w", err)
+	}
+	owned, err := validateWindowsExporterOwnership(res.stdout)
+	if err != nil {
+		return false, err
+	}
+	if !owned {
+		logging.Logf(ctx, "Skipping aks-windows-exporter validation: baked assets marker %s not found (aks-vm-extension manages the service on this VHD)", windowsExporterAssetsMarker)
+	}
+	return owned, nil
+}
+
+// ValidateWindowsExporter asserts that the service managed by windowsexporterfunc.ps1
+// is running and serving Prometheus metrics. Older VHDs without baked assets remain
+// extension-managed. On new VHDs the baked skip marker disables the extension;
+// its presence is not proof of successful CSE startup, so service and metrics are checked below.
+func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
+	const (
+		binary     = `C:\k\windows-exporter\windows-exporter.exe`
+		configFile = `C:\k\windows-exporter\windows-exporter-config.yml`
+	)
+	serviceName := windowsExporterServiceName
+	metricsURL := fmt.Sprintf("http://%s:19100/metrics", s.Runtime.VM.PrivateIP)
+
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
+		return err
+	}
+
+	logging.Logf(ctx, "skip_vhd_windows_exporter sentinel present, validating aks-windows-exporter installation")
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing binary: %s' }", binary, binary),
+		fmt.Sprintf("if (-not (Test-Path '%s')) { throw 'missing config: %s' }", configFile, configFile),
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", serviceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Running') { throw \"service %s is not running: $($svc.Status)\" }", serviceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Automatic') { throw \"service %s StartType is $($svc.StartType), expected Automatic\" }", serviceName),
+		// Scrape the node IP to validate the address used by monitoring infrastructure.
+		fmt.Sprintf("$resp = Invoke-WebRequest -UseBasicParsing -Uri '%s' -TimeoutSec 10", metricsURL),
+		"$metricsContent = [string]$resp.Content",
+		"Write-Output \"metrics endpoint returned status $($resp.StatusCode) with $($metricsContent.Length) characters\"",
+		"$requiredMetricNames = @('windows_cpu_info', 'windows_cpu_time_total', 'windows_logical_disk_free_bytes', 'windows_logical_disk_size_bytes', 'windows_memory_available_bytes', 'windows_net_bytes_received_total', 'windows_net_bytes_sent_total', 'windows_os_info', 'windows_pagefile_free_bytes', 'windows_process_cpu_time_total')",
+		"foreach ($metricName in $requiredMetricNames) {",
+		"  if ($metricsContent -match \"(?m)^$([regex]::Escape($metricName))(?:\\{|\\s)\") { Write-Output \"$metricName 1\" }",
+		"}",
+	}
+	validationResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+	if err != nil {
+		return err
+	}
+
+	if err := validateWindowsExporterMetrics(validationResult.stdout); err != nil {
+		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", err, validationResult.stdout)
+	}
+	logging.Logf(ctx, "aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+	return nil
+}
+
+// ValidateWindowsExporterRegisteredDisabled asserts that a PIS bake (BasePrep only)
+// registered aks-windows-exporter without enabling or starting it. Unlike
+// ValidateWindowsServiceIsNotRunning, a missing service fails this check.
+func ValidateWindowsExporterRegisteredDisabled(ctx context.Context, s *Scenario) error {
+	owned, err := windowsExporterIsCSEOwned(ctx, s)
+	if err != nil || !owned {
+		return err
+	}
+
+	command := []string{
+		"$ErrorActionPreference = \"Stop\"",
+		fmt.Sprintf("$svc = Get-Service -Name '%s'", windowsExporterServiceName),
+		"Write-Output $svc",
+		fmt.Sprintf("if ($svc.Status -ne 'Stopped') { throw \"service %s is $($svc.Status), expected Stopped after BasePrep\" }", windowsExporterServiceName),
+		fmt.Sprintf("if ($svc.StartType -ne 'Disabled') { throw \"service %s StartType is $($svc.StartType), expected Disabled after BasePrep\" }", windowsExporterServiceName),
+	}
+	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+		fmt.Sprintf("aks-windows-exporter is not registered disabled on %s", s.Runtime.VM.PrivateIP))
+	return err
+}
+
+func validateWindowsExporterOwnership(result string) (bool, error) {
+	switch strings.TrimSpace(result) {
+	case "SKIP":
+		return false, nil
+	case "PRESENT":
+		return true, nil
+	case "MISSING":
+		return false, fmt.Errorf("windows-exporter baked assets are present but the baked extension skip marker is missing")
+	default:
+		return false, fmt.Errorf("unexpected windows-exporter ownership check result: %q", result)
+	}
+}
+
+func validateWindowsExporterMetrics(metricsText string) error {
+	metricNames := make(map[string]struct{})
+	for line := range strings.SplitSeq(metricsText, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		if end := strings.IndexAny(line, "{ \t"); end > 0 {
+			metricNames[line[:end]] = struct{}{}
+		}
+	}
+
+	requiredMetrics := []string{
+		"windows_cpu_info",
+		"windows_cpu_time_total",
+		"windows_logical_disk_free_bytes",
+		"windows_logical_disk_size_bytes",
+		"windows_memory_available_bytes",
+		"windows_net_bytes_received_total",
+		"windows_net_bytes_sent_total",
+		"windows_os_info",
+		"windows_pagefile_free_bytes",
+		"windows_process_cpu_time_total",
+	}
+	var missingMetrics []string
+	for _, name := range requiredMetrics {
+		if _, exists := metricNames[name]; !exists {
+			missingMetrics = append(missingMetrics, name)
+		}
+	}
+	if len(missingMetrics) > 0 {
+		return fmt.Errorf("required metrics are missing: %s", strings.Join(missingMetrics, ", "))
+	}
+
+	return nil
+}
+
 func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceName string) error {
 	command := []string{
 		"set -ex",
@@ -1322,6 +1551,32 @@ func ValidateSystemdUnitIsNotFailed(ctx context.Context, s *Scenario, serviceNam
 		`expected "systemctl is-failed" to exit with a non-zero exit code for unit %q, unit is in a failed state`,
 		serviceName,
 	)
+}
+
+type systemdUnit struct {
+	Name string `json:"unit,omitempty"`
+}
+
+func parseFailedSystemdUnits(output string, distro datamodel.Distro) ([]systemdUnit, error) {
+	var units []systemdUnit
+	if !slices.Contains(datamodel.AvailableUbuntu2004Distros, distro) {
+		if err := json.Unmarshal([]byte(output), &units); err != nil {
+			return nil, err
+		}
+		return units, nil
+	}
+
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if len(fields) < 4 || fields[2] != "failed" {
+			return nil, fmt.Errorf("unexpected failed systemd unit entry: %q", line)
+		}
+		units = append(units, systemdUnit{Name: fields[0]})
+	}
+	return units, nil
 }
 
 // ValidateKubeletActiveFlagsEvent checks that the emit-kubelet-active-flags oneshot service
@@ -1347,6 +1602,35 @@ func ValidateKubeletActiveFlagsEvent(ctx context.Context, s *Scenario) error {
 	}
 	_, err = execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0, "failed to validate emit-kubelet-active-flags.service")
 	return err
+}
+
+func isKnownCVMInitrdFailure(s *Scenario, unitName, errorMessages string) bool {
+	if !s.Tags.CVM || s.VHD == nil || unitName != "initrd-core-tmpfiles-setup.service" {
+		return false
+	}
+	switch s.VHD.Distro {
+	case datamodel.AKSUbuntuContainerd2404CVMGen2, datamodel.AKSUbuntuMinimalContainerd2604CVMGen2:
+	default:
+		return false
+	}
+
+	// https://bugs.launchpad.net/bugs/2170424: the signed Azure-FDE initrd runs an
+	// Ubuntu Core unit on a classic rootfs. Require its exact missing-config error
+	// ("open" on 24.04, "read" on 26.04), and reject any additional error.
+	foundMissingConfig := false
+	for _, message := range strings.Split(strings.TrimSpace(errorMessages), "\n") {
+		switch message {
+		case "Failed to open 'core-writable.conf': No such file or directory",
+			"Failed to read 'core-writable.conf': No such file or directory":
+			foundMissingConfig = true
+		case "initrd-core-tmpfiles-setup.service: Main process exited, code=exited, status=1/FAILURE",
+			"initrd-core-tmpfiles-setup.service: Failed with result 'exit-code'.",
+			"Failed to start initrd-core-tmpfiles-setup.service - Create initial writable directories.":
+		default:
+			return false
+		}
+	}
+	return foundMissingConfig
 }
 
 func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
@@ -1386,16 +1670,20 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 		unitFailureAllowList["systemd-sysupdate.service"] = true
 	}
 
-	type systemdUnit struct {
-		Name string `json:"unit,omitempty"`
+	command := "systemctl list-units --failed --output json"
+	if slices.Contains(datamodel.AvailableUbuntu2004Distros, s.VHD.Distro) {
+		// Ubuntu 20.04's systemd does not support JSON output for list-units.
+		command = "LC_ALL=C systemctl list-units --failed --plain --no-legend --no-pager --full"
 	}
-	var failedUnits []systemdUnit
-	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "systemctl list-units --failed --output json", 0, "unable to list failed systemd units")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+		command,
+		0, "unable to list failed systemd units")
 	if err != nil {
 		return fmt.Errorf("list failed systemd units: %w", err)
 	}
-	if err := json.Unmarshal([]byte(result.stdout), &failedUnits); err != nil {
-		return fmt.Errorf(`parse and unmarshal "systemctl list-units" command output: %w`, err)
+	failedUnits, err := parseFailedSystemdUnits(result.stdout, s.VHD.Distro)
+	if err != nil {
+		return fmt.Errorf(`parse "systemctl list-units" command output: %w`, err)
 	}
 	failedUnits = lo.Filter(failedUnits, func(unit systemdUnit, _ int) bool {
 		if unitFailureAllowList[unit.Name] {
@@ -1426,17 +1714,25 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
+		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
+			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+				fmt.Sprintf("journalctl -b -u %s -p notice --no-pager --quiet -o cat", unit.Name),
+				0, "unable to inspect initrd unit errors")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("retrieve errors of failed unit %s: %w", unit.Name, err))
+			} else if isKnownCVMInitrdFailure(s, unit.Name, errorLogs.stdout) {
+				logging.Logf(ctx, "Allowing %s with the exact missing core-writable.conf error (Ubuntu bug 2170424)", unit.Name)
+				continue
+			}
+		}
+		errs = append(errs, fmt.Errorf(
+			"the following systemd unit has unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
+			unit.Name,
+		))
 	}
 	if err := dumpFileMapToDir(s.artifactName, failedUnitLogs); err != nil {
 		errs = append(errs, fmt.Errorf("dump failed systemd unit logs: %w", err))
 	}
-
-	errs = append(errs, fmt.Errorf(
-		"the following systemd units have unexpectedly entered a failed state: %s - failed unit logs will be included in scenario log bundle within <service-name>.service.log",
-		lo.Map(failedUnits, func(unit systemdUnit, _ int) string {
-			return unit.Name
-		}),
-	))
 	return errors.Join(errs...)
 }
 
@@ -1604,18 +1900,7 @@ func ValidateKubeletHasFlags(ctx context.Context, s *Scenario, filePath string) 
 	return assert.Contains(execResult.stdout, configFileFlags, "expected to find flag %s, but not found", "config")
 }
 
-func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []string) error {
-	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-containerd but got %d", len(versions)); err != nil {
-		return err
-	}
-	// assert versions[0] value starts with '2.'
-	if err := assert.Equal(strings.HasPrefix(versions[0], "2."), true, "expected moby-containerd version to start with '2.', got %v", versions[0]); err != nil {
-		return err
-	}
-
-	var errs []error
-	errs = append(errs, ValidateInstalledPackageVersion(ctx, s, "moby-containerd", versions[0]))
-
+func ValidateContainerdConfigDump(ctx context.Context, s *Scenario) error {
 	// TODO: this assertion never actually runs and always passes vacuously.
 	//
 	// execOnVMForScenarioOnUnprivilegedPod executes inside the "debugnonhost" daemonset pod,
@@ -1629,15 +1914,14 @@ func ValidateContainerd2Properties(ctx context.Context, s *Scenario, versions []
 	// Two changes are needed: run this on the node via execScriptOnVMForScenarioValidateExitCode
 	// (as ValidateKataContainerdConfigDump in validators_kata.go now does), and check stderr as
 	// well as stdout, since containerd logs its warnings to stderr. Fixing it is likely to
-	// surface real warnings at the 11 call sites that use this validator, so it is left as a
+	// surface real warnings at the call sites that use this validator, so it is left as a
 	// follow-up rather than folded into an unrelated change.
 	execResult, err := execOnVMForScenarioOnUnprivilegedPod(ctx, s, "containerd config dump ")
 	if err != nil {
-		return errors.Join(append(errs, fmt.Errorf("dump containerd config: %w", err))...)
+		return fmt.Errorf("dump containerd config: %w", err)
 	}
 	// validate containerd config dump has no warnings
-	errs = append(errs, assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout))
-	return errors.Join(errs...)
+	return assert.NotContains(execResult.stdout, "level=warning", "do not expect warning message when converting config file: %s", execResult.stdout)
 }
 
 func ValidateContainerRuntimePlugins(ctx context.Context, s *Scenario) error {
@@ -1904,25 +2188,6 @@ func ValidateNPDUnhealthyNvidiaGridLicenseStatusAfterFailure(ctx context.Context
 	return errors.Join(errs...)
 }
 
-func ValidateRuncVersion(ctx context.Context, s *Scenario, versions []string) error {
-	if err := assert.Equal(len(versions), 1, "expected exactly one version for moby-runc but got %d", len(versions)); err != nil {
-		return err
-	}
-	// check if versions[0] is great than or equal to 1.2.0
-	// check semantic version
-	parsedVersion, err := semver.NewVersion(versions[0])
-	if err != nil {
-		return fmt.Errorf("parse semver from moby-runc version %q: %w", versions[0], err)
-	}
-	if err := errors.Join(
-		assert.Equal(parsedVersion.Major() >= 1, true, "expected moby-runc major version to be at least 1, got %d", parsedVersion.Major()),
-		assert.Equal(parsedVersion.Minor() >= 2, true, "expected moby-runc minor version to be at least 2, got %d", parsedVersion.Minor()),
-	); err != nil {
-		return err
-	}
-	return ValidateInstalledPackageVersion(ctx, s, "moby-runc", versions[0])
-}
-
 func ValidateKubeletArgs(ctx context.Context, s *Scenario) error {
 	return ValidateWindowsProcessHasCliArguments(ctx, s, "kubelet.exe", []string{"--rotate-certificates=true", "--client-ca-file=c:\\k\\ca.crt", "--windows-priorityclass=ABOVE_NORMAL_PRIORITY_CLASS"})
 }
@@ -2148,6 +2413,20 @@ func ValidateWindowsCiliumIsRunning(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
+// ValidateWindowsCiliumNetworkingDisableOutboundNat asserts that CSE passed the AKS
+// disable-windows-outbound-nat option to WcnAgent as a DWORD DisableOutboundNat=1.
+func ValidateWindowsCiliumNetworkingDisableOutboundNat(ctx context.Context, s *Scenario) error {
+	script := `$path = 'HKLM:\SYSTEM\CurrentControlSet\Services\HNS\wcna_state\config'
+$value = Get-ItemPropertyValue -Path $path -Name DisableOutboundNat -ErrorAction Stop
+$kind = (Get-Item -Path $path -ErrorAction Stop).GetValueKind('DisableOutboundNat')
+Write-Output "$kind=$value"`
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "could not read WcnAgent DisableOutboundNat registry value")
+	if err != nil {
+		return fmt.Errorf("read WcnAgent DisableOutboundNat registry value: %w", err)
+	}
+	return assert.Equal(strings.TrimSpace(result.stdout), "DWord=1")
+}
+
 func ValidateWindowsCiliumIsNotRunning(ctx context.Context, s *Scenario) error {
 	// some of the services used by windows cilium are dependencies of other services, so they may be running even if cilium is not
 	// for example, ebpfcore is used by Guest Proxy Agent (GPA), so it may be running even if cilium is not
@@ -2281,6 +2560,59 @@ func ValidateLocalDNSResolution(ctx context.Context, s *Scenario, server string)
 	)
 }
 
+// ValidateLocalDNSConntrackRules checks that localdns skips conntrack for both request and response DNS traffic.
+func ValidateLocalDNSConntrackRules(ctx context.Context, s *Scenario) error {
+	script := `set -euo pipefail
+localdns_script="/opt/azure/containers/localdns/localdns.sh"
+if ! sudo grep -q -- '--sport 53 -j NOTRACK' "$localdns_script"; then
+  echo "WARNING: VHD localdns.sh does not contain reply-direction NOTRACK support; skipping rule validation for this image."
+  exit 0
+fi
+
+rules=$(sudo iptables -t raw -S)
+
+# awk and sort read to EOF, so these pipes cannot orphan the writer. A reader that
+# exits early instead (grep -q, head) kills the writer with SIGPIPE, which pipefail
+# then reports as a failed pipeline -- a false "missing rule" whenever the raw table
+# exceeds the 64KB pipe buffer. Keep early-exiting readers out of this check.
+actual=$(printf '%s\n' "$rules" | awk '/localdns: skip conntrack/' | sort)
+
+# Rules are spelled out in full, matching the exact "iptables -t raw -S" output format, so that a
+# malformed rule (extra matchers, wrong protocol, interface-scoped) is rejected rather than absorbed
+# by a wildcard. tcp and udp are listed separately rather than as "-p (tcp|udp)" so that a corrupted
+# rule for one protocol cannot be masked by its intact sibling for the other. Comparing the whole
+# set at once also rejects duplicate or unexpected extra rules, which per-rule matching cannot.
+expected=$(printf '%s\n' \
+  '-A OUTPUT -s 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -s 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --sport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A OUTPUT -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.10/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p tcp -m comment --comment "localdns: skip conntrack" -m tcp --dport 53 -j NOTRACK' \
+  '-A PREROUTING -d 169.254.10.11/32 -p udp -m comment --comment "localdns: skip conntrack" -m udp --dport 53 -j NOTRACK' \
+  | sort)
+
+if [ "$actual" != "$expected" ]; then
+  echo "localdns NOTRACK rules do not match the expected set."
+  # Size is reported because the only known way to reach a false failure here was an
+  # oversized raw table; if that recurs, this says what is filling it.
+  echo "raw table: $(printf '%s\n' "$rules" | wc -l) rules, $(printf '%s' "$rules" | wc -c) bytes"
+  echo "--- expected (<) vs actual (>) ---"
+  diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
+  exit 1
+fi
+`
+	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, script, 0, "localdns should install request and response direction NOTRACK rules"); err != nil {
+		return fmt.Errorf("validate localdns conntrack rules: %w", err)
+	}
+	return nil
+}
+
 // ValidateLocalDNSHostsFile checks that /etc/localdns/hosts contains at least one IPv4 entry for each critical FQDN.
 // This validation approach avoids flakiness with CDN/frontdoor-backed FQDNs (like mcr.microsoft.com) whose A records
 // can rotate between queries. We verify presence, not exact IP matching.
@@ -2375,7 +2707,7 @@ func ValidateAKSLocalDNSHostsSetupService(ctx context.Context, s *Scenario) erro
 // ValidateLocalDNSHostsPluginBypass verifies that localdns serves FQDNs from /etc/localdns/hosts
 // via the CoreDNS hosts plugin. It checks:
 //  1. The node has the kubernetes.azure.com/localdns-hosts-plugin=enabled annotation
-//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners
+//  2. The Corefile has the hosts plugin configured in both VnetDNS and KubeDNS listeners and includes loadbalance
 //  3. The IPs returned by dig match the entries in /etc/localdns/hosts for the same FQDN
 //
 // We intentionally do NOT assert on DNS flags (AA, RA) because CoreDNS can set these
@@ -2451,6 +2783,17 @@ fi
 echo "✓ hosts plugin configuration looks correct"
 echo ""
 
+echo "Checking if Corefile contains loadbalance plugin directive..."
+if ! grep -Eq '^[[:space:]]*loadbalance[[:space:]]*$' "$corefile"; then
+    echo "ERROR: Corefile does not contain 'loadbalance' directive"
+    echo ""
+    echo "Corefile contents:"
+    cat "$corefile"
+    exit 1
+fi
+echo "✓ Found 'loadbalance' directive in Corefile"
+echo ""
+
 echo "Corefile contents:"
 cat "$corefile"
 echo ""
@@ -2458,8 +2801,8 @@ echo "=== Corefile validation successful ==="
 `
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, corefileCheckScript, 0,
-		"Corefile should contain hosts plugin configuration"); err != nil {
-		return fmt.Errorf("check Corefile hosts plugin configuration: %w", err)
+		"Corefile should contain hosts and loadbalance plugin configuration"); err != nil {
+		return fmt.Errorf("check Corefile hosts and loadbalance plugin configuration: %w", err)
 	}
 
 	// Step 3: Test that localdns resolves real FQDNs from /etc/localdns/hosts
@@ -2959,8 +3302,8 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	serviceName := "node-exporter.service"
 
 	// Check if node-exporter is installed on this VHD by looking for the skip sentinel file.
-	// The skip file is only present on supported Ubuntu and Azure Linux 3 VHDs with node-exporter installed.
-	// Mariner, Flatcar, ACL, OSGuard, Kata, and older VHDs do not have the skip file.
+	// The skip file is only present on supported Ubuntu and Azure Linux 3 (including Kata) VHDs with node-exporter installed.
+	// Mariner, Flatcar, ACL, OSGuard, and older VHDs do not have the skip file.
 	exists, err := fileExist(ctx, s, skipFile)
 	if err != nil {
 		return fmt.Errorf("check existence of file %s: %w", skipFile, err)
@@ -3003,7 +3346,11 @@ func ValidateNodeExporter(ctx context.Context, s *Scenario) error {
 	if err != nil {
 		errs = append(errs, err)
 	}
-	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand))
+	requirePressure, err := nodeExporterRequiresPressure(ctx, s)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	errs = append(errs, scrapeAndValidateNodeExporter(ctx, s, metricsURL, hasInfiniBand, requirePressure))
 
 	if _, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, fmt.Sprintf("systemctl is-active %s", serviceName), 0,
 		"node-exporter should remain active after scraping"); err != nil {
@@ -3052,7 +3399,28 @@ exit 1`
 	return result.exitCode == "0", nil
 }
 
-func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand bool) error {
+// nodeExporterRequiresPressure reports whether the scrape must include PSI metrics.
+// The Azure Linux 3 Kata host kernel (kernel-mshv) is built without CONFIG_PSI, so
+// /proc/pressure is absent and node-exporter's pressure collector returns no data:
+// https://github.com/microsoft/azurelinux/issues/19417. Only Kata may omit PSI;
+// missing PSI on any other image is a kernel regression and must fail.
+func nodeExporterRequiresPressure(ctx context.Context, s *Scenario) (bool, error) {
+	if s.VHD == nil || !s.VHD.Distro.IsKataDistro() {
+		return true, nil
+	}
+	result, err := execScriptOnVMForScenario(ctx, s, "test -r /proc/pressure/cpu")
+	if err != nil {
+		return true, fmt.Errorf("detect pressure stall information: %w", err)
+	}
+	if result.exitCode != "0" && result.exitCode != "1" {
+		return true, fmt.Errorf("detect pressure stall information: exit %s: %s", result.exitCode, result.stderr)
+	}
+	available := result.exitCode == "0"
+	logging.Logf(ctx, "node-exporter pressure expectations on Kata: PSI available=%t", available)
+	return available, nil
+}
+
+func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL string, requireInfiniBand, requirePressure bool) error {
 	// The boot-local marker only exists on VHDs with lifecycle-aware suppression;
 	// main/older VHDs used by standalone PR E2Es retain their existing checks.
 	manaObserved, err := fileExist(ctx, s, "/run/node-exporter-mana-observed")
@@ -3075,7 +3443,7 @@ func scrapeAndValidateNodeExporter(ctx context.Context, s *Scenario, metricsURL 
 		responsePreview = responsePreview[:previewLimit] + "\n... response truncated"
 	}
 	return errors.Join(
-		assert.NoError(nodeexporter.ValidateMetrics(result.stdout), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
+		assert.NoError(nodeexporter.ValidateMetrics(result.stdout, requirePressure), "node-exporter scrape did not satisfy the AKS Prometheus metrics contract\nresponse preview:\n%s", responsePreview),
 		assert.NoError(nodeexporter.ValidateCollectors(result.stdout, requireInfiniBand, manaObserved), "node-exporter collectors did not satisfy the AgentBaker contract\nresponse preview:\n%s", responsePreview),
 	)
 }
@@ -3352,53 +3720,26 @@ fi`)
 	return nil
 }
 
-// ValidateSSHServiceDisabled validates that the SSH daemon service is disabled and stopped on the node
+// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
-	// Use VMSS RunCommand to check SSH service status directly on the node
-	// Ubuntu uses 'ssh' as service name, while AzureLinux and Mariner use 'sshd'
-	resp, err := RunCommand(ctx, s, `#!/bin/bash
-# Determine the correct SSH service name based on the distro
-# Ubuntu uses 'ssh', AzureLinux and Mariner use 'sshd'
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    if [[ "$ID" == "ubuntu" ]]; then
-        SSH_SERVICE="ssh"
-    else
-        SSH_SERVICE="sshd"
-    fi
-else
-    # Default to sshd if we can't determine the OS
-    SSH_SERVICE="sshd"
-fi
-
-echo "Detected SSH service name: $SSH_SERVICE"
-
-# Check SSH service status
-status_output=$(systemctl status "$SSH_SERVICE" 2>&1)
-echo "SSH service status output:"
-echo "$status_output"
-
-# Check if the service is inactive (dead) and disabled
-if echo "$status_output" | grep -q "Active: inactive (dead)"; then
-    if echo "$status_output" | grep -q "Loaded:.*disabled"; then
-        echo "SUCCESS: SSH service is disabled and stopped"
-        exit 0
-    else
-        echo "FAILED: SSH service is inactive but not disabled"
-        exit 1
-    fi
-else
-    echo "FAILED: SSH service is not inactive"
-    exit 1
-fi`)
+	command := validateSSHServiceDisabledScript
+	if s.IsWindows() {
+		command = `$ErrorActionPreference = 'Stop'
+$service = Get-Service -Name sshd -ErrorAction Stop
+if ($service.Status -ne 'Stopped' -or $service.StartType -ne 'Disabled') {
+    throw "SSH service is not stopped and disabled: Status=$($service.Status), StartType=$($service.StartType)"
+}
+Write-Output 'SUCCESS: SSH units are disabled and stopped'
+`
+	}
+	resp, err := RunCommand(ctx, s, command)
 	if err != nil {
 		return fmt.Errorf("run command to check SSH service status: %w", err)
 	}
 	stdout := lo.FromPtr(resp.Output)
 	logging.Logf(ctx, "Run command stdout: %s\nstderr: %s", stdout, lo.FromPtr(resp.Error))
 
-	// Check if the command execution was successful by looking for our success message in the output
-	if err := assert.Contains(stdout, "SUCCESS: SSH service is disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
+	if err := assert.Contains(stdout, "SUCCESS: SSH units are disabled and stopped", "SSH service is not properly disabled and stopped"); err != nil {
 		return err
 	}
 
@@ -3699,7 +4040,7 @@ sudo "$anc_path" check-hotfix`,
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
-	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessNBCCSECmd(s) {
+	if nbc != nil && s.VHD.SupportsScriptless() && nbc.EnableScriptlessCSECmd && !usesScriptlessProvisioning(s) {
 		return ValidateFileExists(ctx, s, "/opt/azure/containers/scriptless-cse-overrides.txt")
 	}
 	return nil
@@ -3731,8 +4072,35 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	return errors.Join(errs...)
 }
 
-// ValidateScriptlessPhase3 validates that there are not diffs between ANC generated cse cmd NBC cse cmd vars.
+// ValidateScriptlessPhase3 verifies that ANC provisions using only AKSNodeConfig.
 func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
+	if !usesScriptlessProvisioning(s) || !s.Runtime.NBC.EnableScriptlessAKSNodeConfig {
+		return nil
+	}
+	logFile := "/var/log/azure/aks-node-controller.output"
+	errs := []error{
+		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
+		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
+		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),
+		ValidateFileExcludesContent(ctx, s, logFile, "Using NBC command for scriptless phase 2"),
+		ValidateFileExcludesContent(ctx, s, logFile, "comparing envs"),
+	}
+	if s.Runtime.NBC.ScriptlessCSEProvisionMode {
+		_, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, "sudo journalctl | grep -q 'starting /opt/bin/boothook.sh'", 0, "expected CSE-delivered scriptless boothook")
+		errs = append(errs, err)
+	}
+	if enableScriptlessCompilation(s) {
+		errs = append(errs,
+			ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-hotfix"),
+			ValidateFileHasContent(ctx, s, logFile, "Using hotfix binary"),
+		)
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateScriptlessComparison checks Phase 2.5 NBC/AKSNodeConfig environment parity.
+func ValidateScriptlessComparison(ctx context.Context, s *Scenario) error {
 	// skip validation if
 	// 1. AKSNodeConfig not populated
 	// 2. using scriptless phase 1
@@ -3772,6 +4140,11 @@ func ValidateStaleCachedKubeBinariesRemoved(ctx context.Context, s *Scenario) er
 
 // ValidateRxBufferDefault validates rx buffer config using default values based on VM's CPU count
 func ValidateRxBufferDefault(ctx context.Context, s *Scenario) error {
+	if s.VHD != nil && s.VHD.SkipOldVHDValidations {
+		logging.Logf(ctx, "Skipping RX-buffer validation: legacy image %s may not contain the NIC-tuning artifacts", s.VHD.Distro)
+		return nil
+	}
+
 	// Query the VM's actual CPU count using nproc
 	cpuCountCmd := "nproc"
 	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, cpuCountCmd, 0, "could not get CPU count from VM")
@@ -3986,6 +4359,8 @@ func hasMANAHardware(ctx context.Context, s *Scenario) (bool, error) {
 	return result.exitCode == "0", nil
 }
 
+const kernelPanicPattern = `(kernel: )?(panic|\boops\b|call trace|backtrace|general protection fault|BUG:|RIP:)`
+
 // ValidateKernelLogs checks kernel logs for critical errors across multiple categories:
 // - Kernel panics/crashes (panic, oops, call trace, BUG, etc.)
 // - CPU lockups/stalls (soft/hard lockup, RCU stall, hung task, watchdog)
@@ -4011,7 +4386,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 
 	patterns := map[string]categoryPattern{
 		"PANIC/CRASH": {
-			pattern: `(kernel: )?(panic|oops|call trace|backtrace|general protection fault|BUG:|RIP:)`,
+			pattern: kernelPanicPattern,
 			// exclude boot parameters like "panic=-1" and dm-verity's "panic-on-corruption" (used by ACL for verified boot).
 			// Also exclude the benign DRM panic-handler registration messages ("Registered N planes with drm panic")
 			// emitted by simple-framebuffer/hyperv_drm on kernels with CONFIG_DRM_PANIC (6.10+, e.g. Ubuntu 26.04 /
@@ -4083,7 +4458,7 @@ func ValidateKernelLogs(ctx context.Context, s *Scenario) error {
 
 // ValidateWaagentLog checks /var/log/waagent.log for expected agent behavior:
 // - AutoUpdate is disabled as expected
-// - The correct version is running as ExtHandler
+// - An ExtHandler process is running
 // - No errors from ExtHandler
 // Skipped on Flatcar and OSGuard VHDs which manage WALinuxAgent independently.
 func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
@@ -4092,30 +4467,34 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 		return nil
 	}
 
-	versions := components.GetExpectedPackageVersions("walinuxagent", "default", "current")
-	if len(versions) == 0 || versions[0] == "<SKIP>" {
-		logging.Log(ctx, "Skipping waagent log validation: no walinuxagent version in components.json")
-		return nil
-	}
-	expectedVersion := versions[0]
-
 	const waagentLogFile = "/var/log/waagent.log"
+	autoUpdateMarker := "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation"
+	extHandlerRunning := regexp.MustCompile(`ExtHandler WALinuxAgent-\S+ running as process`)
 
-	logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
-		"sudo cat "+waagentLogFile, 0,
-		"could not read waagent log")
+	var logContents string
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		logResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
+			"sudo cat "+waagentLogFile, 0,
+			"could not read waagent log")
+		if err != nil {
+			logging.Logf(ctx, "waiting for waagent log initialization: %v", err)
+			return false, nil
+		}
+		logContents = logResult.stdout
+		return strings.Contains(logContents, autoUpdateMarker) &&
+			extHandlerRunning.MatchString(logContents), nil
+	})
 	if err != nil {
-		return fmt.Errorf("read waagent log: %w", err)
+		return fmt.Errorf("wait for waagent log initialization: %w", err)
 	}
-	logContents := logResult.stdout
 
 	errs := []error{
 		// 1. Verify AutoUpdate is disabled
-		assert.Contains(logContents, "AutoUpdate.UpdateToLatestVersion is set to False, not processing the operation",
+		assert.Contains(logContents, autoUpdateMarker,
 			"waagent.log should confirm AutoUpdate.UpdateToLatestVersion is set to False"),
-		// 2. Verify the correct version is running as ExtHandler (PID varies)
-		assert.Contains(logContents, fmt.Sprintf("ExtHandler WALinuxAgent-%s running as process", expectedVersion),
-			"waagent.log should confirm WALinuxAgent-%s is running as ExtHandler", expectedVersion),
+		// 2. Verify ExtHandler is running (version validation belongs to VHD content tests).
+		assert.Equal(extHandlerRunning.MatchString(logContents), true,
+			"waagent.log should confirm an ExtHandler process is running"),
 	}
 
 	// 3. Check for ExtHandler errors
@@ -4154,7 +4533,7 @@ func ValidateWaagentLog(ctx context.Context, s *Scenario) error {
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	logging.Logf(ctx, "waagent.log validation passed: WALinuxAgent-%s running correctly with no ExtHandler errors", expectedVersion)
+	logging.Log(ctx, "waagent.log validation passed: WALinuxAgent running correctly with no ExtHandler errors")
 	return nil
 }
 
@@ -4415,8 +4794,31 @@ func ValidateDraDriverNvidiaGpuServiceRunning(ctx context.Context, s *Scenario) 
 	return nil
 }
 
-func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error) {
+func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) error {
+	return validateDRAWorkloadSchedulable(ctx, s, "")
+}
+
+func ValidateDRAWithMIGWorkloadSchedulable(ctx context.Context, s *Scenario, expectedProfile string) error {
+	if expectedProfile == "" {
+		return fmt.Errorf("expected MIG profile must not be empty")
+	}
+	return validateDRAWorkloadSchedulable(ctx, s, expectedProfile)
+}
+
+func validateDRAWorkloadSchedulable(ctx context.Context, s *Scenario, expectedMIGProfile string) (err error) {
 	logging.Logf(ctx, "validating that DRA workloads can be scheduled")
+
+	var selectors []resourcev1.DeviceSelector
+	if expectedMIGProfile != "" {
+		selectors = []resourcev1.DeviceSelector{{
+			CEL: &resourcev1.CELDeviceSelector{
+				Expression: fmt.Sprintf(
+					`device.driver == "gpu.nvidia.com" && device.attributes["gpu.nvidia.com"].type == "mig" && device.attributes["gpu.nvidia.com"].profile == %q`,
+					expectedMIGProfile,
+				),
+			},
+		}}
+	}
 
 	time.Sleep(20 * time.Second) // Same delay as existing GPU tests
 
@@ -4433,7 +4835,7 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			Name:            deviceClassName,
 			OwnerReferences: []metav1.OwnerReference{ownerReference},
 		},
-		Spec: resourcev1.DeviceClassSpec{},
+		Spec: resourcev1.DeviceClassSpec{Selectors: selectors},
 	}, metav1.CreateOptions{})
 	if createErr != nil {
 		return fmt.Errorf("create DeviceClass %q: %w", deviceClassName, createErr)
@@ -4512,12 +4914,71 @@ func ValidateDRAWorkloadSchedulable(ctx context.Context, s *Scenario) (err error
 			},
 		},
 	}
-	if err := ValidatePodRunning(ctx, s, pod); err != nil {
+	var validateAllocation func() error
+	if expectedMIGProfile != "" {
+		validateAllocation = func() error {
+			allocatedClaim, err := s.Runtime.Kube.Typed.ResourceV1().ResourceClaims(claim.Namespace).Get(ctx, claim.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("get allocated ResourceClaim %q: %w", claim.Name, err)
+			}
+			resourceSlices, err := s.Runtime.Kube.Typed.ResourceV1().ResourceSlices().List(ctx, metav1.ListOptions{
+				FieldSelector: resourcev1.ResourceSliceSelectorNodeName + "=" + s.Runtime.VM.KubeName,
+			})
+			if err != nil {
+				return fmt.Errorf("list ResourceSlices for node %q: %w", s.Runtime.VM.KubeName, err)
+			}
+			if err := validateDRAMIGAllocation(allocatedClaim, resourceSlices, s.Runtime.VM.KubeName, expectedMIGProfile); err != nil {
+				return fmt.Errorf("validate MIG allocation for ResourceClaim %q: %w", claim.Name, err)
+			}
+			logging.Logf(ctx, "DRA workload allocated a MIG device with profile %s", expectedMIGProfile)
+			return nil
+		}
+	}
+	if err := startPodAndCheckItRunsWithValidation(ctx, s, pod, validateAllocation); err != nil {
 		return fmt.Errorf("run DRA workload pod: %w", err)
 	}
 
 	logging.Logf(ctx, "GPU workload is schedulable and runs successfully")
 	return nil
+}
+
+func validateDRAMIGAllocation(claim *resourcev1.ResourceClaim, resourceSlices *resourcev1.ResourceSliceList, nodeName, expectedProfile string) error {
+	if claim.Status.Allocation == nil {
+		return fmt.Errorf("claim has no allocation")
+	}
+	results := claim.Status.Allocation.Devices.Results
+	if len(results) != 1 {
+		return fmt.Errorf("expected exactly one allocated device, got %d", len(results))
+	}
+	allocated := results[0]
+	if allocated.Request != "gpu" || allocated.Driver != "gpu.nvidia.com" {
+		return fmt.Errorf("expected request gpu from driver gpu.nvidia.com, got request %q from driver %q", allocated.Request, allocated.Driver)
+	}
+	for _, resourceSlice := range resourceSlices.Items {
+		if resourceSlice.Spec.Driver != allocated.Driver || resourceSlice.Spec.Pool.Name != allocated.Pool ||
+			resourceSlice.Spec.NodeName == nil || *resourceSlice.Spec.NodeName != nodeName {
+			continue
+		}
+		for _, device := range resourceSlice.Spec.Devices {
+			if device.Name != allocated.Device {
+				continue
+			}
+			for attribute, expected := range map[resourcev1.QualifiedName]string{"type": "mig", "profile": expectedProfile} {
+				value, ok := device.Attributes[attribute]
+				if !ok {
+					value = device.Attributes[resourcev1.QualifiedName(allocated.Driver+"/"+string(attribute))]
+				}
+				if value.StringValue == nil {
+					return fmt.Errorf("allocated device %q has no string attribute %q", allocated.Device, attribute)
+				}
+				if *value.StringValue != expected {
+					return fmt.Errorf("allocated device %q has %s %q, expected %q", allocated.Device, attribute, *value.StringValue, expected)
+				}
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("allocated device %q from driver %q and pool %q not found on node %q", allocated.Device, allocated.Driver, allocated.Pool, nodeName)
 }
 
 // ValidateRCV1PCertMode validates that the rcv1p certificate endpoint mode was used during

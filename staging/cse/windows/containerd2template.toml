@@ -49,6 +49,7 @@ state = 'C:\ProgramData\containerd\state'
           [plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.default_runtime.options]
             Debug = false
             DebugType = 0
+            IoRetryTimeoutInSec = 300
             SandboxImage = '{{pauseImage}}'
             SandboxPlatform = 'windows/amd64'
             SandboxIsolation = {{sandboxIsolation}}

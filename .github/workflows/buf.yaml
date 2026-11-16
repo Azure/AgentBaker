@@ -30,11 +30,11 @@ jobs:
       - name: Read buf version
         id: buf-version
         run: echo "version=$(cat aks-node-controller/.buf-version)" >> "$GITHUB_OUTPUT"
-      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+      - uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1.7.0
         with:
           input: aks-node-controller
           version: ${{ steps.buf-version.outputs.version }}
-      - uses: bufbuild/buf-action@85aebf73123b5c15fd5528aaecbf9129cddf7fa7 # v1.6.0
+      - uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1.7.0
         with:
           input: aks-live-patching
           # Reuses the buf version from aks-node-controller/.buf-version

@@ -137,7 +137,7 @@ if [ "${MODE}" = "linuxVhdMode" ]; then
 
 fi
 
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; then
 	# only append 'Arm64' in windows builds, for linux we either take what was provided
 	# or base the name off the the value of SKU_NAME (see above)
@@ -246,6 +246,11 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "build_date": "${BUILD_DATE}"
 }
 EOF
+
+if [ "$MODE" = "linuxVhdMode" ] && [ "$OS_SKU" = "AzureContainerLinux" ]; then
+  echo "ACL base image: ${SIG_SOURCE_GALLERY_UNIQUE_NAME}/${SIG_SOURCE_IMAGE_NAME}/${SIG_SOURCE_IMAGE_VERSION}"
+  echo "Packer build region: ${PACKER_BUILD_LOCATION}"
+fi
 
 # so we don't accidently log UA_TOKEN, though ADO will automatically mask it if it appears in stdout
 # since it's coming from a variable group
