@@ -17,8 +17,9 @@ measured results yet.
 
 ## AgentBaker integration workspace
 
-The integration target is **Ubuntu 26.04 Minimal Gen2 x64**. A copy of this
-experiment lives in `e2e/boot-trace/` on the AgentBaker experimental branch
+The original integration target is **Ubuntu 26.04 Minimal Gen2 x64**.
+An opt-in **Azure Linux 3 Gen2 x64 ftrace image** is also prepared below.
+A copy of this experiment lives in `e2e/boot-trace/` on the AgentBaker experimental branch
 [`thicohen/trace-node-boot-time`](https://github.com/Azure/AgentBaker/tree/thicohen/trace-node-boot-time).
 
 Local Orca worktree:
@@ -77,9 +78,9 @@ override it, or if production naming/publishing or another OS/architecture is
 selected. Normal builds retain their original Packer template.
 `prepare_vhd.py` derives the instrumented template instead of duplicating it.
 
-The image helper deliberately supports only Ubuntu 26.04 x86_64, not other
-AgentBaker operating systems. It prepares tools after the last builder reboot,
-before the package inventory. It only **enables**, never starts, the recorder
+The image helper supports Ubuntu 26.04 x86_64 and Azure Linux 3.0 x86_64
+(ftrace only), not other AgentBaker operating systems. It prepares tools after
+the last builder reboot, before the package inventory. It only **enables**, never starts, the recorder
 after final cleanup. ftrace kernel parameters are added through a GRUB drop-in
 then, preserving Ubuntu's initrdless boot path. The main initramfs is not modified:
 Ubuntu can skip it and load only the early microcode archive.
@@ -139,6 +140,50 @@ Both tracing scenarios pin the test node's kubelet/kubectl to **1.36.5**,
 matching the Ubuntu 26.04 VHD cache rather than downloading a newer version
 during the measured boot. This applies to both NBC and AKSNodeConfig provisioning.
 The shared latest-GA kubenet cluster and its control-plane version are unchanged.
+
+### Azure Linux 3 ftrace image
+
+The manual VHD pipeline also accepts
+`buildAzureLinuxV3gen2BootTraceFtrace=true` (disabled by default). It builds
+the separate staging-gallery definition `AzureLinuxV3gen2-boot-trace-ftrace`
+using the standard Azure Linux Packer template, not the Ubuntu template.
+The normal `AzureLinuxV3gen2` image and production publication are unchanged.
+
+`bootTraceAzureLinuxBaseVersion` defaults to `3.20261105.01`, giving the URN
+`MicrosoftCBLMariner:azure-linux-3:azure-linux-3-gen2:3.20261105.01`.
+This exact non-FIPS x64 Gen2 image was verified in `eastus2` and `westus3` on 2026-11-16;
+availability must also be checked in the actual build region.
+`latest`, FIPS, Trusted Launch, ARM64 and LTTng are rejected for this experiment.
+The running kernel must be on the Azure Linux 3 `6.6.*.azl3` track, expose the
+required tracing configuration/events, and remain identical between preparation
+and arming. Its exact release is recorded in the baked provenance.
+No kernel package is installed or replaced by the tracing helper.
+
+Azure Linux's packaged trace-cmd 3.2 cannot preserve the early boot buffers with
+`record -K`. At image-build time the helper therefore compiles trace-cmd 3.4
+and libtraceevent 1.9.0 from the upstream source archives carried by the official
+Ubuntu archive. Their SHA-256 values are pinned from the corresponding signed
+source-package descriptors; no Ubuntu binaries or APT repository are installed.
+This explicit build-time source download is needed because the native package
+lacks the required recorder option. Native `libtracefs-1.8.0-2.azl3` is used.
+The new recorder and libtraceevent are isolated under `/opt/aks-node-boot-trace`;
+an RPATH selects the private library without changing the system loader config.
+Only the tracing service prepends that recorder's directory to PATH.
+Newly installed top-level compiler/development packages are removed after the
+build; packages already present on the standard builder are preserved.
+
+The same bounded recorder, diagnostics, boot event set and trace.dat v6 format
+are used. GRUB arming uses `/etc/default/grub` and `grub2-mkconfig`, preserving
+the normal Azure Linux initramfs/boot path. The recorder is enabled only after
+the final VHD cleanup and is not started on the builder.
+
+For an **image-only** run, disable the default Ubuntu reference and tracing
+builds, enable only the Azure Linux tracing build, leave `runBootTraceE2E=false`,
+and set `SKIP_E2E_TESTS=true`. The existing VHD content checks still run.
+This option does not register or launch Azure Linux tracing E2E scenarios:
+the existing three-node E2E selection and automatic comparison renderer remain
+Ubuntu-only. Azure Linux first-boot runtime and a three-node comparison need
+separate validation; preparing this image does not establish their timings.
 
 ### Targeted diagnostics
 

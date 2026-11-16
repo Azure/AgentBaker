@@ -54,6 +54,49 @@ Describe 'boot-trace image preparation guards'
     The stderr should include 'pinned kernel'
   End
 
+  Context 'on Azure Linux 3'
+    sed() {
+      case "$2" in
+        's/^ID=//p') printf '%s\n' azurelinux ;;
+        's/^VERSION_ID=//p') printf '%s\n' 3.0 ;;
+        *) return 1 ;;
+      esac
+    }
+
+    uname() {
+      case "$1" in
+        -m) printf '%s\n' x86_64 ;;
+        -r) printf '%s\n' 6.6.116.1-1.azl3 ;;
+        *) return 1 ;;
+      esac
+    }
+
+    It 'accepts ftrace on the supported kernel track'
+      When call check_trace_target ftrace 3.20261105.01 azurelinux-test
+      The status should be success
+      The output should be blank
+    End
+
+    It 'rejects LTTng instead of installing Ubuntu DKMS packages'
+      When call check_trace_target lttng 3.20261105.01 azurelinux-test
+      The status should be failure
+      The stderr should include 'only supports ftrace'
+    End
+
+    It 'rejects a kernel from another OS'
+      uname() {
+        case "$1" in
+          -m) printf '%s\n' x86_64 ;;
+          -r) printf '%s\n' 7.0.0-1020-azure ;;
+          *) return 1 ;;
+        esac
+      }
+      When call check_trace_target ftrace 3.20261105.01 azurelinux-test
+      The status should be failure
+      The stderr should include 'pinned kernel'
+    End
+  End
+
   It 'adds early tracing parameters without changing the existing boot path'
     configure_grub() {
       local GRUB_CMDLINE_LINUX='console=ttyS0 root=PARTUUID=test-root'

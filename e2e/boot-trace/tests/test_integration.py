@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prepare_vhd import IMAGE_NAME, instrument_template, validate_environment
+from prepare_vhd import AZURELINUX_IMAGE_NAME, IMAGE_NAME, instrument_template, validate_environment
 from render_e2e import render, select_trials
 
 
@@ -77,6 +77,25 @@ class VHDIntegrationTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[3]
         template = json.loads((root / "vhdbuilder/packer/vhd-image-builder-base.json").read_text())
         result = instrument_template(template, "ftrace", "26.04.20260701", "test")
+        self.assertIn("install.sh arm ftrace", result["provisioners"][-1]["inline"][-2])
+
+    def test_azurelinux_uses_an_isolated_ftrace_image_and_the_mariner_lifecycle(self):
+        environment = dict(self.environment, OS_SKU="AzureLinux", OS_VERSION="V3",
+                           FEATURE_FLAGS="None", IMG_PUBLISHER="MicrosoftCBLMariner",
+                           IMG_OFFER="azure-linux-3", IMG_SKU="azure-linux-3-gen2",
+                           IMG_VERSION="3.20261105.01", ENABLE_CGROUPV2="True",
+                           SIG_IMAGE_NAME=AZURELINUX_IMAGE_NAME + "ftrace")
+        settings = {"img_version": environment["IMG_VERSION"],
+                    "sig_image_name": environment["SIG_IMAGE_NAME"]}
+        self.assertEqual(validate_environment(environment, settings), ("ftrace", "3.20261105.01"))
+        for key, value in (("SIG_IMAGE_NAME", "AzureLinuxV3gen2"),
+                           ("BOOT_TRACE_BACKEND", "lttng"), ("IMG_VERSION", "latest"),
+                           ("IMG_SKU", "azure-linux-3-gen2-fips"), ("ENABLE_CGROUPV2", "False")):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                validate_environment(dict(environment, **{key: value}), settings)
+        root = Path(__file__).resolve().parents[3]
+        template = json.loads((root / "vhdbuilder/packer/vhd-image-builder-mariner.json").read_text())
+        result = instrument_template(template, "ftrace", environment["IMG_VERSION"], "azurelinux-test")
         self.assertIn("install.sh arm ftrace", result["provisioners"][-1]["inline"][-2])
 
 

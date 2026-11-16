@@ -10,13 +10,14 @@ import shlex
 
 
 IMAGE_NAME = "2604minimalgen2containerd-boot-trace-"
+AZURELINUX_IMAGE_NAME = "AzureLinuxV3gen2-boot-trace-"
 
 
 def instrument_template(template, backend, base_version, image_label):
     if backend not in ("ftrace", "lttng"):
         raise ValueError("Expected ftrace or lttng")
     if not re.fullmatch(r"\d+\.\d+\.\d+", base_version):
-        raise ValueError("An exact Canonical image version is required, not latest")
+        raise ValueError("An exact Marketplace image version is required, not latest")
     if not re.fullmatch(r"[a-zA-Z0-9._-]+", image_label):
         raise ValueError("Invalid image label")
     result = copy.deepcopy(template)
@@ -56,14 +57,26 @@ def instrument_template(template, backend, base_version, image_label):
 
 def validate_environment(environment, settings):
     backend = environment.get("BOOT_TRACE_BACKEND")
-    required = {
-        "MODE": "linuxVhdMode", "OS_SKU": "Ubuntu", "OS_VERSION": "26.04",
-        "ARCHITECTURE": "X86_64", "HYPERV_GENERATION": "V2", "FEATURE_FLAGS": "minimal",
-        "IMG_PUBLISHER": "Canonical", "IMG_OFFER": "ubuntu-26_04-lts", "IMG_SKU": "minimal",
-        "SIG_IMAGE_NAME": IMAGE_NAME + str(backend),
-    }
     if backend not in ("ftrace", "lttng"):
         raise ValueError("BOOT_TRACE_BACKEND must be ftrace or lttng")
+    required = {
+        "MODE": "linuxVhdMode", "ARCHITECTURE": "X86_64", "HYPERV_GENERATION": "V2",
+    }
+    if environment.get("OS_SKU") == "AzureLinux":
+        if backend != "ftrace":
+            raise ValueError("Azure Linux 3 boot tracing only supports ftrace")
+        required.update({
+            "OS_SKU": "AzureLinux", "OS_VERSION": "V3", "FEATURE_FLAGS": "None",
+            "IMG_PUBLISHER": "MicrosoftCBLMariner", "IMG_OFFER": "azure-linux-3",
+            "IMG_SKU": "azure-linux-3-gen2",
+            "SIG_IMAGE_NAME": AZURELINUX_IMAGE_NAME + backend, "ENABLE_CGROUPV2": "True",
+        })
+    else:
+        required.update({
+            "OS_SKU": "Ubuntu", "OS_VERSION": "26.04", "FEATURE_FLAGS": "minimal",
+            "IMG_PUBLISHER": "Canonical", "IMG_OFFER": "ubuntu-26_04-lts", "IMG_SKU": "minimal",
+            "SIG_IMAGE_NAME": IMAGE_NAME + backend,
+        })
     for key, value in required.items():
         if environment.get(key) != value:
             raise ValueError(f"{key} must be {value} for a boot-trace build")
@@ -73,7 +86,7 @@ def validate_environment(environment, settings):
             raise ValueError(f"{key} must explicitly be false")
     version = environment.get("IMG_VERSION", "")
     if not re.fullmatch(r"\d+\.\d+\.\d+", version) or settings.get("img_version") != version:
-        raise ValueError("Packer must use the requested exact Canonical base image version")
+        raise ValueError("Packer must use the requested exact Marketplace base image version")
     if settings.get("sig_image_name") != required["SIG_IMAGE_NAME"]:
         raise ValueError("Packer image definition must be the isolated boot-trace definition")
     return backend, version
@@ -81,13 +94,17 @@ def validate_environment(environment, settings):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--template", type=Path, default=Path("vhdbuilder/packer/vhd-image-builder-base.json"))
+    parser.add_argument("--template", type=Path)
     parser.add_argument("--settings", type=Path, default=Path("vhdbuilder/packer/settings.json"))
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     backend, version = validate_environment(os.environ, json.loads(args.settings.read_text()))
-    label = IMAGE_NAME + backend + "-" + version
-    result = instrument_template(json.loads(args.template.read_text()), backend, version, label)
+    template = args.template or Path(
+        "vhdbuilder/packer/vhd-image-builder-mariner.json" if os.environ["OS_SKU"] == "AzureLinux"
+        else "vhdbuilder/packer/vhd-image-builder-base.json"
+    )
+    label = os.environ["SIG_IMAGE_NAME"] + "-" + version
+    result = instrument_template(json.loads(template.read_text()), backend, version, label)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
 
 

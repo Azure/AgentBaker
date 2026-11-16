@@ -1,13 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
+# shellcheck source=e2e/boot-trace/guest/install-azurelinux.sh
+. "$(dirname "${BASH_SOURCE[0]}")/install-azurelinux.sh"
+
 check_trace_target() {
     local backend="$1" base_version="$2" image_label="$3"
     local os_id os_version
     os_id=$(sed -n 's/^ID=//p' /etc/os-release | tr -d '"')
     os_version=$(sed -n 's/^VERSION_ID=//p' /etc/os-release | tr -d '"')
-    if [[ "$os_id" != ubuntu || "$os_version" != 26.04 || "$(uname -m)" != x86_64 ]]; then
-        echo "Boot tracing only supports Ubuntu 26.04 x86_64" >&2
+    if [[ "$(uname -m)" != x86_64 ]] ||
+        [[ "$os_id:$os_version" != ubuntu:26.04 && "$os_id:$os_version" != azurelinux:3.0 ]]; then
+        echo "Boot tracing only supports Ubuntu 26.04 or Azure Linux 3.0 x86_64" >&2
         return 1
     fi
     if [[ "$backend" != ftrace && "$backend" != lttng ]]; then
@@ -18,7 +22,12 @@ check_trace_target() {
         echo "An exact base image version and a safe image label are required" >&2
         return 1
     fi
-    if [[ "$(uname -r)" != 7.0.0-1020-azure ]]; then
+    if [[ "$os_id" == azurelinux && "$backend" != ftrace ]]; then
+        echo "Azure Linux 3 boot tracing only supports ftrace" >&2
+        return 1
+    fi
+    if [[ "$os_id" == ubuntu && "$(uname -r)" != 7.0.0-1020-azure ]] ||
+        [[ "$os_id" == azurelinux && ! "$(uname -r)" =~ ^6\.6\..*\.azl3$ ]]; then
         echo "Recheck boot-trace compatibility before changing the pinned kernel" >&2
         return 1
     fi
@@ -62,6 +71,7 @@ prepare_trace_image() {
     install -m 0644 "$source_dir/capture.py" "$source_dir/stop_capture.py" "$source_dir/diagnostics.py" \
         "$source_dir/ftrace-grub.cfg" /opt/aks-node-boot-trace/
     install -m 0755 "$source_dir/install.sh" /opt/aks-node-boot-trace/install.sh
+    install -m 0644 "$source_dir/install-azurelinux.sh" /opt/aks-node-boot-trace/install-azurelinux.sh
     install -m 0644 "$source_dir/aks-node-boot-trace.service" /etc/systemd/system/
     printf 'BACKEND=%s\nMAX_SECONDS=600\nMAX_MIB=%s\nIMAGE_LABEL=%s\n' \
         "$backend" "$max_mib" "$image_label" > /etc/aks-node-boot-trace.env
@@ -69,7 +79,9 @@ prepare_trace_image() {
     printf 'backend=%s\nbase_version=%s\nkernel=%s\n' \
         "$backend" "$base_version" "$(uname -r)" > /opt/aks-node-boot-trace/image.txt
 
-    if [[ "$backend" == ftrace ]]; then
+    if grep -qx 'ID=azurelinux' /etc/os-release; then
+        install_azurelinux_ftrace_recorder
+    elif [[ "$backend" == ftrace ]]; then
         install_ftrace_recorder
     else
         apt-get update
@@ -99,14 +111,16 @@ Requires=lttng-sessiond.service
 After=lttng-sessiond.service
 EOF
     fi
-    dpkg-query -W -f='${binary:Package}=${Version}\n' python3 "linux-image-$(uname -r)" \
-        >> /opt/aks-node-boot-trace/image.txt
-    if [[ "$backend" == ftrace ]]; then
-        dpkg-query -W -f='${binary:Package}=${Version}\n' trace-cmd libtraceevent1 libtraceevent1-plugin \
+    if ! grep -qx 'ID=azurelinux' /etc/os-release; then
+        dpkg-query -W -f='${binary:Package}=${Version}\n' python3 "linux-image-$(uname -r)" \
             >> /opt/aks-node-boot-trace/image.txt
-    else
-        dpkg-query -W -f='${binary:Package}=${Version}\n' lttng-tools lttng-modules-dkms \
-            >> /opt/aks-node-boot-trace/image.txt
+        if [[ "$backend" == ftrace ]]; then
+            dpkg-query -W -f='${binary:Package}=${Version}\n' trace-cmd libtraceevent1 libtraceevent1-plugin \
+                >> /opt/aks-node-boot-trace/image.txt
+        else
+            dpkg-query -W -f='${binary:Package}=${Version}\n' lttng-tools lttng-modules-dkms \
+                >> /opt/aks-node-boot-trace/image.txt
+        fi
     fi
     systemctl daemon-reload
     systemctl disable aks-node-boot-trace.service
@@ -117,6 +131,10 @@ arm_trace_image() {
     local kernel config flag event
     check_trace_target "$backend" "$base_version" "$image_label"
     kernel=$(uname -r)
+    if ! grep -qxF "kernel=$kernel" /opt/aks-node-boot-trace/image.txt; then
+        echo "Prepared boot-trace kernel changed before arming" >&2
+        return 1
+    fi
     config="/boot/config-$kernel"
     for flag in MODULES KALLSYMS HIGH_RES_TIMERS TRACEPOINTS KPROBES EVENT_TRACING; do
         grep -qx "CONFIG_${flag}=y" "$config"
@@ -136,9 +154,13 @@ arm_trace_image() {
             net:netif_receive_skb_list_entry net:netif_rx_entry; do
             grep -qx "$event" /sys/kernel/tracing/available_events
         done
-        install -m 0644 /opt/aks-node-boot-trace/ftrace-grub.cfg \
-            /etc/default/grub.d/99-aks-boot-trace.cfg
-        update-grub
+        if grep -qx 'ID=azurelinux' /etc/os-release; then
+            arm_azurelinux_ftrace
+        else
+            install -m 0644 /opt/aks-node-boot-trace/ftrace-grub.cfg \
+                /etc/default/grub.d/99-aks-boot-trace.cfg
+            update-grub
+        fi
     else
         modinfo -k "$kernel" lttng-tracer
         if [[ -e /etc/default/grub.d/99-aks-boot-trace.cfg ]]; then

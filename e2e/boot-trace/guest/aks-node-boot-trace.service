@@ -14,6 +14,7 @@ ConditionPathExists=/etc/aks-node-boot-trace.env
 Type=notify
 NotifyAccess=main
 EnvironmentFile=/etc/aks-node-boot-trace.env
+Environment=PATH=/opt/aks-node-boot-trace/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 UMask=0077
 ExecStart=/usr/bin/python3 /opt/aks-node-boot-trace/capture.py --backend ${BACKEND} --max-seconds ${MAX_SECONDS} --max-mib ${MAX_MIB} --image-label ${IMAGE_LABEL}
 ExecStopPost=/usr/bin/python3 /opt/aks-node-boot-trace/stop_capture.py
