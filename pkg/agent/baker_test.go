@@ -1092,6 +1092,20 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		vars := decodeCSEVars(cseCmd)
 		Expect(vars).To(HaveKeyWithValue("DISABLE_SSH", "true"))
 		Expect(vars).To(HaveKeyWithValue("DISABLE_PUBKEY_AUTH", "false"))
+		Expect(vars).To(HaveKeyWithValue("SHOULD_RESTORE_SSH", "false"))
+	})
+
+	It("should restore SSH only for an explicit enabled policy", func() {
+		for _, status := range []datamodel.SSHStatus{datamodel.SSHUnspecified, datamodel.SSHOn, datamodel.EntraIDSSH} {
+			baseConfig.SSHStatus = status
+			vars := decodeCSEVars(templateGenerator.getLinuxNodeCSECommand(baseConfig))
+			expected := "true"
+			if status == datamodel.SSHUnspecified {
+				expected = "false"
+			}
+			Expect(vars).To(HaveKeyWithValue("SHOULD_RESTORE_SSH", expected))
+			Expect(vars).To(HaveKeyWithValue("DISABLE_SSH", "false"))
+		}
 	})
 
 	It("should set CUSTOM_DATA_ONLY_PROVISIONING", func() {

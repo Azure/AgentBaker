@@ -94,6 +94,7 @@ RUNC_PACKAGE_URL={{GetParameter "runcPackageURL"}}
 ENABLE_HOSTS_CONFIG_AGENT="{{EnableHostsConfigAgent}}"
 DISABLE_SSH="{{ShouldDisableSSH}}"
 DISABLE_PUBKEY_AUTH="{{ShouldTurnOffPubkeyAuthSSH}}"
+SHOULD_RESTORE_SSH="{{ShouldRestoreSSH}}"
 SHOULD_CONFIGURE_HTTP_PROXY="{{ShouldConfigureHTTPProxy}}"
 SHOULD_CONFIGURE_HTTP_PROXY_CA="{{ShouldConfigureHTTPProxyCA}}"
 HTTP_PROXY_TRUSTED_CA="{{GetHTTPProxyCA}}"

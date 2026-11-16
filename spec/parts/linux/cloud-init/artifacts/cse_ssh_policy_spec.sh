@@ -1,155 +1,181 @@
 #!/bin/bash
 
-Describe 'persistent SSH disablement'
+Describe 'SSH activation policy helpers'
     CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
     CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
     CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
     CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
     Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./spec/support/ssh_policy.sh"
+    BeforeEach setup_ssh_policy
+    AfterEach cleanup_ssh_policy
 
-    setup() {
-        TEST_ROOT=$(mktemp -d)
-        SSH_POLICY_DIR="$TEST_ROOT/policy"
-        SSH_SYSTEMD_UNIT_DIR="$TEST_ROOT/systemd"
-        EVENTS_LOGGING_DIR="$TEST_ROOT/events"
-        MODEL="$TEST_ROOT/model"
-        mkdir -p "$MODEL"
+    save_stopped_policy() {
+        installSSHDisablePolicy || return 1
         local unit
-        for unit in ssh.service sshd.service ssh.socket sshd.socket; do
-            printf not-found > "$MODEL/$unit.LoadState"
-            printf disabled > "$MODEL/$unit.UnitFileState"
-            printf inactive > "$MODEL/$unit.ActiveState"
+        for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+            systemctl stop "$unit" || return 1
+            systemctl disable "$unit" || return 1
         done
     }
 
-    cleanup() {
-        find "$TEST_ROOT" -type f -delete
-        find "$TEST_ROOT" -depth -type d -empty -delete
-    }
+    It 'preserves the first activation snapshot and blocks dependency starts'
+        repeat_policy() {
+            save_stopped_policy
+            installSSHDisablePolicy
+            systemctl start sshd.service
+            cat "$SSH_POLICY_DIR/activation"
+            cat "$SSH_MODEL_DIR/sshd.service.ActiveState"
+        }
+        When call repeat_policy
+        The status should be success
+        The output should equal "sshd.service enabled
+inactive"
+    End
 
-    BeforeEach setup
-    AfterEach cleanup
+    It 'restores an owned service and leaves later LocalUser reconciliation unchanged'
+        restore_twice() {
+            save_stopped_policy
+            restoreSSH
+            DISABLE_SSH=false
+            SHOULD_RESTORE_SSH=true
+            applySSHPolicy
+            cat "$SSH_MODEL_DIR/sshd.service.ActiveState"
+            cat "$SSH_MODEL_DIR/sshd.service.UnitFileState"
+            grep -c '^start ' "$SSH_TEST_ROOT/activation-commands"
+        }
+        When call restore_twice
+        The status should be success
+        The output should equal "activeenabled1"
+        The file "$SSH_POLICY_DIR/disabled" should not be exist
+        The file "$SSH_POLICY_DIR/activation" should not be exist
+    End
 
-    systemctl() {
-        local action="$1" unit="$2"
-        printf '%s\n' "$*" >> "$TEST_ROOT/commands"
-        [ "$action" != daemon-reload ] || return 0
-        case "$unit" in ssh|sshd) unit="$unit.service" ;; esac
-        case "$action" in
-            cat)
-                case "$(cat "$MODEL/$unit.LoadState")" in
-                    loaded|masked) return 0 ;;
-                    *) return 1 ;;
-                esac
-                ;;
-            stop)
-                # systemctl stop succeeds without clearing an existing failed state.
-                [ "$(cat "$MODEL/$unit.ActiveState")" = failed ] ||
-                    printf inactive > "$MODEL/$unit.ActiveState"
-                ;;
-            start)
-                [ "$(cat "$MODEL/$unit.LoadState")" = loaded ] || return 1
-                if [ -f "$SSH_POLICY_DIR/disabled" ] &&
-                    grep -Fxq "ConditionPathExists=!$SSH_POLICY_DIR/disabled" \
-                        "$SSH_SYSTEMD_UNIT_DIR/$unit.d/90-aks-ssh-access.conf"; then
-                    return 0
-                fi
-                printf active > "$MODEL/$unit.ActiveState"
-                ;;
-            *) echo "Unexpected systemctl command: $*" >&2; return 1 ;;
-        esac
-    }
+    It 'captures and restores an unambiguous stopped legacy service without boot links'
+        restore_legacy_snapshot() {
+            printf inactive > "$SSH_MODEL_DIR/sshd.service.ActiveState"
+            printf disabled > "$SSH_MODEL_DIR/sshd.service.UnitFileState"
+            save_stopped_policy
+            cat "$SSH_POLICY_DIR/activation"
+            restoreSSH
+        }
+        When call restore_legacy_snapshot
+        The status should be success
+        The output should equal 'sshd.service disabled'
+        The contents of file "$SSH_MODEL_DIR/sshd.service.ActiveState" should equal active
+        The contents of file "$SSH_MODEL_DIR/sshd.service.UnitFileState" should equal disabled
+        The contents of file "$SSH_TEST_ROOT/activation-commands" should equal 'start sshd.service'
+        The file "$SSH_POLICY_DIR/disabled" should not be exist
+        The file "$SSH_POLICY_DIR/activation" should not be exist
+    End
 
-    timeout() { shift; "$@"; }
-    sleep() { :; }
-
-    Describe 'service and socket starts'
+    Describe 'invalid ownership records'
         Parameters
-            ssh.service
-            sshd.service
-            ssh.socket
-            sshd.socket
+            missing 'owned activation record is missing'
+            invalid 'no valid saved activation mode'
         End
-        It "keeps $1 blocked after repeated disable without changing enablement"
-            block_start() {
-                printf loaded > "$MODEL/$1.LoadState"
-                printf enabled > "$MODEL/$1.UnitFileState"
-                printf active > "$MODEL/$1.ActiveState"
-                disableSSH
-                disableSSH
-                systemctl start "$1"
+
+        It "keeps its block when the saved record is $1"
+            break_record() {
+                save_stopped_policy
+                if [ "$1" = missing ]; then
+                    rm "$SSH_POLICY_DIR/activation"
+                else
+                    printf 'unknown enabled\n' > "$SSH_POLICY_DIR/activation"
+                fi
+                restoreSSH
             }
-            When call block_start "$1"
-            The status should be success
-            The contents of file "$MODEL/$1.ActiveState" should equal inactive
-            The contents of file "$MODEL/$1.UnitFileState" should equal enabled
-            The contents of file "$TEST_ROOT/commands" should not include 'disable '
+            When call break_record "$1"
+            The status should be failure
+            The stderr should include "$2"
+            The file "$SSH_POLICY_DIR/disabled" should be exist
+            The file "$SSH_TEST_ROOT/activation-commands" should not be exist
         End
     End
 
-    It 'blocks a socket installed and enabled by a later package migration'
-        migrate() {
-            printf loaded > "$MODEL/ssh.service.LoadState"
-            printf enabled > "$MODEL/ssh.service.UnitFileState"
-            disableSSH
-            printf loaded > "$MODEL/ssh.socket.LoadState"
-            printf enabled > "$MODEL/ssh.socket.UnitFileState"
-            printf disabled > "$MODEL/ssh.service.UnitFileState"
-            systemctl start ssh.socket
-        }
-        When call migrate
+    It 'allows explicit legacy activation without consuming an unowned record'
+        mkdir -p "$SSH_POLICY_DIR"
+        printf 'sshd.service enabled\n' > "$SSH_POLICY_DIR/activation"
+        printf inactive > "$SSH_MODEL_DIR/sshd.service.ActiveState"
+        When call restoreSSH
         The status should be success
-        The contents of file "$MODEL/ssh.socket.ActiveState" should equal inactive
-        The contents of file "$MODEL/ssh.socket.UnitFileState" should equal enabled
+        The contents of file "$SSH_MODEL_DIR/sshd.service.ActiveState" should equal active
+        The contents of file "$SSH_TEST_ROOT/activation-commands" should equal 'start sshd.service'
+        The contents of file "$SSH_POLICY_DIR/activation" should equal 'sshd.service enabled'
     End
 
-    It 'accepts a successful stop of an already-failed SSH service'
-        stop_failed() {
-            printf loaded > "$MODEL/sshd.service.LoadState"
-            printf failed > "$MODEL/sshd.service.ActiveState"
-            disableSSH
+    Describe 'socket backing services'
+        Parameters
+            ssh no ssh.service
+            sshd no custom-ssh.service
+            sshd yes sshd@internal.service
+        End
+
+        It "preserves the block when $1.socket uses a masked $3"
+            mask_socket_service() {
+                local socket="$1.socket" accept="$2" service="$3"
+                printf disabled > "$SSH_MODEL_DIR/sshd.service.UnitFileState"
+                printf loaded > "$SSH_MODEL_DIR/$socket.LoadState"
+                printf enabled > "$SSH_MODEL_DIR/$socket.UnitFileState"
+                save_stopped_policy
+                printf '%s' "$accept" > "$SSH_MODEL_DIR/$socket.Accept"
+                printf '%s' "$service" > "$SSH_MODEL_DIR/$socket.Triggers"
+                printf masked > "$SSH_MODEL_DIR/$service.LoadState"
+                restoreSSH
+            }
+            When call mask_socket_service "$1" "$2" "$3"
+            The status should be failure
+            The stderr should include "$3 is masked"
+            The file "$SSH_POLICY_DIR/disabled" should be exist
+            The file "$SSH_POLICY_DIR/activation" should be exist
+            The file "$SSH_TEST_ROOT/activation-commands" should not be exist
+        End
+    End
+
+    It 'restores an accepting socket without starting a template instance'
+        restore_accepting_socket() {
+            printf disabled > "$SSH_MODEL_DIR/sshd.service.UnitFileState"
+            printf loaded > "$SSH_MODEL_DIR/sshd.socket.LoadState"
+            printf enabled > "$SSH_MODEL_DIR/sshd.socket.UnitFileState"
+            printf yes > "$SSH_MODEL_DIR/sshd.socket.Accept"
+            printf loaded > "$SSH_MODEL_DIR/sshd@internal.service.LoadState"
+            save_stopped_policy
+            restoreSSH
+            cat "$SSH_TEST_ROOT/activation-commands"
         }
-        When run stop_failed
+        When call restore_accepting_socket
         The status should be success
+        The output should equal "enable sshd.socket
+start sshd.socket"
+        The contents of file "$SSH_MODEL_DIR/sshd@internal.service.ActiveState" should equal inactive
+    End
+
+    It 'does not guess a backing service when a non-accepting socket reports none'
+        restore_unknown_socket() {
+            printf disabled > "$SSH_MODEL_DIR/sshd.service.UnitFileState"
+            printf loaded > "$SSH_MODEL_DIR/sshd.socket.LoadState"
+            printf enabled > "$SSH_MODEL_DIR/sshd.socket.UnitFileState"
+            save_stopped_policy
+            : > "$SSH_MODEL_DIR/sshd.socket.Triggers"
+            restoreSSH
+        }
+        When call restore_unknown_socket
+        The status should be failure
+        The stderr should include "no backing service reported"
         The file "$SSH_POLICY_DIR/disabled" should be exist
-        The contents of file "$MODEL/sshd.service.ActiveState" should equal failed
-        The contents of file "$TEST_ROOT/commands" should include 'stop sshd'
+        The file "$SSH_TEST_ROOT/activation-commands" should not be exist
     End
 
-    It 'stops an active masked service without removing its mask'
-        stop_masked() {
-            printf masked > "$MODEL/sshd.service.LoadState"
-            printf masked > "$MODEL/sshd.service.UnitFileState"
-            printf active > "$MODEL/sshd.service.ActiveState"
-            disableSSH
+    It 'reinstates its block when the saved activation cannot start'
+        fail_activation() {
+            save_stopped_policy
+            FAIL_COMMAND='start sshd.service'
+            restoreSSH
         }
-        masked_stop_event() {
-            jq -se '[.[].Message | fromjson |
-                select(.Unit == "sshd" and .Phase == "Completed")] |
-                length == 1 and .[0].Skipped == false and .[0].StopExitCode == 0' \
-                "$EVENTS_LOGGING_DIR"/*.json
-        }
-        When call stop_masked
-        The status should be success
-        The contents of file "$MODEL/sshd.service.ActiveState" should equal inactive
-        The contents of file "$MODEL/sshd.service.UnitFileState" should equal masked
-        The contents of file "$TEST_ROOT/commands" should not include 'unmask '
-        The result of function masked_stop_event should equal true
-    End
-
-    It 'stops listeners but fails rather than overwriting an administrator drop-in'
-        conflict() {
-            printf loaded > "$MODEL/sshd.service.LoadState"
-            printf active > "$MODEL/sshd.service.ActiveState"
-            mkdir -p "$SSH_SYSTEMD_UNIT_DIR/ssh.socket.d"
-            printf custom > "$SSH_SYSTEMD_UNIT_DIR/ssh.socket.d/90-aks-ssh-access.conf"
-            disableSSH
-        }
-        When run conflict
-        The status should equal 172
-        The stderr should include 'Refusing to overwrite'
-        The contents of file "$MODEL/sshd.service.ActiveState" should equal inactive
-        The contents of file "$SSH_SYSTEMD_UNIT_DIR/ssh.socket.d/90-aks-ssh-access.conf" should equal custom
+        When call fail_activation
+        The status should be failure
+        The stderr should include "Failed to restore SSH activation"
+        The file "$SSH_POLICY_DIR/disabled" should be exist
+        The contents of file "$SSH_MODEL_DIR/sshd.service.ActiveState" should equal inactive
     End
 End

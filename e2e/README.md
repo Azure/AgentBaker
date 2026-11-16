@@ -30,12 +30,14 @@ and require an updated CSE bundle or VHD to receive this fix.
 
 Linux SSH-disabled scenarios use RunCommand to verify the persistent SSH block,
 restart the same VM through ARM, confirm its boot ID changed, and check the block
-again after kubelet becomes active. CSE stops SSH listeners and uses an AKS-owned
-systemd condition without changing distribution enablement or administrator masks.
+again after kubelet becomes active. CSE records activation, stops and disables SSH
+listeners, and uses an AKS-owned systemd condition without removing administrator masks.
 SSH policy runs only in `nodePrep`, so image preparation leaves SSH defaults
 unchanged. This delays SSH policy enforcement until `nodePrep` on ordinary nodes
-as well. There is no activation history or automatic re-enable path; a code
-rollback alone does not remove a persisted block.
+as well. The follow-up retains activation and public-key authentication snapshots
+for explicit restoration. These are separate safeguards, not a requirement of the
+normal node-pool SSH configuration change, which takes effect through reimage.
+A code rollback alone does not remove a persisted block.
 
 ## Writing and extending scenarios
 
