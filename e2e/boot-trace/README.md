@@ -212,6 +212,20 @@ origin: such milestones remain in the raw sanitized export but are excluded
 from the rendered timeline with a warning, never silently clamped to zero.
 The container job and its dependency installation are recipes only, not run here.
 
+The opt-in pipeline parameter `bootTraceCAExperiment=true` keeps exactly three
+parallel ftrace nodes: trials 1 and 2 run `update-ca-certificates`, while trial 3
+skips only that command in the instrumented image's `init-aks-cloud.sh`.
+LTTng must be disabled. All three use the same tracing VHD; per-node cloud-init
+files select the mode. Standard images and the source provisioning script are
+unchanged. Retrieval and copying of CA files still run, and TLS verification is
+not disabled, so the skip node can fail provisioning because its new CAs are not
+activated. This is diagnostic only, never a production configuration.
+Readiness configuration records the mode, and guest timing evidence must confirm
+the skip before a Ready capture is accepted. The report labels the experiment
+and excludes it from repeat statistics. Two controls and one variant cannot
+establish a statistically reliable speedup. Failure artifacts remain diagnostics,
+not validated boot-to-Ready measurements.
+
 For downloaded E2E artifacts, the same offline report recipe is:
 
 ```bash

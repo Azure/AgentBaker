@@ -91,7 +91,7 @@ Thread lifetimes, boot phases and multi-CPU execution must not be added together
 Different tracing backends can have different overhead and coverage.</p>
 <div id="compatibility"></div>
 <div id="pair-comparison"><div class="scroll"><table><thead><tr><th>Measurement</th><th>Baseline (s)</th><th>Candidate (s)</th><th>Delta (s)</th></tr></thead><tbody id="deltas"></tbody></table></div></div>
-<div id="repeat-summary" hidden><p class="muted">Each capture remains individually selectable above. Repeated trials share a configuration, but parallel runs and shared infrastructure can affect timings.</p>
+<div id="repeat-summary" hidden><p class="muted">Each capture remains individually selectable above. Parallel runs and shared infrastructure can affect timings. Experimental captures skipping CA updates are listed individually but excluded from repeated-trial summaries and recurring signals.</p>
 <div class="scroll"><table><thead><tr><th>Capture</th><th>Backend</th><th>Boot → Ready (s)</th></tr></thead><tbody id="trial-readiness"></tbody></table></div>
 <div class="scroll"><table><thead><tr><th>Backend</th><th>Trials</th><th>Minimum (s)</th><th>Median (s)</th><th>Maximum (s)</th></tr></thead><tbody id="trial-summary"></tbody></table></div>
 <h3>Signals recurring across ftrace captures</h3><p class="muted">Counts describe recorded events; systemd service values are active durations, while instrumented task values are elapsed intervals. A recurring signal is present in at least two captures, not proof of a shared cause.</p>
@@ -419,6 +419,7 @@ if(data.captures.length>=2){
   data.captures.forEach((capture,index)=>{
    const backend=capture.metadata.backend,values=grouped.get(backend)??[];
    row("trial-readiness",[data.labels[index],backend,fmt(capture.ready_seconds)]);
+   if(capture.readiness?.configuration?.ca_update_mode==="skip-update-ca-certificates")return;
    values.push(capture.ready_seconds);grouped.set(backend,values);
   });
   for(const [backend,values] of grouped){
@@ -428,7 +429,7 @@ if(data.captures.length>=2){
   }
   const patterns=new Map();
   data.captures.forEach((capture,index)=>{
-   if(capture.metadata.backend!=="ftrace")return;
+   if(capture.metadata.backend!=="ftrace"||capture.readiness?.configuration?.ca_update_mode==="skip-update-ca-certificates")return;
    for(const [event,count] of Object.entries(capture.event_counts??{})){
     if(count>0){const samples=patterns.get(`event · ${event}`)??new Map();samples.set(index,count);patterns.set(`event · ${event}`,samples);}
    }

@@ -141,6 +141,8 @@ type ScriptHotfixFile struct {
 type Config struct {
 	// BootTraceBackend enables the isolated first-boot lifecycle, without creation retries.
 	BootTraceBackend string
+	// BootTraceSkipCAUpdate is an experiment on the third tracing node, never a production setting.
+	BootTraceSkipCAUpdate bool
 
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)

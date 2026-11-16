@@ -11,6 +11,37 @@ def instrument_cloud(path):
     end = '    local endTime\n'
     if "aks_boot_trace_start" in text or text.count(start) != 1 or text.count(end) != 1:
         raise ValueError("Unexpected init-aks-cloud.sh timing wrapper; refusing to instrument")
+    update = '[ $rc -eq 0 ] && { update-ca-certificates || rc=$?; }'
+    if text.count(update) != 2 or text.count("function install_certs_to_trust_store {") != 1:
+        raise ValueError("Unexpected CA update calls; refusing to instrument")
+    text = text.replace(update, '[ $rc -eq 0 ] && { aks_boot_trace_update_ca || rc=$?; }')
+    text = text.replace("function install_certs_to_trust_store {", """aks_boot_trace_skip_ca_update() {
+    echo "WARNING: EXPERIMENT ONLY: update-ca-certificates skipped; downloaded CAs are NOT activated" >&2
+}
+
+aks_boot_trace_update_ca() {
+    local mode="enabled"
+    if [ -f /etc/aks-node-boot-trace-ca-update-mode ]; then
+        read -r mode < /etc/aks-node-boot-trace-ca-update-mode || {
+            echo "ERROR: could not read boot-trace CA experiment mode" >&2
+            return 1
+        }
+    fi
+    case "$mode" in
+        enabled)
+            logs_to_events "AKS.CSE.bootTrace.updateCaCertificates" update-ca-certificates
+            ;;
+        skip-update-ca-certificates)
+            logs_to_events "AKS.CSE.bootTrace.skippedUpdateCaCertificates" aks_boot_trace_skip_ca_update
+            ;;
+        *)
+            echo "ERROR: invalid boot-trace CA experiment mode: $mode" >&2
+            return 1
+            ;;
+    esac
+}
+
+function install_certs_to_trust_store {""", 1)
     text = text.replace(start, """    local aks_boot_trace_start="" aks_boot_trace_idle=""
     read -r aks_boot_trace_start aks_boot_trace_idle < /proc/uptime ||
         echo "WARNING: boot-trace could not sample certificate start time" >&2
@@ -19,7 +50,7 @@ def instrument_cloud(path):
     read -r aks_boot_trace_end aks_boot_trace_idle < /proc/uptime ||
         echo "WARNING: boot-trace could not sample certificate end time" >&2
     case "$task" in
-        AKS.CSE.rcv1p.isOptedIn|AKS.CSE.rcv1p.retrieveLegacyCerts|AKS.CSE.rcv1p.retrieveCerts|AKS.CSE.rcv1p.installCertsToTrustStore)
+        AKS.CSE.rcv1p.isOptedIn|AKS.CSE.rcv1p.retrieveLegacyCerts|AKS.CSE.rcv1p.retrieveCerts|AKS.CSE.rcv1p.installCertsToTrustStore|AKS.CSE.bootTrace.updateCaCertificates|AKS.CSE.bootTrace.skippedUpdateCaCertificates)
             if [ -n "$aks_boot_trace_start" ] && [ -n "$aks_boot_trace_end" ]; then
                 if read -r aks_boot_trace_boot < /proc/sys/kernel/random/boot_id; then
                     aks_boot_trace_directory="/var/log/aks-node-boot-trace/$aks_boot_trace_boot"

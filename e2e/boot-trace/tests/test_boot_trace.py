@@ -803,6 +803,51 @@ class RecorderTests(unittest.TestCase):
 
 
 class TargetedDiagnosticsTests(unittest.TestCase):
+    def test_ca_update_experiment_is_explicit_and_preserves_real_update_failure(self):
+        original = Path(__file__).resolve().parents[3] / "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
+        for mode, expected_status, expected_task in (
+            (None, 7, "AKS.CSE.bootTrace.updateCaCertificates"),
+            ("enabled\n", 7, "AKS.CSE.bootTrace.updateCaCertificates"),
+            ("skip-update-ca-certificates\n", 0, "AKS.CSE.bootTrace.skippedUpdateCaCertificates"),
+            ("invalid\n", 1, None),
+        ):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                script = root / "cloud.sh"
+                script.write_text(original.read_text())
+                diagnostics.instrument_cloud(script)
+                if mode is not None:
+                    (root / "mode").write_text(mode)
+                (root / "boot-id").write_text("test-boot\n")
+                (root / "uptime").write_text("12.34 0\n")
+                text = script.read_text().replace("/etc/aks-node-boot-trace-ca-update-mode", str(root / "mode"))
+                text = text.replace("/var/log/aks-node-boot-trace", str(root))
+                text = text.replace("/proc/sys/kernel/random/boot_id", str(root / "boot-id"))
+                script.write_text(text.replace("/proc/uptime", str(root / "uptime")))
+                result = subprocess.run(
+                    ["bash", "-c", '''
+__SOURCED__=1 . "$1"
+EVENTS_LOGGING_DIR="$2/"
+date() { printf '%s\\n' 0; }
+jq() { printf '%s\\n' '{}'; }
+update-ca-certificates() { echo REAL_UPDATE_CALLED; return 7; }
+aks_boot_trace_update_ca
+''', "test", str(script), str(root)],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, expected_status, result.stderr)
+                if expected_task:
+                    timing = json.loads((root / "test-boot/cloud-timings.jsonl").read_text())
+                    self.assertEqual(timing["task"], expected_task)
+                    self.assertEqual(timing["exit_status"], expected_status)
+                if mode == "skip-update-ca-certificates\n":
+                    self.assertNotIn("REAL_UPDATE_CALLED", result.stdout)
+                    self.assertIn("EXPERIMENT ONLY", result.stderr)
+                elif mode in (None, "enabled\n"):
+                    self.assertIn("REAL_UPDATE_CALLED", result.stdout)
+                else:
+                    self.assertIn("invalid boot-trace", result.stderr)
+
     def test_cloud_probe_preserves_failure_and_excludes_arguments_and_certificates(self):
         original = Path(__file__).resolve().parents[3] / "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
         with tempfile.TemporaryDirectory() as directory:

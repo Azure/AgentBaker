@@ -3,6 +3,7 @@ package scenario
 import (
 	"context"
 	"os"
+	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
@@ -22,6 +23,19 @@ func init() {
 	} {
 		image := *config.VHDUbuntu2604MinimalGen2Containerd
 		image.Name += "-boot-trace-" + trial.backend
+		caExperiment := strings.EqualFold(os.Getenv("E2E_BOOT_TRACE_CA_EXPERIMENT"), "true")
+		skipCAUpdate := caExperiment && trial.name == "Ubuntu2604Minimal_BootTrace_ftrace_3"
+		var experimentFiles []CustomDataWriteFile
+		if caExperiment {
+			mode := "enabled"
+			if skipCAUpdate {
+				mode = "skip-update-ca-certificates"
+			}
+			experimentFiles = []CustomDataWriteFile{{
+				Path: "/etc/aks-node-boot-trace-ca-update-mode", Permissions: "0600",
+				Owner: "root:root", Content: mode + "\n",
+			}}
+		}
 		Register(&Scenario{
 			Name:        trial.name,
 			Description: "Captures first-boot activity on a fresh node before workload validation",
@@ -38,6 +52,8 @@ func init() {
 				Cluster:                ClusterLatestKubernetesVersionKubenet,
 				VHD:                    &image,
 				BootTraceBackend:       trial.backend,
+				BootTraceSkipCAUpdate:  skipCAUpdate,
+				CustomDataWriteFiles:   experimentFiles,
 				ExcludeFromNBCSampling: true,
 				// Match the VHD's binary cache without changing the shared cluster.
 				BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {

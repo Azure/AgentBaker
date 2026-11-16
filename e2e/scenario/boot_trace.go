@@ -206,6 +206,10 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 		"network_dataplane":   string(lo.FromPtr(profile.NetworkDataplane)),
 		"cluster_resource_id": lo.FromPtr(s.Runtime.Cluster.Model.ID),
 		"provisioning":        "AgentBaker E2E VMSS",
+		"ca_update_mode":      "enabled",
+	}
+	if s.BootTraceSkipCAUpdate {
+		configuration["ca_update_mode"] = "skip-update-ca-certificates"
 	}
 	readiness := map[string]any{
 		"node": node.Name, "node_uid": node.UID, "provider_id": node.Spec.ProviderID,

@@ -118,6 +118,40 @@ class E2EReportTests(unittest.TestCase):
         mutate(value)
         self.write(bundle, filename, value)
 
+    def test_ca_experiment_requires_two_controls_and_guest_skip_evidence(self):
+        self.bundles["lttng"].joinpath("result.json").unlink()
+        self.update("ftrace_3", "readiness.json",
+                    lambda value: value["configuration"].update(ca_update_mode="skip-update-ca-certificates"))
+        self.assertEqual(len(select_trials(self.root)), 3)
+
+        def fake_analyze(bundle):
+            skipped = bundle == self.bundles["ftrace_3"]
+            return {
+                "metadata": json.loads((bundle / "metadata.json").read_text()),
+                "readiness": json.loads((bundle / "readiness.json").read_text()),
+                "warnings": [], "milestones": [],
+                "targeted_diagnostics": {"cloud_timings": [{
+                    "task": "AKS.CSE.bootTrace.skippedUpdateCaCertificates"
+                    if skipped else "AKS.CSE.bootTrace.updateCaCertificates",
+                    "exit_status": 0,
+                }]},
+            }
+
+        with patch("render_e2e.analyze", side_effect=fake_analyze):
+            render(self.root, self.root / "experiment")
+        rendered = (self.root / "experiment/comparison.html").read_text()
+        self.assertIn("SKIP update-ca (experiment)", rendered)
+        self.assertIn("downloaded CAs were not activated", rendered)
+        with patch("render_e2e.analyze", return_value={
+            **fake_analyze(self.bundles["ftrace_3"]), "targeted_diagnostics": {"cloud_timings": []},
+        }):
+            with self.assertRaisesRegex(ValueError, "guest-side skip evidence"):
+                render(self.root, self.root / "missing-evidence")
+        self.update("ftrace", "readiness.json",
+                    lambda value: value["configuration"].update(ca_update_mode="skip-update-ca-certificates"))
+        with self.assertRaisesRegex(ValueError, "exactly two controls"):
+            select_trials(self.root)
+
     def test_selects_three_distinct_comparable_ftrace_nodes_and_optional_lttng(self):
         self.assertEqual(
             select_trials(self.root),

@@ -46,6 +46,10 @@ parameters:
     displayName: Include optional LTTng boot trace E2E
     type: boolean
     default: false
+  - name: bootTraceCAExperiment
+    displayName: "EXPERIMENT: skip update-ca-certificates only on ftrace trial 3 (two controls)"
+    type: boolean
+    default: false
   - name: buildAzureLinuxV3gen1
     displayName: Build AzureLinuxV3 Gen1
     type: boolean
@@ -215,9 +219,9 @@ stages:
         - job: validateBootTraceE2E
           steps:
             - bash: |
-                echo "Boot trace E2E requires the ftrace image build, the selected optional LTTng image build, and SKIP_E2E_TESTS=false" >&2
+                echo "Boot trace E2E requires the ftrace image build, any selected LTTng build, and SKIP_E2E_TESTS=false; CA experiments require LTTng disabled" >&2
                 exit 1
-              condition: or(ne('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', 'True'), and(eq('${{ parameters.runBootTraceLttngE2E }}', 'True'), ne('${{ parameters.build2604minimalgen2containerdBootTraceLttng }}', 'True')), eq(variables.SKIP_E2E_TESTS, 'true'))
+              condition: or(ne('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', 'True'), and(eq('${{ parameters.runBootTraceLttngE2E }}', 'True'), ne('${{ parameters.build2604minimalgen2containerdBootTraceLttng }}', 'True')), and(eq('${{ parameters.bootTraceCAExperiment }}', 'True'), eq('${{ parameters.runBootTraceLttngE2E }}', 'True')), eq(variables.SKIP_E2E_TESTS, 'true'))
               displayName: Validate boot trace E2E selection
       - job: build2604minimalgen2containerd_ftrace
         condition: and(succeeded(), eq('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', true))
@@ -1283,6 +1287,7 @@ stages:
       variables:
         VHD_BUILD_ID: $(Build.BuildId)
         E2E_BOOT_TRACE: "true"
+        E2E_BOOT_TRACE_CA_EXPERIMENT: ${{ parameters.bootTraceCAExperiment }}
         E2E_PARALLEL: 4
         ${{ if parameters.runBootTraceLttngE2E }}:
           TAGS_TO_RUN: Name=Ubuntu2604Minimal_BootTrace_ftrace,Name=Ubuntu2604Minimal_BootTrace_ftrace_2,Name=Ubuntu2604Minimal_BootTrace_ftrace_3,Name=Ubuntu2604Minimal_BootTrace_lttng
