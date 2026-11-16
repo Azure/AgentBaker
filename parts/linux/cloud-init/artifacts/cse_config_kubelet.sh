@@ -362,7 +362,7 @@ Environment="INSERT_IMDS_RESTRICTION_RULE_TO_MANGLE_TABLE=${INSERT_IMDS_RESTRICT
 EOF
 
     # check if kubelet flags contain image-credential-provider-config and image-credential-provider-bin-dir
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ $KUBELET_FLAGS == *"image-credential-provider-config"* && $KUBELET_FLAGS == *"image-credential-provider-bin-dir"* ]]; then
         echo "Configure credential provider for both image-credential-provider-config and image-credential-provider-bin-dir flags are specified in KUBELET_FLAGS"
         logs_to_events "AKS.CSE.ensureKubelet.configCredentialProvider" configCredentialProvider
