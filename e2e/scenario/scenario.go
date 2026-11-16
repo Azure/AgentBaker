@@ -710,12 +710,12 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
-	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
+	Name:        "Ubuntu2404_CustomDataOnlyProvisioning",
+	Description: "Tests that an Ubuntu 24.04 node can be bootstrapped entirely through CustomData without CSE",
 	Config: Config{
 		ExcludeFromNBCSampling: true,
 		Cluster:                ClusterKubenet,
-		VHD:                    config.VHDUbuntu2204Gen2Containerd,
+		VHD:                    config.VHDUbuntu2404Gen2Containerd,
 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.CustomDataOnlyProvisioning = true
 		},
@@ -731,11 +731,11 @@ var _ = Register(&Scenario{
 
 // TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
 // var _ = Register(&Scenario{
-// 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
-// 	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
+// 	Name:        "Ubuntu2404_CustomDataOnlyProvisioning_Failure",
+// 	Description: "Tests that an Ubuntu 24.04 node returns an error without CSE",
 // 	Config: Config{
 // 		Cluster: ClusterKubenet,
-// 		VHD:     config.VHDUbuntu2204Gen2Containerd,
+// 		VHD:     config.VHDUbuntu2404Gen2Containerd,
 // 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 // 			nbc.CustomDataOnlyProvisioning = true
 // 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{

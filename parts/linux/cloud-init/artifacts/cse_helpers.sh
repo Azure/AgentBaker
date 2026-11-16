@@ -599,7 +599,7 @@ retrycmd_can_oras_ls_acr_anonymously() {
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 
-# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
+# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable, systemctl_enable
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
@@ -631,6 +631,10 @@ systemctl_stop() {
 
 systemctl_disable() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
+}
+
+systemctl_enable() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "enable" "$4"
 }
 
 systemctlEnableAndStart() {

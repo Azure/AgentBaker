@@ -541,6 +541,31 @@ EOF
     fi
 }
 
+configureContainerdMountGuard() {
+  local dropin="/etc/systemd/system/containerd.service.d/10-mount-guard.conf"
+  if [ "${HAS_KUBELET_DISK_TYPE}" = "true" ]; then
+    if ! retrycmd_if_failure 120 1 5 mountpoint -q /mnt; then
+      echo "Timed out waiting for /mnt before configuring containerd" >&2
+      return 1
+    fi
+    # Persist a live check for reboot/PIS starts that do not rerun basePrep.
+    if ! tee "$dropin" > /dev/null <<'EOF'
+[Service]
+ExecStartPre=/bin/sh -c 'timeout 120 /bin/sh -c "until mountpoint -q /mnt; do sleep 1; done" || { echo "Unable to confirm /mnt mount before starting containerd" >&2; exit 1; }'
+TimeoutStartSec=150
+EOF
+    then
+      echo "Unable to configure the containerd temporary-disk mount guard" >&2
+      return 1
+    fi
+  else
+    if ! rm -f "$dropin"; then
+      echo "Unable to remove the containerd mount guard for an OS disk" >&2
+      return 1
+    fi
+  fi
+}
+
 ensureContainerd() {
   mkdir -p "/etc/systemd/system/containerd.service.d"
   # Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
@@ -578,6 +603,8 @@ EOF
       echo "${CONTAINERD_CONFIG_CONTENT}" | base64 -d > /etc/containerd/config.toml || exit $ERR_FILE_WATCH_TIMEOUT
     fi
   fi
+
+  configureContainerdMountGuard || exit "$ERR_SYSTEMCTL_START_FAIL"
 
   export -f should_e2e_mock_azure_china_cloud
   E2EMockAzureChinaCloud=$(should_e2e_mock_azure_china_cloud)

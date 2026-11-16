@@ -12,6 +12,7 @@ import (
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -50,12 +51,15 @@ runcmd:
 - echo "AKS Node Controller cloud-init completed at $(date)"
 `
 
-	readyReportHandoffTemplate = `# azure-experimental-node-ready
+	readyReportCloudConfig = `datasource:
+  Azure:
+    experimental_skip_ready_report: true
+`
 
-touch /var/lib/waagent/experimental_skip_ready_report
+	readyReportHandoffTemplate = `touch /var/lib/waagent/experimental_skip_ready_report
 chmod 0644 /var/lib/waagent/experimental_skip_ready_report
 
-# The VHD-baked cloud-init setting stands down cloud-init. WALinuxAgent reports Ready
+# The patched datasource reads the archive's cloud-config flag before the boothook. WALinuxAgent reports Ready
 # independently once ovf-env.xml and the SSH host key exist. A sentinel matching this
 # instance's id makes it skip that report, leaving aks-node-controller as the only reporter.
 if [ -s /sys/class/dmi/id/product_uuid ]; then
@@ -75,10 +79,10 @@ fi`
     }`
 )
 
-// CustomData builds base64-encoded VM custom data for cloud-init. The boothook writes the node
-// configuration and starts aks-node-controller. CustomData-only provisioning uses a plain boothook
-// so patched cloud-init recognizes the top-level Ready reporting marker. Other modes pair the
-// boothook with a cloud-config part in a MIME multipart document.
+// CustomData builds base64-encoded VM custom data for cloud-init. CustomData-only provisioning
+// requires patched cloud-init and uses a cloud-config-archive with a provisioning boothook
+// and a separate cloud-config datasource override.
+// Other modes retain the boothook and cloud-config parts in a MIME multipart document.
 func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	aksNodeConfigJSON, err := MarshalConfigurationV1(cfg)
 	if err != nil {
@@ -95,7 +99,27 @@ func CustomData(cfg *aksnodeconfigv1.Configuration) (string, error) {
 	)
 
 	if cfg.GetCustomDataOnlyProvisioning() {
-		return base64.StdEncoding.EncodeToString([]byte(boothook)), nil
+		script := strings.TrimPrefix(boothook, "#cloud-boothook\n")
+		parts := []struct {
+			Type    string    `yaml:"type"`
+			Content yaml.Node `yaml:"content"`
+		}{
+			{
+				Type: "text/cloud-boothook",
+				// Quoting preserves Unicode line separators as script bytes, not YAML line breaks.
+				Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.DoubleQuotedStyle, Value: script},
+			},
+			{
+				Type:    "text/cloud-config",
+				Content: yaml.Node{Kind: yaml.ScalarNode, Style: yaml.LiteralStyle, Value: readyReportCloudConfig},
+			},
+		}
+		archive, err := yaml.Marshal(parts)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal cloud-config archive: %w", err)
+		}
+		customData := "#cloud-config-archive\n" + string(archive)
+		return base64.StdEncoding.EncodeToString([]byte(customData)), nil
 	}
 
 	var customData bytes.Buffer
