@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -718,6 +719,121 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+var nbcProvisioningCredentials = regexp.MustCompile(`(^|[[:space:];])((TLS_BOOTSTRAP_TOKEN|KUBELET_CLIENT_CONTENT|KUBELET_CLIENT_CERT_CONTENT)=)("[^"]*"|'[^']*'|[^[:space:];]*)`)
+
+func removeProvisioningCredentials(flags ProvisionFlags) error {
+	var errs []error
+	for _, input := range []struct {
+		path   string
+		redact func([]byte) ([]byte, error)
+	}{
+		{flags.NBCCmd, func(content []byte) ([]byte, error) {
+			return nbcProvisioningCredentials.ReplaceAll(content, []byte(`${1}${2}""`)), nil
+		}},
+		{flags.ProvisionConfig, redactProvisioningConfig},
+	} {
+		if input.path == "" {
+			continue
+		}
+		content, err := os.ReadFile(input.path)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err == nil {
+			var redacted []byte
+			redacted, err = input.redact(content)
+			if err == nil && !bytes.Equal(content, redacted) {
+				err = writeProvisioningFile(input.path, redacted)
+			}
+		}
+		if err != nil {
+			errs = append(errs, fmt.Errorf("remove credentials from %s: %w", input.path, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func redactProvisioningConfig(content []byte) ([]byte, error) {
+	if len(bytes.TrimSpace(content)) == 0 {
+		return content, nil
+	}
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(content, &config); err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, section := range []struct {
+		names  []string
+		fields []string
+	}{
+		{
+			[]string{"bootstrapping_config", "bootstrappingConfig"},
+			[]string{"tls_bootstrapping_token", "tlsBootstrappingToken"},
+		},
+		{
+			[]string{"kubelet_config", "kubeletConfig"},
+			[]string{"kubelet_client_key", "kubeletClientKey", "kubelet_client_cert_content", "kubeletClientCertContent"},
+		},
+	} {
+		for _, name := range section.names {
+			raw, ok := config[name]
+			if !ok {
+				continue
+			}
+			redacted, err := redactProvisioningConfigFields(raw, section.fields)
+			if err != nil {
+				return nil, err
+			}
+			if !bytes.Equal(raw, redacted) {
+				config[name] = redacted
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return content, nil
+	}
+	return json.Marshal(config)
+}
+
+func redactProvisioningConfigFields(content []byte, names []string) ([]byte, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(content, &fields); err != nil {
+		return nil, err
+	}
+	changed := false
+	for _, name := range names {
+		if value, ok := fields[name]; ok && !bytes.Equal(value, []byte(`""`)) {
+			fields[name] = json.RawMessage(`""`)
+			changed = true
+		}
+	}
+	if !changed {
+		return content, nil
+	}
+	return json.Marshal(fields)
+}
+
+// Replace inputs atomically so concurrent readers never see partial configuration.
+// Temporary files contain only redacted data and retain root-only permissions.
+func writeProvisioningFile(path string, content []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".aks-node-controller-input-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+	}()
+	if _, err := file.Write(content); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
+}
+
 func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
 	markerPath := a.readyReportMarkerPath
 	if markerPath == "" {
@@ -783,6 +899,25 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		a.cmdRun = cmdRunnerDryRun
 	}
 	provisionResult, provisionErr = a.Provision(ctx, flags)
+	if dryRun || provisionErr != nil || provisionResult.ExitCode != "0" {
+		return provisionResult, provisionErr
+	}
+	// Environment comparison is the last consumer of provisioning credentials.
+	// PIS receives fresh inputs for nodePrep, so bake-time copies can also be scrubbed.
+	if err := removeProvisioningCredentials(flags); err != nil {
+		provisionErr = fmt.Errorf("clean up provisioning credentials: %w", err)
+		provisionResult.ExitCode = "240"
+		provisionResult.Error = provisionErr.Error()
+		data, persistErr := json.Marshal(provisionResult)
+		if persistErr == nil {
+			persistErr = writeProvisioningFile(osCfg.provisionJSONFilePath, data)
+		}
+		if persistErr != nil {
+			provisionErr = errors.Join(provisionErr, fmt.Errorf("write cleanup failure status: %w", persistErr))
+		}
+		return provisionResult, provisionErr
+	}
+	slog.Info("Removed credentials from provisioning inputs")
 
 	return provisionResult, provisionErr
 }
