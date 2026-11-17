@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/base64"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +32,7 @@ var windowsCSETestValues = map[string]string{
 	"code":    `$(Set-Variable -Name AKSInjectionCanary -Value 1 -Scope Global);${env:PATH}@(1)#<#`,
 	"unicode": "i\u2018j\u2019k\u201cl\u201dm\u201en\u2013o\U0001F600",
 	"control": "x\r\ny\tz",
+	"marker":  "PREPROVISION_EXTENSION",
 	"empty":   "",
 }
 
@@ -59,6 +59,8 @@ type windowsCSEField struct {
 	action string
 	// prefix is the text right before the value in the rendered script.
 	prefix string
+	// occurrence selects a zero-based match when multiple statements share the prefix.
+	occurrence int
 	// kind describes the expected runtime type; empty means string.
 	kind string
 	// set puts value into the NodeBootstrappingConfiguration field that the value comes from. It is nil
@@ -155,6 +157,15 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetParameter "windowsContainerdURL"`, prefix: `$global:ContainerdUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			kubernetesConfig(c).WindowsContainerdURL = v
 		}},
+		{action: `GetParameter "windowsHcsshimURL"`, prefix: `$global:WindowsHcsshimUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsHcsshimURL = v
+		}},
+		{action: `GetParameter "windowsMobyContainerdURL"`, prefix: `$global:WindowsMobyContainerdUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsMobyContainerdURL = v
+		}},
+		{action: `GetParameter "windowsCrictlURL"`, prefix: `$global:WindowsCrictlUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsCrictlURL = v
+		}},
 		{action: `GetParameter "windowsSdnPluginURL"`, prefix: `$global:ContainerdSdnPluginUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			kubernetesConfig(c).WindowsSdnPluginURL = v
 		}},
@@ -218,14 +229,6 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetKubeletConfigKeyValsPsh`, prefix: `$global:KubeletConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeletConfig["--aaa-test"] = v
 		}, want: unescapedArg},
-		{action: `GetKubeletHealthzEndpoint`, prefix: `$global:KubeletHealthzEndpoint=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
-			c.KubeletConfig["--healthz-bind-address"] = v
-		}, want: func(_ *datamodel.NodeBootstrappingConfiguration, v string) string {
-			if v == "" {
-				v = "127.0.0.1"
-			}
-			return "http://" + net.JoinHostPort(v, "10248") + "/healthz"
-		}},
 		{action: `GetKubeproxyConfigKeyValsPsh`, prefix: `$global:KubeproxyConfigArgs=`, kind: "first", set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			c.KubeproxyConfig = map[string]string{"--aaa-test": v}
 		}, want: unescapedArg},
@@ -348,6 +351,7 @@ func windowsCSEFields() []windowsCSEField {
 			},
 			stub: `function Install-CredentialProvider { param($KubeDir, $CustomCloudContainerRegistryDNSSuffix) ` +
 				`$global:CustomCloudContainerRegistryDNSSuffix = $CustomCloudContainerRegistryDNSSuffix }; `},
+		{action: `WindowsSSHEnabled`, prefix: `$sshEnabled=`, occurrence: 1, kind: "boolean"},
 		// The base64 of the custom cloud environment JSON.
 		{action: `GetBase64EncodedEnvironmentJSON`, prefix: `$envJSON=`, setup: func(c *datamodel.NodeBootstrappingConfiguration) {
 			c.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{Name: "akscustom"}
@@ -399,17 +403,28 @@ func renderedWindowsCSEField(t *testing.T, field windowsCSEField, value string) 
 	if field.want != nil {
 		want = field.want(config, value)
 	}
-	return field.stub + windowsCSEFieldStatement(t, customData, field.prefix), want
+	return field.stub + windowsCSEFieldStatement(t, customData, field.prefix, field.occurrence), want
 }
 
-func windowsCSEFieldStatement(t *testing.T, customData, prefix string) string {
+func windowsCSEFieldStatement(t *testing.T, customData, prefix string, occurrence int) string {
 	t.Helper()
+	for i := 0; i < occurrence; i++ {
+		var found bool
+		_, customData, found = strings.Cut(customData, prefix)
+		require.True(t, found, "assignment or argument %s occurrence %d was not rendered", prefix, i)
+	}
 	index := strings.Index(customData, prefix)
-	require.GreaterOrEqual(t, index, 0, "assignment or argument %s was not rendered", prefix)
+	require.GreaterOrEqual(t, index, 0, "assignment or argument %s occurrence %d was not rendered", prefix, occurrence)
 	start := strings.LastIndex(customData[:index], "\n") + 1
 	end := strings.Index(customData[index:], "\n")
 	require.GreaterOrEqual(t, end, 0, "assignment or argument %s has no terminating newline", prefix)
 	return strings.TrimSpace(customData[start : index+end])
+}
+
+func TestWindowsCSEFieldStatementSelectsRepeatedInput(t *testing.T) {
+	customData := "$sshEnabled=$false\n$sshEnabled=$true\n"
+	require.Equal(t, "$sshEnabled=$false", windowsCSEFieldStatement(t, customData, "$sshEnabled=", 0))
+	require.Equal(t, "$sshEnabled=$true", windowsCSEFieldStatement(t, customData, "$sshEnabled=", 1))
 }
 
 // TestWindowsCSEFieldsFixture covers every input; PowerShell checks actual values and types rather than
@@ -683,6 +698,38 @@ func TestPowerShellLiteral(t *testing.T) {
 	require.Empty(t, powerShellLiteralList(nil))
 }
 
+func TestGetParameterEscapesWindowsStrings(t *testing.T) {
+	tests := []struct {
+		name           string
+		value, windows interface{}
+	}{
+		{"quotes and backticks", `a'b"c` + "`" + `d''e""f`, `a'b""c` + "``" + `d''e""""f`},
+		{"PowerShell expressions", `$(Get-Date) ${env:PATH}`, "`$(Get-Date) `${env:PATH}"},
+		{"Unicode", "caf\u00e9", "$([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('Y2Fmw6k=')))"},
+		{"control characters", "\r\n\t", "$([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('DQoJ')))"},
+		{"extension marker", "PREPROVISION_EXTENSION", "$(" + encodePowerShellBase64Literal("PREPROVISION_EXTENSION") + ")"},
+		{"Boolean type", true, true},
+		{"numeric type", int32(42), int32(42)},
+	}
+	for _, osType := range []datamodel.OSType{datamodel.Windows, datamodel.Linux} {
+		for _, tt := range tests {
+			t.Run(string(osType)+"/"+tt.name, func(t *testing.T) {
+				config := newWindowsBootstrapTestConfig()
+				config.AgentPoolProfile.OSType = osType
+				params := paramsMap{"input": paramsMap{"value": tt.value}}
+				funcMap := getBakerFuncMap(config, params, nil)
+				getParameter, ok := funcMap["GetParameter"].(func(string) interface{})
+				require.True(t, ok)
+				want := tt.value
+				if osType == datamodel.Windows {
+					want = tt.windows
+				}
+				require.Equal(t, want, getParameter("input"))
+			})
+		}
+	}
+}
+
 func TestUnescapePowerShellDoubleQuotes(t *testing.T) {
 	require.Equal(t,
 		[]string{`--resolv-conf=""`, `--a="b"`, "--c=$(d)`e", `--f=""`, ""},
@@ -697,8 +744,8 @@ func TestWindowsKubeletArgumentsKeepTheirValues(t *testing.T) {
 	}
 	config := newWindowsBootstrapTestConfig()
 	customData, _ := renderWindowsCSE(t, config)
-	script := windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=") + "\n" +
-		windowsCSEFieldStatement(t, customData, "$global:KubeproxyFeatureGates=") + "\n" +
+	script := windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=", 0) + "\n" +
+		windowsCSEFieldStatement(t, customData, "$global:KubeproxyFeatureGates=", 0) + "\n" +
 		`$global:KubeletConfigArgs; $global:KubeproxyFeatureGates`
 	path := filepath.Join(t.TempDir(), "arguments.ps1")
 	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
@@ -771,23 +818,45 @@ func TestWindowsCSEWCNJSONCompatibility(t *testing.T) {
 	}
 }
 
-// Azure Blob URLs can name the $web container; PowerShell must not expand it as a variable.
+// Package URLs must survive both PowerShell interpolation and post-render extension insertion.
 func TestWindowsCSEPreservesPackageURL(t *testing.T) {
+	const markerURL = "https://example.invalid/PREPROVISION_EXTENSION.zip"
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		t.Skip("pwsh is not installed")
 	}
-	config := newWindowsBootstrapTestConfig()
-	config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEPackageURLWithDollar
-	customData, _ := renderWindowsCSE(t, config)
-	script := "$web = $null\n" +
-		windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=") + "\n" +
-		"$global:CSEScriptsPackageUrl"
-	path := filepath.Join(t.TempDir(), "package-url.ps1")
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
-	output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
-	require.NoError(t, err, string(output))
-	require.Equal(t, windowsCSEPackageURLWithDollar, strings.TrimSpace(string(output)))
+	for _, tt := range []struct {
+		name, url string
+		extension bool
+	}{
+		{"dollar", windowsCSEPackageURLWithDollar, false},
+		{"marker without extension", markerURL, false},
+		{"marker with extension", markerURL, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config := newWindowsBootstrapTestConfig()
+			config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = tt.url
+			config.K8sComponents.WindowsPackageURL = tt.url
+			config.KubeletConfig["--aaa-test"] = tt.url
+			if tt.extension {
+				config.ContainerService.Properties.ExtensionProfiles = []*datamodel.ExtensionProfile{{
+					Name: "preprovision-test", RootURL: "https://example.invalid/", Version: "v1", Script: "setup.ps1",
+				}}
+				config.AgentPoolProfile.PreprovisionExtension = &datamodel.Extension{Name: "preprovision-test"}
+			}
+			customData, _ := renderWindowsCSE(t, config)
+			script := "$web = $null\n" +
+				windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=", 0) + "\n" +
+				windowsCSEFieldStatement(t, customData, "$global:KubeBinariesPackageSASURL=", 0) + "\n" +
+				windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=", 0) + "\n" +
+				"$global:CSEScriptsPackageUrl\n$global:KubeBinariesPackageSASURL\n$global:KubeletConfigArgs[0]"
+			path := filepath.Join(t.TempDir(), "package-url.ps1")
+			require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
+			output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
+			require.NoError(t, err, string(output))
+			require.Equal(t, tt.url+"\n"+tt.url+"\n--aaa-test="+tt.url, strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n")))
+		})
+	}
 }
 
 func newWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {

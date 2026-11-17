@@ -57,6 +57,7 @@ Describe 'Windows CSE field values' {
             # or "<index>`terror`t<message>" when the line fails.
             $script:Code = @(
                 "`$ErrorActionPreference = 'Stop'"
+                "'edition`t' + `$PSVersionTable.PSEdition"
                 foreach ($case in $Cases) {
                     "try { & {"
                     "if (Test-Path -Path 'variable:global:$($case.Name)') { Remove-Variable -Name '$($case.Name)' -Scope Global }"
@@ -85,7 +86,7 @@ Describe 'Windows CSE field values' {
                 $scriptPath = Join-Path $directory 'fields.ps1'
                 # ASCII without a byte order mark, like CustomDataSetupScript.ps1.
                 [IO.File]::WriteAllText($scriptPath, $script:Code, [Text.Encoding]::ASCII)
-                $exe = if ($Shell -eq 'powershell') { 'powershell.exe' } else { [Diagnostics.Process]::GetCurrentProcess().MainModule.FileName }
+                $exe = (Get-Command -Name $Shell -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
                 $arguments = @('-NoProfile', '-NonInteractive')
                 if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') {
                     $arguments += @('-ExecutionPolicy', 'Bypass')
@@ -101,7 +102,7 @@ Describe 'Windows CSE field values' {
             $script:Unexpected = @()
             foreach ($outputLine in $script:Output) {
                 $parts = $outputLine -split "`t"
-                if ($parts.Count -ge 2 -and ($parts[0] -eq 'canary' -or $parts[0] -match '^\d+$')) {
+                if ($parts.Count -ge 2 -and ($parts[0] -in @('canary', 'edition') -or $parts[0] -match '^\d+$')) {
                     $script:Results[$parts[0]] = $parts[1..($parts.Count - 1)]
                 }
                 else {
@@ -117,6 +118,11 @@ Describe 'Windows CSE field values' {
 
         It 'does not run any part of a value' {
             $script:Results['canary'] | Should -Be @('False')
+        }
+
+        It 'runs the requested PowerShell edition' {
+            $expectedEdition = if ($Shell -eq 'powershell') { 'Desktop' } else { 'Core' }
+            $script:Results['edition'] | Should -Be @($expectedEdition)
         }
 
         It '<Name> #<Index> gets its expected value and type' -ForEach $Cases {
