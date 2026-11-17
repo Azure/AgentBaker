@@ -290,7 +290,7 @@ Describe 'Ubuntu 20.04 Azure FIPS mitigation policy consistency'
         fi
 
         for source_file in \
-            parts/root/common/opt/azure/image-build/install-dependencies.sh \
+            parts/root/common/opt/azure/image-build/image_config.sh \
             parts/root/shared/opt/azure/containers/cleanup-vhd.sh \
             vhdbuilder/packer/test/linux-vhd-content-test.sh; do
             eval "$(sed -n '/^kernelVersionGe()/,/^}/p' "$source_file")"

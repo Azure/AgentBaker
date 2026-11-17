@@ -15,10 +15,11 @@ Describe 'embedded script installation'
     local commands
     case "$1" in
       *.json)
+        # shellcheck disable=SC2016 # Match Packer expressions literally.
         commands=$(jq -r '.provisioners[] | select(.type == "shell") | .inline |
           if type == "array" then .[] elif type == "string" then . else empty end |
           select(contains("unpack-scripts") or contains("/opt/azure/image-build/pre-install-dependencies.sh"))' "$1" |
-          sed -E 's|sudo /home/packer/aks-node-controller |anc |; s|^sudo FEATURE_FLAGS=.*pre-install-dependencies.sh$|source|')
+          sed -nE 's|^sudo FEATURE_FLAGS=\{\{user `feature_flags`\}\} ENABLE_FIPS=\{\{user `enable_fips`\}\} /home/packer/aks-node-controller |anc |p; s|^sudo FEATURE_FLAGS=.*pre-install-dependencies.sh$|source|p')
         ;;
       *)
         commands=$(awk '
@@ -68,20 +69,15 @@ End
       printf 'deny = 5\n' > "$TEST_ROOT/etc/security/faillock.conf"
       chmod 0644 "$TEST_ROOT/etc/security/faillock.conf"
       eval "$(sed \
-        -e 's|/home/packer/aks-node-controller|anc|g' \
         -e "s|/etc/|$TEST_ROOT/etc/|g" \
-        -e "s|/usr/|$TEST_ROOT/usr/|g" \
         -e "s|/NOTICE.txt|$TEST_ROOT/NOTICE.txt|g" \
         ./parts/root/shared/opt/azure/image-build/packer_source.sh)"
-      OS=UBUNTU OS_VERSION=22.04 UBUNTU_RELEASE=22.04
-      OS_VARIANT='' CPU_ARCH=amd64 ENABLE_FIPS=false FEATURE_FLAGS=None
+      export OS=UBUNTU FEATURE_FLAGS=None
     }
     cleanup() {
       rm -rf "$TEST_ROOT"
     }
-    anc() { :; }
     isUbuntu() { [ "$1" = UBUNTU ]; }
-    isAzureLinuxArm64BaseImage() { return 1; }
     install() { :; }
     run_configuration() {
       installKataPayload() { :; }
@@ -107,9 +103,49 @@ End
     End
 
     It 'preserves a non-Ubuntu distro-owned faillock.conf mode'
-      OS=AZURELINUX OS_VARIANT=AZURECONTAINERLINUX
+      export OS=AZURELINUX
       When run run_configuration
       The status should be success
       The result of function faillock_mode should equal 644
     End
   End
+
+Describe 'hotfix kernel normalization'
+  setup() {
+    TEST_ROOT=$(mktemp -d)
+    cp ./parts/root/common/etc/modprobe.d/CIS.conf "$TEST_ROOT/CIS.conf"
+    printf 'blacklist algif_aead\n' > "$TEST_ROOT/customer.conf"
+    chmod 0600 "$TEST_ROOT/CIS.conf"
+    eval "$(sed "s|/etc/modprobe.d|$TEST_ROOT|g" ./parts/root/common/opt/azure/image-build/image_config.sh)"
+    export OS=UBUNTU OS_VERSION=22.04
+  }
+  cleanup() {
+    rm -f "$TEST_ROOT/CIS.conf" "$TEST_ROOT/customer.conf"
+    rmdir "$TEST_ROOT"
+  }
+  uname() { echo 5.15.0-1126-azure; }
+  isUbuntu() { [ "$1" = UBUNTU ]; }
+  mode() { stat -c '%a' "$TEST_ROOT/CIS.conf"; }
+
+  BeforeEach 'setup'
+  AfterEach 'cleanup'
+
+  It 'restores baked CIS bytes without changing customer files or permissions'
+    When call configureVulnerableKernelModuleDenyRules "$TEST_ROOT/CIS.conf"
+    The status should be success
+    The output should include 'Removing algif_aead'
+    The contents of file "$TEST_ROOT/CIS.conf" should not include 'algif_aead'
+    The contents of file "$TEST_ROOT/CIS.conf" should not include '# CVE-2026-31431'
+    The contents of file "$TEST_ROOT/CIS.conf" should include 'install dccp /bin/true'
+    The contents of file "$TEST_ROOT/customer.conf" should equal 'blacklist algif_aead'
+    The result of function mode should equal 600
+  End
+
+  It 'retains the build-wide cleanup when no file list is supplied'
+    When call configureVulnerableKernelModuleDenyRules
+    The status should be success
+    The output should include 'Removing algif_aead'
+    The contents of file "$TEST_ROOT/customer.conf" should equal ''
+    The result of function mode should equal 600
+  End
+End

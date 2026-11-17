@@ -111,7 +111,7 @@
     {
       "type": "shell",
       "inline": [
-        "sudo /home/packer/aks-node-controller unpack-scripts || exit 1",
+        "sudo FEATURE_FLAGS={{user `feature_flags`}} ENABLE_FIPS={{user `enable_fips`}} /home/packer/aks-node-controller unpack-scripts || exit 1",
         "sudo FEATURE_FLAGS={{user `feature_flags`}} BUILD_NUMBER={{user `build_number`}} BUILD_ID={{user `build_id`}} COMMIT={{user `commit`}} HYPERV_GENERATION={{user `hyperv_generation`}} CONTAINER_RUNTIME={{user `container_runtime`}} ENABLE_FIPS={{user `enable_fips`}} ENABLE_CGROUPV2={{user `enable_cgroupv2`}} IMG_SKU={{user `img_sku`}} /bin/bash -eux /opt/azure/image-build/pre-install-dependencies.sh"
       ]
     },

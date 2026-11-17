@@ -80,6 +80,10 @@ The `.link` suffix is removed; the installed file is a regular file. Reference
 paths are relative to `root/` and must point directly to regular files under
 `shared/`. Reference chains, directories and paths outside `shared/` are rejected.
 `shared/` itself is never unpacked.
+Rsyslog and CIS configuration keep one original source each. Unpacking applies
+the existing distro-specific build edits instead of storing edited copies.
+The shared build/hotfix normalization functions live in `image_config.sh`;
+`tool_installs.sh` remains an unchanged source move.
 
 The complete file set is resolved before any writes. A file and a `.link` with
 the same destination in one tree, file/directory conflicts, missing references,
@@ -93,19 +97,34 @@ Flatcar license text is combined into `/NOTICE.txt`, as in the original images.
 The bundled logrotate timer does not receive the distro timer's drop-in.
 Existing file symlinks are retained and their targets are updated, matching the
 old image-copy behavior. Targets must remain inside the selected destination root.
-`--destination` selects an alternate root for inspection or tests. Image builders
-can select a small number of image variants with repeatable `--overlay` arguments
-(e.g. `gb` or `ubuntu2204-fips`). The selection is recorded in
-`/etc/aks/image-overlays`, so subsequent hotfixes apply the same variants.
+`unpack-scripts` selects image variants automatically. Image builders pass their
+existing `ENABLE_FIPS` and `FEATURE_FLAGS` environment variables on the first
+unpack. On older VHDs, ANC detects FIPS and GB from their installed image files,
+and detects the bundled logrotate timer from its script. NVIDIA GRUB selection
+uses the OS, architecture and FIPS state. On older Azure Linux ARM64 images,
+ANC retains the installed NVIDIA GRUB selection.
+The selection is recorded in `/etc/aks/image-overlays`, so subsequent hotfixes
+apply the same variants without build-time environment variables.
+`--destination` selects an alternate root for inspection or tests; variant
+markers are read from that root, while OS and architecture describe the running
+system.
 
 Unpacking intentionally replaces all files in the selected tree, including custom
 copies of provisioning scripts and static configuration. It is not a selective
 patch and does not remove unrelated files. Runtime node configuration and secrets
-are not part of this embedded tree.
+are not part of this embedded tree. The hotfix command reapplies the image build's
+kernel and systemd adjustments. Kernel-rule cleanup is limited to the embedded
+`CIS.conf`; it does not change other modprobe files on the node.
+On an existing VHD (`vhd-install.complete`), unpacking preserves the final
+package-managed banners and does not restore the two WALinuxAgent installer
+scripts removed during image deprovisioning.
+The compatibility hotfix command retains its original OS support: Ubuntu and
+Azure Linux. ACL, OSGuard and Flatcar remain skipped; their build trees are still
+available through `unpack-scripts`.
 When `base_prep.complete` exists, the existing SSH configuration is preserved
-because it contains policy that `basePrep` will not apply again. Selecting the
-bundled logrotate timer removes its obsolete distro-timer drop-in, but keeps
-other drop-ins.
+because it contains policy that `basePrep` will not apply again. The timer variant
+is selected before the first write, so the bundled logrotate timer never receives
+the distro-timer drop-in. Existing unrelated drop-ins are preserved.
 
 ### Phase 3 through AgentBaker
 

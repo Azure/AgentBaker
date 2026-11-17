@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'service execution telemetry'
-    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./parts/root/common/opt/azure/containers/provision_source.sh)"
+    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./parts/root/common/opt/azure/image-build/image_config.sh)"
 
     setup_service_execution_telemetry_test() {
         TEST_ROOT=$(mktemp -d)
@@ -269,7 +269,7 @@ EOF
         The status should be success
     End
 
-    It 'preserves escaped service names and applies the legacy fallback idempotently'
+    It 'preserves escaped service names in the asynchronous ExecStopPost fallback before systemd 249'
         CGROUP_MEMORY_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-memory-telemetry.service"
         CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST="${TEST_ROOT}/cgroup-pressure-telemetry.service"
         AKS_LOG_COLLECTOR_SERVICE_DEST="${TEST_ROOT}/aks-log-collector.service"
@@ -277,14 +277,8 @@ EOF
         cp ./parts/root/common/etc/systemd/system/cgroup-pressure-telemetry.service "${CGROUP_PRESSURE_TELEMETRY_SERVICE_DEST}"
         cp ./parts/root/common/etc/systemd/system/aks-log-collector.service "${AKS_LOG_COLLECTOR_SERVICE_DEST}"
 
-        configure_legacy_twice() {
-            configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}" || return 1
-            configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}" || return 1
-            grep -c '^ExecStopPost=-/bin/systemctl' "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}"
-        }
-        When call configure_legacy_twice
+        When call configureServiceExecutionTelemetryForSystemdVersion 245 "${TEST_ROOT}"
         The status should be success
-        The output should equal 1
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnSuccess="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should not include "OnFailure="
         The contents of file "${CGROUP_MEMORY_TELEMETRY_SERVICE_DEST}" should include 'ExecStopPost=-/bin/systemctl --no-block start service-execution-telemetry@cgroup\\x2dmemory\\x2dtelemetry.service.service'

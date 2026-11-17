@@ -9,6 +9,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -21,7 +23,7 @@ const (
 	logrotateDropInPath = "etc/systemd/system/logrotate.timer.d/override.conf"
 )
 
-func unpackScripts(osReleasePath, destination string, overlays []string) error {
+func unpackScripts(osReleasePath, destination string) error {
 	if !filepath.IsAbs(destination) {
 		return fmt.Errorf("destination must be absolute: %q", destination)
 	}
@@ -32,18 +34,26 @@ func unpackScripts(osReleasePath, destination string, overlays []string) error {
 	if err != nil {
 		return fmt.Errorf("read OS release: %w", err)
 	}
-	osRoot, err := imageRoot(parseNodeCustomDataOSRelease(release))
+	osRelease := parseNodeCustomDataOSRelease(release)
+	osRoot, err := imageRoot(osRelease)
 	if err != nil {
 		return err
 	}
 	roots := []string{"common", osRoot}
 	selection := filepath.Join(destination, imageOverlaysPath)
-	if len(overlays) == 0 {
-		data, err := os.ReadFile(selection)
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("read image overlays: %w", err)
-		}
+	data, err := os.ReadFile(selection)
+	selectionMissing := errors.Is(err, fs.ErrNotExist)
+	var overlays []string
+	switch {
+	case err == nil:
 		overlays = strings.Fields(string(data))
+	case errors.Is(err, fs.ErrNotExist):
+		overlays, err = inferImageOverlays(osRoot, osRelease, destination, runtime.GOARCH)
+	default:
+		return fmt.Errorf("read image overlays: %w", err)
+	}
+	if err != nil {
+		return err
 	}
 	for _, overlay := range overlays {
 		if !fs.ValidPath(overlay) || strings.Contains(overlay, "/") || overlay == "." {
@@ -55,13 +65,83 @@ func unpackScripts(osReleasePath, destination string, overlays []string) error {
 		return err
 	}
 	// Hotfixes must use the image's feature selections, not the build host's environment.
-	if len(overlays) > 0 {
+	if selectionMissing {
 		if err := writeRootFile(selection, []byte(strings.Join(overlays, "\n")+"\n"), 0o644); err != nil {
 			return fmt.Errorf("record image overlays: %w", err)
 		}
 	}
 	slog.Info("unpacked embedded image", "roots", roots, "destination", destination)
 	return nil
+}
+
+func inferImageOverlays(osRoot string, release map[string]string, root, arch string) ([]string, error) {
+	if osRoot == "osguard" {
+		return nil, nil
+	}
+	bundledLogrotate, err := imageHasFile(root, "opt/bin/logrotate.sh")
+	if err != nil {
+		return nil, err
+	}
+	distroLogrotate, err := imageHasFile(root, "etc/systemd/system/logrotate.timer", "usr/lib/systemd/system/logrotate.timer")
+	if err != nil {
+		return nil, err
+	}
+	fips, err := imageHasFile(root, "etc/system-fips", "etc/default/grub.d/99-fips.cfg")
+	if err != nil {
+		return nil, err
+	}
+	fipsSetting, fipsSpecified := os.LookupEnv("ENABLE_FIPS")
+	if fipsSpecified {
+		fips = strings.EqualFold(fipsSetting, "true")
+	}
+	gb, err := imageHasFile(root, "opt/azure/containers/gb-mai-bom.json")
+	if err != nil {
+		return nil, err
+	}
+	if value, present := os.LookupEnv("FEATURE_FLAGS"); present {
+		gb = strings.Contains(value, "NVIDIA_GB")
+	}
+
+	var overlays []string
+	if bundledLogrotate || !distroLogrotate {
+		overlays = append(overlays, "logrotate")
+	}
+	if osRoot == osReleaseIDUbuntu && release["VERSION_ID"] == "22.04" && fips {
+		overlays = append(overlays, "ubuntu2204-fips")
+	}
+	ubuntuNvidia := osRoot == osReleaseIDUbuntu && release["VERSION_ID"] == "24.04"
+	azureLinuxNvidia := osRoot == "azurelinux-3.0" && strings.EqualFold(release["ID"], "azurelinux") &&
+		release["VARIANT_ID"] == "" && !fips
+	if azureLinuxNvidia && !fipsSpecified {
+		// Older ARM64 FIPS images need not have the amd64 FIPS marker.
+		azureLinuxNvidia, err = imageHasFile(root, "etc/grub.d/10_azure_nvidia")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if arch == "arm64" && (ubuntuNvidia || azureLinuxNvidia) {
+		overlays = append(overlays, "nvidia-grub")
+	}
+	if gb {
+		overlays = append(overlays, "gb")
+	}
+	return overlays, nil
+}
+
+func imageHasFile(root string, names ...string) (bool, error) {
+	for _, name := range names {
+		info, err := os.Stat(filepath.Join(root, name))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return false, fmt.Errorf("inspect image variant marker %s: %w", name, err)
+		}
+		if info.Mode().IsRegular() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func imageRoot(release map[string]string) (string, error) {
@@ -179,6 +259,7 @@ func resolveImageFiles(source fs.FS, roots []string) (map[string]imageFile, erro
 		// The bundled timer already has the schedule; the drop-in is only for distro timers.
 		delete(files, logrotateDropInPath)
 	}
+	normalizeImageConfigs(files, roots)
 	for name, file := range files {
 		for parent := path.Dir(name); parent != "."; parent = path.Dir(parent) {
 			if previous, ok := files[parent]; ok {
@@ -187,6 +268,49 @@ func resolveImageFiles(source fs.FS, roots []string) (map[string]imageFile, erro
 		}
 	}
 	return files, nil
+}
+
+func normalizeImageConfigs(files map[string]imageFile, roots []string) {
+	// Keep the original sources; materialize the distro-specific build edits.
+	if file, ok := files["etc/rsyslog.d/60-CIS.conf"]; ok {
+		rule := "\n*.*;mail.none;news.none            -/var/log/messages\n"
+		if slices.Contains(roots, "mariner") || slices.Contains(roots, "azurelinux") ||
+			slices.Contains(roots, "azurelinux-3.0") || slices.Contains(roots, "osguard") {
+			rule = "\nnews.none                          -/var/log/messages\n"
+		}
+		file.content = append(file.content, rule...)
+		files["etc/rsyslog.d/60-CIS.conf"] = file
+	}
+	if file, ok := files["etc/modprobe.d/CIS.conf"]; ok && slices.Contains(roots, "azurelinux-3.0") {
+		file.content = azureLinux3CISContent(file.content)
+		files["etc/modprobe.d/CIS.conf"] = file
+	}
+}
+
+var imageModuleDenyRule = regexp.MustCompile(
+	`^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+/bin/false|` +
+		`blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$`,
+)
+
+func azureLinux3CISContent(content []byte) []byte {
+	var result strings.Builder
+	for _, line := range strings.SplitAfter(string(content), "\n") {
+		text := strings.TrimSuffix(line, "\n")
+		if imageModuleDenyRule.MatchString(text) || strings.HasPrefix(text, "# CVE-2026-31431 (Copy Fail):") ||
+			strings.HasPrefix(text, "# DirtyFrag / CopyFail2:") {
+			continue
+		}
+		switch text {
+		case "# until kernel fix is available. See https://ubuntu.com/blog/copy-fail-vulnerability-fixes-available",
+			"# write LPE vulnerabilities. rxrpc path bypasses AppArmor userns restrictions.",
+			"# AKS platform components do not require kernel IPsec ESP/XFRM or AFS/RxRPC.",
+			"# Disabling these modules prevents workloads that rely on those protocols from working",
+			"# on the node. See https://github.com/V4bel/dirtyfrag":
+			continue
+		}
+		result.WriteString(line)
+	}
+	return []byte(result.String())
 }
 
 // Keep the installed permissions from Packer and ImageCustomizer. Git modes and
@@ -277,6 +401,20 @@ func unpackRoot(source fs.FS, roots []string, destination string) error {
 	if err != nil {
 		return err
 	}
+	imageBuilt, err := imageHasFile(destination, "opt/azure/vhd-install.complete")
+	if err != nil {
+		return err
+	}
+	if imageBuilt {
+		// Packages replace the banners, and final deprovisioning removes these installers.
+		for _, name := range []string{
+			"etc/issue", "etc/issue.net",
+			"opt/azure/containers/install_walinuxagent.py",
+			"opt/azure/containers/post-deprovision-walinuxagent.sh",
+		} {
+			delete(files, name)
+		}
+	}
 	basePrepared := false
 	if info, err := os.Stat(filepath.Join(destination, "opt/azure/containers/base_prep.complete")); err == nil {
 		basePrepared = info.Mode().IsRegular()
@@ -306,30 +444,6 @@ func unpackRoot(source fs.FS, roots []string, destination string) error {
 		}
 		if err := writeRootFile(output, files[relative].content, mode); err != nil {
 			return err
-		}
-	}
-	if slices.Contains(roots, "overlays/logrotate") {
-		if err := removeLogrotateDropIn(destination); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func removeLogrotateDropIn(destination string) error {
-	// The initial unpack can install this before the build selects its timer.
-	dropIn := filepath.Join(destination, logrotateDropInPath)
-	if err := os.Remove(dropIn); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("remove distro logrotate drop-in: %w", err)
-	}
-	directory := filepath.Dir(dropIn)
-	entries, err := os.ReadDir(directory)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("inspect logrotate drop-ins: %w", err)
-	}
-	if err == nil && len(entries) == 0 {
-		if err := os.Remove(directory); err != nil {
-			return fmt.Errorf("remove empty logrotate drop-in directory: %w", err)
 		}
 	}
 	return nil

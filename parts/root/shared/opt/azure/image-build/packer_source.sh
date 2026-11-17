@@ -5,22 +5,6 @@ isMGLRUDefaultDisabled() {
 }
 
 configureImageFiles() {
-  local overlays=()
-  if [ ! -f /etc/systemd/system/logrotate.timer ] && [ ! -f /usr/lib/systemd/system/logrotate.timer ]; then
-    overlays+=(--overlay logrotate)
-  fi
-  if [ "${UBUNTU_RELEASE:-}" = "22.04" ] && [ "${ENABLE_FIPS,,}" = "true" ]; then
-    overlays+=(--overlay ubuntu2204-fips)
-  fi
-  if { [ "${UBUNTU_RELEASE:-}" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; } ||
-    { isAzureLinuxArm64BaseImage "$OS" "$CPU_ARCH" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && [ "${ENABLE_FIPS,,}" != "true" ]; }; then
-    overlays+=(--overlay nvidia-grub)
-  fi
-  if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-    overlays+=(--overlay gb)
-  fi
-  /home/packer/aks-node-controller unpack-scripts "${overlays[@]}" || exit 1
-
   chmod 0600 /etc/ssh/sshd_config /etc/security/pwquality.conf || exit 1
   if isUbuntu "$OS" && [ -f /etc/security/faillock.conf ]; then
     chmod 0600 /etc/security/faillock.conf || exit 1

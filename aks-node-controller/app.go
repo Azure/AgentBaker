@@ -151,13 +151,12 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Usage: "Install the embedded image files for this OS",
 				Flags: []cli.Flag{
 					&cli.StringFlag{Name: "destination", Value: "/", Usage: "root directory in which to unpack the scripts"},
-					&cli.StringSliceFlag{Name: "overlay", Usage: "image variant to apply and remember for future hotfixes (repeatable)"},
 				},
 				Action: func(_ context.Context, cmd *cli.Command) error {
 					if cmd.Args().Len() != 0 {
 						return fmt.Errorf("unexpected unpack-scripts arguments: %s", strings.Join(cmd.Args().Slice(), " "))
 					}
-					return unpackScripts(a.osReleasePath, cmd.String("destination"), cmd.StringSlice("overlay"))
+					return unpackScripts(a.osReleasePath, cmd.String("destination"))
 				},
 			},
 			{
@@ -287,10 +286,21 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 
 func (a *App) runApplyHotfixCommand(ctx context.Context) error {
 	slog.Info("aks-node-controller hotfix apply started")
+	info, err := a.parseLinuxPlatformInfo()
+	if err != nil {
+		return err
+	}
+	if isImageBasedOSVariant(info.VariantID) || info.ID == osReleaseIDAzureContainerLinux || info.ID == osReleaseIDFlatcar {
+		slog.Info("embedded script hotfix is not supported on this OS, skipping", "osReleasePath", a.osReleasePath)
+		return nil
+	}
+	if info.ID != osReleaseIDUbuntu && info.ID != osReleaseIDAzureLinux {
+		return fmt.Errorf("unsupported OS ID %q in %s", info.ID, a.osReleasePath)
+	}
 	applyHotfix := a.applyEmbeddedHotfix
 	if applyHotfix == nil {
 		applyHotfix = func(osReleasePath string) error {
-			return unpackScripts(osReleasePath, "/", nil)
+			return unpackScripts(osReleasePath, "/")
 		}
 	}
 	if err := applyHotfix(a.osReleasePath); err != nil {
@@ -298,8 +308,10 @@ func (a *App) runApplyHotfixCommand(ctx context.Context) error {
 		return err
 	}
 	if _, statErr := os.Stat("/run/systemd/system"); statErr == nil {
-		// The same version-dependent unit adjustments are used by the image build.
+		// Restore the same kernel and systemd adjustments made by the image build.
 		normalize := `source /opt/azure/containers/provision_source.sh &&
+source /opt/azure/image-build/image_config.sh &&
+configureVulnerableKernelModuleDenyRules /etc/modprobe.d/CIS.conf &&
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')"`
 		if err := a.cmdRun(exec.CommandContext(ctx, "/bin/bash", "-c", normalize)); err != nil {
 			return fmt.Errorf("configure hotfixed systemd units: %w", err)

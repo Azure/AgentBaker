@@ -14,6 +14,8 @@ import (
 )
 
 func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks the complete OS-specific file matrix.
+	t.Setenv("ENABLE_FIPS", "false")
+	t.Setenv("FEATURE_FLAGS", "")
 	for _, release := range []string{
 		"ID=ubuntu\nVERSION_ID=18.04\n",
 		"ID=ubuntu\nVERSION_ID=22.04\n",
@@ -29,7 +31,7 @@ func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks th
 			root := t.TempDir()
 			osRelease := filepath.Join(t.TempDir(), "os-release")
 			require.NoError(t, os.WriteFile(osRelease, []byte(release), 0o600))
-			require.NoError(t, unpackScripts(osRelease, root, nil))
+			require.NoError(t, unpackScripts(osRelease, root))
 			for _, name := range []string{
 				"etc/systemd/system/kubelet.service",
 				"etc/systemd/system/localdns.service",
@@ -83,7 +85,7 @@ func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks th
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(path, []byte("old image"), 0o644))
 			require.NoError(t, os.Chmod(path, 0o600))
-			require.NoError(t, unpackScripts(osRelease, root, nil))
+			require.NoError(t, unpackScripts(osRelease, root))
 			actual, err := os.ReadFile(path)
 			require.NoError(t, err)
 			require.Equal(t, expected, actual)
@@ -96,7 +98,40 @@ func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks th
 	}
 }
 
+func TestRsyslogConfigUsesOriginalSource(t *testing.T) {
+	original, err := parts.Root.ReadFile("root/shared/etc/rsyslog.d/60-CIS.conf")
+	require.NoError(t, err)
+	for root, rule := range map[string]string{
+		"ubuntu":         "*.*;mail.none;news.none            -/var/log/messages",
+		"acl":            "*.*;mail.none;news.none            -/var/log/messages",
+		"mariner":        "news.none                          -/var/log/messages",
+		"azurelinux":     "news.none                          -/var/log/messages",
+		"azurelinux-3.0": "news.none                          -/var/log/messages",
+		"osguard":        "news.none                          -/var/log/messages",
+	} {
+		t.Run(root, func(t *testing.T) {
+			files, err := resolveImageFiles(parts.Root, []string{"common", root})
+			require.NoError(t, err)
+			require.Equal(t, string(original)+"\n"+rule+"\n", string(files["etc/rsyslog.d/60-CIS.conf"].content))
+		})
+	}
+}
+
+func TestAzureLinux3CISContentKeepsUnrelatedRules(t *testing.T) {
+	input := "# keep this comment\ninstall dccp /bin/true\n" +
+		"# CVE-2026-31431 (Copy Fail): mitigation\ninstall algif_aead /bin/false\nblacklist algif_aead\n" +
+		"# DirtyFrag / CopyFail2: mitigation\ninstall\tesp4\t/bin/false # mitigation\nblacklist esp6\nblacklist rxrpc\n" +
+		"# rules added after the mitigation block\nblacklist another_module\n" +
+		"blacklist esp4_extra\ninstall algif_aead /bin/true\n"
+	expected := "# keep this comment\ninstall dccp /bin/true\n" +
+		"# rules added after the mitigation block\nblacklist another_module\n" +
+		"blacklist esp4_extra\ninstall algif_aead /bin/true\n"
+	require.Equal(t, expected, string(azureLinux3CISContent([]byte(input))))
+}
+
 func TestUnpackPreservesInstalledFilePolicy(t *testing.T) {
+	t.Setenv("ENABLE_FIPS", "false")
+	t.Setenv("FEATURE_FLAGS", "")
 	for _, platform := range []struct {
 		name    string
 		release string
@@ -123,7 +158,7 @@ func TestUnpackPreservesInstalledFilePolicy(t *testing.T) {
 			root := t.TempDir()
 			release := filepath.Join(t.TempDir(), "os-release")
 			require.NoError(t, os.WriteFile(release, []byte(platform.release), 0o600))
-			require.NoError(t, unpackScripts(release, root, nil))
+			require.NoError(t, unpackScripts(release, root))
 			for name, mode := range map[string]fs.FileMode{
 				"NOTICE.txt":                                     0o444,
 				"etc/ssh/sshd_config":                            0o600,
@@ -155,7 +190,7 @@ func TestUnpackCombinesFlatcarNotices(t *testing.T) {
 			releasePath := filepath.Join(t.TempDir(), "os-release")
 			require.NoError(t, os.WriteFile(releasePath, []byte(release), 0o600))
 			for range 2 {
-				require.NoError(t, unpackScripts(releasePath, root, nil))
+				require.NoError(t, unpackScripts(releasePath, root))
 				actual, err := os.ReadFile(filepath.Join(root, "NOTICE.txt"))
 				require.NoError(t, err)
 				require.Equal(t, sha256.Sum256([]byte(string(common)+"\n"+string(flatcar))), sha256.Sum256(actual))
@@ -170,13 +205,13 @@ func TestUnpackLogrotateSelection(t *testing.T) {
 		root := t.TempDir()
 		release := filepath.Join(t.TempDir(), "os-release")
 		require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\nVERSION_ID=22.04\n"), 0o600))
-		// Packer first unpacks without overlays to make its build helpers available.
-		require.NoError(t, unpackScripts(release, root, nil))
-		var overlays []string
-		if bundledTimer {
-			overlays = []string{"logrotate"}
+		if !bundledTimer {
+			timer := filepath.Join(root, "usr/lib/systemd/system/logrotate.timer")
+			require.NoError(t, os.MkdirAll(filepath.Dir(timer), 0o755))
+			require.NoError(t, os.WriteFile(timer, nil, 0o644))
 		}
-		require.NoError(t, unpackScripts(release, root, overlays))
+		require.NoError(t, unpackScripts(release, root))
+		require.NoError(t, unpackScripts(release, root))
 		timer := filepath.Join(root, "etc/systemd/system/logrotate.timer")
 		override := filepath.Join(root, "etc/systemd/system/logrotate.timer.d/override.conf")
 		if bundledTimer {
@@ -194,13 +229,13 @@ func TestUnpackLogrotatePreservesOtherDropIns(t *testing.T) {
 	root := t.TempDir()
 	release := filepath.Join(t.TempDir(), "os-release")
 	require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\nVERSION_ID=22.04\n"), 0o600))
-	require.NoError(t, unpackScripts(release, root, nil))
 	custom := filepath.Join(root, "etc/systemd/system/logrotate.timer.d/custom.conf")
+	require.NoError(t, os.MkdirAll(filepath.Dir(custom), 0o755))
 	require.NoError(t, os.WriteFile(custom, []byte("[Timer]\nAccuracySec=1s\n"), 0o600))
-	require.NoError(t, unpackScripts(release, root, []string{"logrotate"}))
+	require.NoError(t, unpackScripts(release, root))
 	require.FileExists(t, custom)
 	require.NoFileExists(t, filepath.Join(filepath.Dir(custom), "override.conf"))
-	require.NoError(t, unpackScripts(release, root, nil))
+	require.NoError(t, unpackScripts(release, root))
 	require.FileExists(t, custom)
 }
 
@@ -350,12 +385,16 @@ func TestUnpackRemembersImageVariants(t *testing.T) {
 	root := t.TempDir()
 	release := filepath.Join(t.TempDir(), "os-release")
 	require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\nVERSION_ID=24.04\n"), 0o600))
-	require.NoError(t, unpackScripts(release, root, []string{"gb"}))
+	selection := filepath.Join(root, imageOverlaysPath)
+	require.NoError(t, os.MkdirAll(filepath.Dir(selection), 0o755))
+	require.NoError(t, os.WriteFile(selection, []byte("gb\n"), 0o644))
+	require.NoError(t, unpackScripts(release, root))
 	path := filepath.Join(root, "etc/containerd/config.toml")
 	expected, err := parts.Root.ReadFile("root/overlays/gb/etc/containerd/config.toml")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(path, []byte("old"), 0o600))
-	require.NoError(t, unpackScripts(release, root, nil))
+	t.Setenv("FEATURE_FLAGS", "None")
+	require.NoError(t, unpackScripts(release, root))
 	actual, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
@@ -365,16 +404,192 @@ func TestUnpackRemembersImageVariants(t *testing.T) {
 	require.FileExists(t, filepath.Join(root, "opt/azure/containers/gb-mai-bom.json"))
 }
 
+func TestInferImageOverlaysBuildSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name, id, version, variant, arch, fips, features string
+		want                                             []string
+	}{
+		{"Ubuntu ARM64", "ubuntu", "24.04", "", "arm64", "false", "", []string{"nvidia-grub"}},
+		{"Ubuntu AMD64", "ubuntu", "24.04", "", "amd64", "false", "", nil},
+		{"Ubuntu FIPS", "ubuntu", "22.04", "", "amd64", "TRUE", "", []string{"ubuntu2204-fips"}},
+		{"Ubuntu 20 FIPS", "ubuntu", "20.04", "", "amd64", "true", "", nil},
+		{"Azure Linux ARM64", "azurelinux", "3.0", "", "arm64", "false", "", []string{"nvidia-grub"}},
+		{"Azure Linux FIPS", "azurelinux", "3.0", "", "arm64", "true", "", nil},
+		{"Azure Linux Kata", "azurelinux", "3.0", "kata", "arm64", "false", "", nil},
+		{"Azure Linux Kata ID", "azurelinuxkata", "3.0", "", "arm64", "false", "", nil},
+		{"Azure Linux 4", "azurelinux", "4.0", "", "arm64", "false", "", nil},
+		{"ACL", "azurelinux", "3.0", "azurecontainerlinux", "arm64", "false", "", nil},
+		{"GB", "ubuntu", "24.04", "", "arm64", "false", "NVIDIA_GB", []string{"nvidia-grub", "gb"}},
+		{"OSGuard", "azurelinux", "3.0", "osguard", "arm64", "false", "", nil},
+		{"Flatcar", "flatcar", "", "", "arm64", "false", "", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("ENABLE_FIPS", tc.fips)
+			t.Setenv("FEATURE_FLAGS", tc.features)
+			root := t.TempDir()
+			timer := filepath.Join(root, "usr/lib/systemd/system/logrotate.timer")
+			require.NoError(t, os.MkdirAll(filepath.Dir(timer), 0o755))
+			require.NoError(t, os.WriteFile(timer, nil, 0o644))
+			release := map[string]string{"ID": tc.id, "VERSION_ID": tc.version, "VARIANT_ID": tc.variant}
+			osRoot, err := imageRoot(release)
+			require.NoError(t, err)
+			actual, err := inferImageOverlays(osRoot, release, root, tc.arch)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, actual)
+		})
+	}
+}
+
+func TestUnpackInfersLegacyImageVariants(t *testing.T) {
+	t.Setenv("ENABLE_FIPS", "")
+	require.NoError(t, os.Unsetenv("ENABLE_FIPS"))
+	t.Setenv("FEATURE_FLAGS", "")
+	require.NoError(t, os.Unsetenv("FEATURE_FLAGS"))
+	for _, tc := range []struct {
+		name    string
+		version string
+		markers []string
+		overlay string
+		file    string
+	}{
+		{"FIPS", "22.04", []string{"etc/default/grub.d/99-fips.cfg"}, "ubuntu2204-fips", "etc/ssh/sshd_config"},
+		{"GB", "24.04", []string{"opt/azure/containers/gb-mai-bom.json"}, "gb", "etc/containerd/config.toml"},
+		{"bundled logrotate", "22.04", []string{"opt/bin/logrotate.sh", "etc/systemd/system/logrotate.timer"}, "logrotate", "opt/bin/logrotate.sh"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			for _, name := range tc.markers {
+				target := filepath.Join(root, name)
+				require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+				require.NoError(t, os.WriteFile(target, nil, 0o644))
+			}
+			release := filepath.Join(t.TempDir(), "os-release")
+			require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\nVERSION_ID="+tc.version+"\n"), 0o600))
+			require.NoError(t, unpackScripts(release, root))
+			expected, err := parts.Root.ReadFile("root/overlays/" + tc.overlay + "/" + tc.file)
+			require.NoError(t, err)
+			actual, err := os.ReadFile(filepath.Join(root, tc.file))
+			require.NoError(t, err)
+			require.Equal(t, expected, actual)
+		})
+	}
+}
+
+func TestUnpackRetainsEmptySelectionAndItsMode(t *testing.T) {
+	t.Setenv("ENABLE_FIPS", "false")
+	t.Setenv("FEATURE_FLAGS", "")
+	root := t.TempDir()
+	timer := filepath.Join(root, "usr/lib/systemd/system/logrotate.timer")
+	require.NoError(t, os.MkdirAll(filepath.Dir(timer), 0o755))
+	require.NoError(t, os.WriteFile(timer, nil, 0o644))
+	release := filepath.Join(t.TempDir(), "os-release")
+	require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\nVERSION_ID=22.04\n"), 0o600))
+	require.NoError(t, unpackScripts(release, root))
+	selection := filepath.Join(root, imageOverlaysPath)
+	require.NoError(t, os.Chmod(selection, 0o600))
+	sshConfig := filepath.Join(root, "etc/ssh/sshd_config")
+	expected, err := os.ReadFile(sshConfig)
+	require.NoError(t, err)
+	t.Setenv("ENABLE_FIPS", "true")
+	t.Setenv("FEATURE_FLAGS", "NVIDIA_GB")
+	require.NoError(t, unpackScripts(release, root))
+	actual, err := os.ReadFile(sshConfig)
+	require.NoError(t, err)
+	require.Equal(t, expected, actual)
+	require.NoFileExists(t, filepath.Join(root, "opt/azure/containers/gb-mai-bom.json"))
+	info, err := os.Stat(selection)
+	require.NoError(t, err)
+	require.Equal(t, fs.FileMode(0o600), info.Mode().Perm())
+}
+
+func TestInferLegacyAzureLinuxARM64Variant(t *testing.T) {
+	t.Setenv("ENABLE_FIPS", "")
+	require.NoError(t, os.Unsetenv("ENABLE_FIPS"))
+	t.Setenv("FEATURE_FLAGS", "")
+	for _, hasGrub := range []bool{false, true} {
+		root := t.TempDir()
+		names := []string{"usr/lib/systemd/system/logrotate.timer"}
+		if hasGrub {
+			names = append(names, "etc/grub.d/10_azure_nvidia")
+		}
+		for _, name := range names {
+			target := filepath.Join(root, name)
+			require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
+			require.NoError(t, os.WriteFile(target, nil, 0o644))
+		}
+		actual, err := inferImageOverlays("azurelinux-3.0", map[string]string{"ID": "azurelinux", "VERSION_ID": "3.0"}, root, "arm64")
+		require.NoError(t, err)
+		if hasGrub {
+			require.Equal(t, []string{"nvidia-grub"}, actual)
+		} else {
+			require.Empty(t, actual)
+		}
+	}
+}
+
+func TestUnpackPreservesFinalImageBuildResults(t *testing.T) {
+	source := fstest.MapFS{
+		"root/common/etc/issue":                                             {Data: []byte("embedded banner\n")},
+		"root/common/etc/issue.net":                                         {Data: []byte("embedded banner\n")},
+		"root/common/opt/azure/containers/install_walinuxagent.py":          {Data: []byte("installer\n")},
+		"root/common/opt/azure/containers/post-deprovision-walinuxagent.sh": {Data: []byte("deprovision\n")},
+		"root/common/opt/azure/containers/provision.sh":                     {Data: []byte("new provisioning script\n")},
+	}
+	for _, built := range []bool{false, true} {
+		root := t.TempDir()
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "etc"), 0o755))
+		require.NoError(t, os.MkdirAll(filepath.Join(root, "usr/lib"), 0o755))
+		for _, name := range []string{"usr/lib/issue", "etc/issue.net"} {
+			require.NoError(t, os.WriteFile(filepath.Join(root, name), []byte("package banner\n"), 0o640))
+		}
+		require.NoError(t, os.Symlink("../usr/lib/issue", filepath.Join(root, "etc/issue")))
+		if built {
+			marker := filepath.Join(root, "opt/azure/vhd-install.complete")
+			require.NoError(t, os.MkdirAll(filepath.Dir(marker), 0o755))
+			require.NoError(t, os.WriteFile(marker, nil, 0o644))
+		}
+		require.NoError(t, unpackRoot(source, []string{"common"}, root))
+		expected := "embedded banner\n"
+		if built {
+			expected = "package banner\n"
+		}
+		for _, name := range []string{"etc/issue", "etc/issue.net"} {
+			content, err := os.ReadFile(filepath.Join(root, name))
+			require.NoError(t, err)
+			require.Equal(t, expected, string(content))
+			info, err := os.Stat(filepath.Join(root, name))
+			require.NoError(t, err)
+			require.Equal(t, fs.FileMode(0o640), info.Mode().Perm())
+		}
+		target, err := os.Readlink(filepath.Join(root, "etc/issue"))
+		require.NoError(t, err)
+		require.Equal(t, "../usr/lib/issue", target)
+		for _, name := range []string{"install_walinuxagent.py", "post-deprovision-walinuxagent.sh"} {
+			file := filepath.Join(root, "opt/azure/containers", name)
+			if built {
+				require.NoFileExists(t, file)
+			} else {
+				require.FileExists(t, file)
+			}
+		}
+		require.FileExists(t, filepath.Join(root, "opt/azure/containers/provision.sh"))
+	}
+}
+
 func TestUnpackFailsExplicitly(t *testing.T) {
 	release := filepath.Join(t.TempDir(), "os-release")
 	root := t.TempDir()
-	require.Error(t, unpackScripts(release, root, nil))
+	require.Error(t, unpackScripts(release, root))
 	require.NoError(t, os.WriteFile(release, []byte("ID=unsupported\n"), 0o600))
-	require.ErrorContains(t, unpackScripts(release, root, nil), "unsupported OS")
+	require.ErrorContains(t, unpackScripts(release, root), "unsupported OS")
 	require.NoError(t, os.WriteFile(release, []byte("ID=ubuntu\n"), 0o600))
-	require.ErrorContains(t, unpackScripts(release, "relative", nil), "absolute")
-	require.ErrorContains(t, unpackScripts(release, root, []string{"../outside"}), "invalid image overlay")
-	require.ErrorContains(t, unpackScripts(release, root, []string{"missing"}), "unpack overlays/missing")
+	require.ErrorContains(t, unpackScripts(release, "relative"), "absolute")
+	selection := filepath.Join(root, imageOverlaysPath)
+	require.NoError(t, os.MkdirAll(filepath.Dir(selection), 0o755))
+	require.NoError(t, os.WriteFile(selection, []byte("../outside\n"), 0o644))
+	require.ErrorContains(t, unpackScripts(release, root), "invalid image overlay")
+	require.NoError(t, os.WriteFile(selection, []byte("missing\n"), 0o644))
+	require.ErrorContains(t, unpackScripts(release, root), "unpack overlays/missing")
 	require.NoError(t, os.WriteFile(filepath.Join(root, "blocked"), nil, 0o600))
-	require.Error(t, unpackScripts(release, filepath.Join(root, "blocked"), nil))
+	require.Error(t, unpackScripts(release, filepath.Join(root, "blocked")))
 }
