@@ -8,8 +8,8 @@ NVIDIA=
 OTHER=
 
 for linux in ${reverse_sorted_list}; do
-	case $linux in
-		*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
+	case ${linux##*/} in
+		vmlinuz-"${GRUB_NVIDIA_KERNEL_VERSION:-}"|*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
 		*)              : "${OTHER:="${linux}"}"  ;;
 	esac
 done
