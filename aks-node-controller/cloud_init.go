@@ -20,29 +20,9 @@ const (
 	nbcCloudInitGuard = `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "/run/aks/init-aks-cloud.done" ]; then`
 )
 
-func cloudInitializationSettings(flags ProvisionFlags) (location, endpoint string, supported bool, err error) {
+func cloudInitializationSettings(flags ProvisionFlags) (string, string, bool, error) {
 	if flags.NBCCmd != "" {
-		info, err := os.Stat(flags.NBCCmd)
-		if err != nil {
-			return "", "", false, fmt.Errorf("stat NBC command: %w", err)
-		}
-		if !info.Mode().IsRegular() {
-			return "", "", false, fmt.Errorf("NBC command must be a regular file: %s", flags.NBCCmd)
-		}
-		content, err := os.ReadFile(flags.NBCCmd)
-		if err != nil {
-			return "", "", false, fmt.Errorf("read NBC command: %w", err)
-		}
-		if !strings.Contains(string(content), nbcCloudInitGuard) {
-			return "", "", false, nil
-		}
-		settings := parseEnvVarsFromNBCCmdContent(string(content))
-		location, hasLocation := settings["LOCATION"]
-		endpoint, hasEndpoint := settings["REPO_DEPOT_ENDPOINT"]
-		if !hasLocation || !hasEndpoint {
-			return "", "", false, fmt.Errorf("NBC command is missing cloud initialization settings")
-		}
-		return location, endpoint, true, nil
+		return nbcCloudInitializationSettings(flags.NBCCmd)
 	}
 
 	if flags.ProvisionConfig == "" {
@@ -56,7 +36,31 @@ func cloudInitializationSettings(flags ProvisionFlags) (location, endpoint strin
 	if err != nil {
 		return "", "", false, fmt.Errorf("decode provision config: %w", err)
 	}
-	location, endpoint = parser.CloudInitializationSettings(config)
+	location, endpoint := parser.CloudInitializationSettings(config)
+	return location, endpoint, true, nil
+}
+
+func nbcCloudInitializationSettings(path string) (string, string, bool, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", "", false, fmt.Errorf("stat NBC command: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", "", false, fmt.Errorf("NBC command must be a regular file: %s", path)
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", "", false, fmt.Errorf("read NBC command: %w", err)
+	}
+	if !strings.Contains(string(content), nbcCloudInitGuard) {
+		return "", "", false, nil
+	}
+	settings := parseEnvVarsFromNBCCmdContent(string(content))
+	location, hasLocation := settings["LOCATION"]
+	endpoint, hasEndpoint := settings["REPO_DEPOT_ENDPOINT"]
+	if !hasLocation || !hasEndpoint {
+		return "", "", false, fmt.Errorf("NBC command is missing cloud initialization settings")
+	}
 	return location, endpoint, true, nil
 }
 
@@ -80,7 +84,7 @@ func (a *App) initializeCloud(ctx context.Context, flags ProvisionFlags, scriptP
 	}
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0755); err != nil {
 		slog.Warn("failed to create cloud initialization marker; provisioning will initialize again", "error", err)
-	} else if err := os.WriteFile(markerPath, nil, 0644); err != nil {
+	} else if err := os.WriteFile(markerPath, nil, 0600); err != nil {
 		slog.Warn("failed to create cloud initialization marker; provisioning will initialize again", "error", err)
 	}
 	return nil

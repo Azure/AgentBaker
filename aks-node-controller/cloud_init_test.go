@@ -16,7 +16,10 @@ func TestCloudInitializationSettings(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.json")
 	nbcPath := filepath.Join(dir, "nbc.sh")
-	require.NoError(t, os.WriteFile(configPath, []byte(`{"cluster_config":{"location":"config-region"},"custom_cloud_config":{"custom_cloud_env_name":"AKSCustom","repo_depot_endpoint":"https://config"}}`), 0600))
+	require.NoError(t, os.WriteFile(configPath, []byte(`{
+		"cluster_config":{"location":"config-region"},
+		"custom_cloud_config":{"custom_cloud_env_name":"AKSCustom","repo_depot_endpoint":"https://config"}
+	}`), 0600))
 
 	t.Run("NBC takes precedence and preserves shell-quoted values", func(t *testing.T) {
 		nbc := nbcCloudInitGuard + `
@@ -46,7 +49,10 @@ LOCATION='usnat test' /usr/bin/nohup /bin/bash
 	})
 	t.Run("non-custom cloud ignores endpoint", func(t *testing.T) {
 		path := filepath.Join(dir, "public.json")
-		require.NoError(t, os.WriteFile(path, []byte(`{"clusterConfig":{"location":"eastus"},"customCloudConfig":{"customCloudEnvName":"public","repoDepotEndpoint":"https://ignored"}}`), 0600))
+		require.NoError(t, os.WriteFile(path, []byte(`{
+			"clusterConfig":{"location":"eastus"},
+			"customCloudConfig":{"customCloudEnvName":"public","repoDepotEndpoint":"https://ignored"}
+		}`), 0600))
 		location, endpoint, supported, err := cloudInitializationSettings(ProvisionFlags{ProvisionConfig: path})
 		require.NoError(t, err)
 		require.True(t, supported)
@@ -84,7 +90,10 @@ func TestInitializeCloudHandoff(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.json")
 	markerPath := filepath.Join(dir, "run", "init-aks-cloud.done")
-	require.NoError(t, os.WriteFile(configPath, []byte(`{"cluster_config":{"location":"usnat"},"custom_cloud_config":{"custom_cloud_env_name":"AKSCustom","repo_depot_endpoint":"https://repo"}}`), 0600))
+	require.NoError(t, os.WriteFile(configPath, []byte(`{
+		"cluster_config":{"location":"usnat"},
+		"custom_cloud_config":{"custom_cloud_env_name":"AKSCustom","repo_depot_endpoint":"https://repo"}
+	}`), 0600))
 	flags := ProvisionFlags{ProvisionConfig: configPath}
 
 	t.Run("success passes settings and creates marker", func(t *testing.T) {
