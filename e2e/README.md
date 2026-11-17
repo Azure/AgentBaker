@@ -231,7 +231,8 @@ build's image, and the general Windows E2E job, using the main-tagged test image
 ## VM size configuration
 
 Resource SKU catalogues are loaded once per location using the runner's single
-Azure client. Gen2, NVMe, and fallback-size checks share all pages of that catalogue.
+Azure client. Architecture, Gen2, NVMe, ephemeral-disk and fallback-size checks
+share all pages of that catalogue.
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
 `DEFAULT_VM_SKU`.
