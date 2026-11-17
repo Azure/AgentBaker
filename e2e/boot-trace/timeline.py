@@ -6,7 +6,7 @@ import json
 import math
 import re
 
-from events import NETWORK_EVENT_ALIASES, ftrace_events, lttng_events
+from events import ftrace_events
 
 
 NETWORK_EVENTS = {
@@ -31,7 +31,7 @@ def number(value):
     return result
 
 
-def analyze(bundle, ctf_offset=None):
+def analyze(bundle):
     metadata = json.loads((bundle / "metadata.json").read_text(encoding="utf-8"))
     if metadata.get("schema") != 1:
         raise ValueError("Unsupported capture schema")
@@ -62,24 +62,16 @@ def analyze(bundle, ctf_offset=None):
     else:
         diagnostics.append("No Kubernetes readiness evidence; boot-to-Ready is unknown.")
     backend = metadata["backend"]
-    if backend == "ftrace":
-        binary = metadata.get("ftrace_format") == "trace-cmd" or (bundle / "trace.dat").exists()
-        stream = ftrace_events(bundle / ("trace.dat" if binary else "ftrace.txt"), diagnostics)
-        stats_path = bundle / "ftrace-stats.json"
-        if stats_path.exists():
-            stats = json.loads(stats_path.read_text())
-            for name, text in stats.items():
-                if re.search(r"(?:overrun|dropped events|commit overrun):\s*[1-9]", text):
-                    diagnostics.append(f"Ring buffer loss reported in {name}.")
-    elif backend == "lttng":
-        if metadata.get("lttng_discarded_events", 0):
-            diagnostics.append(
-                f"LTTng discarded {metadata['lttng_discarded_events']} events; "
-                "scheduler accounting is partial, not a loss-free measurement."
-            )
-        stream = lttng_events(bundle / "ctf", diagnostics, ctf_offset, realtime_origin)
-    else:
+    if backend != "ftrace":
         raise ValueError(f"Unknown backend: {backend}")
+    binary = metadata.get("ftrace_format") == "trace-cmd" or (bundle / "trace.dat").exists()
+    stream = ftrace_events(bundle / ("trace.dat" if binary else "ftrace.txt"), diagnostics)
+    stats_path = bundle / "ftrace-stats.json"
+    if stats_path.exists():
+        stats = json.loads(stats_path.read_text())
+        for name, text in stats.items():
+            if re.search(r"(?:overrun|dropped events|commit overrun):\s*[1-9]", text):
+                diagnostics.append(f"Ring buffer loss reported in {name}.")
 
     threads = {}
     generations = collections.defaultdict(int)
@@ -214,10 +206,6 @@ def analyze(bundle, ctf_offset=None):
             threads[key]["runnable_seconds"] += max(0.0, stop - started)
     if not counts["sched_switch"]:
         diagnostics.append("No scheduler switches; CPU and runnable time are unavailable.")
-    if metadata.get("backend") == "lttng" and (
-        first - metadata.get("recorder_active_monotonic", first) > 0.1
-    ):
-        diagnostics.append("LTTng trace prefix may be missing; compare stream bounds and recorder start.")
     if io_events:
         diagnostics.append(
             "Block events are counted, not attributed to a thread or converted to "
@@ -226,7 +214,7 @@ def analyze(bundle, ctf_offset=None):
     else:
         diagnostics.append("No block I/O events decoded; I/O activity is unknown.")
     enabled_events = {
-        NETWORK_EVENT_ALIASES.get(name.rsplit(":", 1)[-1], name.rsplit(":", 1)[-1])
+        name.rsplit(":", 1)[-1]
         for name in metadata.get("enabled_events", [])
     }
     network_coverage = {

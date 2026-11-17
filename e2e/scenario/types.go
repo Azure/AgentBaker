@@ -143,6 +143,8 @@ type Config struct {
 	BootTraceBackend string
 	// BootTraceSkipCAUpdate is an experiment on the third tracing node, never a production setting.
 	BootTraceSkipCAUpdate bool
+	BootTraceExperiment   *BootTraceExperiment
+	BootTraceWave         int
 
 	// Cluster creates, updates or re-uses an AKS cluster for the scenario
 	Cluster func(ctx context.Context, request ClusterRequest) (*Cluster, error)

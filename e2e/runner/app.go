@@ -134,6 +134,17 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 		return &usageError{message: "no scenarios matched the configured filters"}
 	}
 
+	waves := [][]*scenario.Scenario{runnable}
+	if opts.bootTraceWaves {
+		if opts.parallel != 7 || opts.retries != 0 || opts.randomNBCCoverage {
+			return &usageError{message: "--boot-trace-waves requires --parallel 7 --retries 0 and cannot combine with --random-nbc-coverage"}
+		}
+		waves, err = bootTraceWaves(runnable)
+		if err != nil {
+			return err
+		}
+	}
+
 	if opts.randomNBCCoverage {
 		seed := nbcSamplingSeed(config.Config.BuildID, time.Now())
 		sampled, err := sampleNBCScenarios(runnable, seed)
@@ -145,6 +156,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 			_, _ = fmt.Fprintf(a.stdout, "NBC sample: %s\n", s.Name)
 		}
 		runnable = append(runnable, sampled...)
+		waves[0] = runnable
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, config.Config.SuiteTimeout)
@@ -161,10 +173,7 @@ func (a *App) run(ctx context.Context, opts runOptions) error {
 	log.Printf("using E2E environment configuration:\n%s\n", config.Config)
 
 	exec := newExecutor(ctx, a.stdout, opts, len(runnable))
-	for _, scenario := range runnable {
-		exec.schedule(scenario.Name, scenario)
-	}
-	waitErr := exec.wait(scenario.CleanupTimeout + 30*time.Second)
+	waitErr := exec.runWaves(waves)
 
 	results := exec.snapshotResults(filtered)
 	if err := writeJUnitReport(opts.junitFile, results); err != nil {
@@ -231,6 +240,7 @@ func (e *usageError) Error() string {
 }
 
 type runOptions struct {
+	bootTraceWaves    bool
 	randomNBCCoverage bool
 	parallel          int
 	retries           int
@@ -243,6 +253,7 @@ type runOptions struct {
 
 func runOptionsFromConfig(selectors []string) runOptions {
 	return runOptions{
+		bootTraceWaves:    config.Config.BootTraceWaves,
 		randomNBCCoverage: config.Config.RandomNBCCoverage,
 		parallel:          config.Config.Parallel,
 		retries:           config.Config.Retries,

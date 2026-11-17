@@ -25,13 +25,11 @@ def select_trials(root):
         backend = metadata["backend"]
         scenario = bundle.parent.name
         prefix = "Ubuntu2604Minimal_BootTrace_"
-        if backend not in ("ftrace", "lttng") or not scenario.startswith(prefix):
+        if backend != "ftrace" or not scenario.startswith(prefix):
             raise ValueError("Unexpected boot-trace backend or scenario")
         label = scenario.removeprefix(prefix)
-        if label not in ("ftrace", "ftrace_2", "ftrace_3", "lttng") or label in labels:
-            raise ValueError("Expected three ftrace trials and at most one optional LTTng trial")
-        if (backend == "ftrace") != label.startswith("ftrace"):
-            raise ValueError("Scenario name does not match the captured backend")
+        if label not in ("ftrace", "ftrace_2", "ftrace_3") or label in labels:
+            raise ValueError("Expected exactly three ftrace trials")
         labels.add(label)
         if metadata["boot_id"] != readiness["boot_id"] or metadata["status"] != "stopped" or not metadata.get("finalized_at"):
             raise ValueError("Capture identity or finalization does not match readiness")
@@ -60,19 +58,15 @@ def select_trials(root):
             configuration.get("network_policy"), configuration.get("network_dataplane"),
         ))
         trials.append((label, bundle))
-    if not {"ftrace", "ftrace_2", "ftrace_3"}.issubset(labels) or labels - {
-        "ftrace", "ftrace_2", "ftrace_3", "lttng",
-    }:
+    if labels != {"ftrace", "ftrace_2", "ftrace_3"}:
         raise ValueError("Exactly three successful ftrace trials are required")
-    if len(trials) not in (3, 4):
-        raise ValueError("Expected three ftrace trials and at most one optional LTTng trial")
     if any(configuration != configurations[0] for configuration in configurations[1:]):
         raise ValueError("Trials differ in base image, kernel, architecture, VM, cluster or provisioning configuration")
     if "skip-update-ca-certificates" in ca_modes.values():
         if ca_modes != {"ftrace": "enabled", "ftrace_2": "enabled",
                         "ftrace_3": "skip-update-ca-certificates"}:
             raise ValueError("CA experiment requires exactly two controls and only ftrace_3 skipping CA update")
-    order = {"ftrace": 0, "ftrace_2": 1, "ftrace_3": 2, "lttng": 3}
+    order = {"ftrace": 0, "ftrace_2": 1, "ftrace_3": 2}
     return sorted(trials, key=lambda trial: order[trial[0]])
 
 
@@ -133,7 +127,7 @@ def render(root, output):
         capture_output = output / label.replace("_", "-")
         capture_output.mkdir(mode=0o700)
         (capture_output / "report.json").write_text(json.dumps(result, indent=2, allow_nan=False) + "\n")
-        display_label = "LTTng" if label == "lttng" else f"ftrace {label.removeprefix('ftrace').lstrip('_') or '1'}"
+        display_label = f"ftrace {label.removeprefix('ftrace').lstrip('_') or '1'}"
         if "ca_update_mode" in result.get("readiness", {}).get("configuration", {}):
             display_label += " / " + ("SKIP update-ca (experiment)" if ca_mode != "enabled" else "update-ca enabled")
         write_html(capture_output / "report.html", [result], [display_label])

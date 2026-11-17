@@ -13,4 +13,14 @@ func TestDefaultConfigurationInADO(t *testing.T) {
 			require.Equal(t, value == "True" || value == "true" || value == "TRUE", DefaultConfiguration().InADO)
 		})
 	}
+
+}
+
+func TestResourceGroupIsolation(t *testing.T) {
+	previous := Config
+	t.Cleanup(func() { Config = previous })
+	Config = DefaultConfiguration()
+	require.Equal(t, "abe2e-westus3", ResourceGroupName("westus3"))
+	Config.ResourceGroupPrefix = "abe2e-boot-trace-isolated"
+	require.Equal(t, "abe2e-boot-trace-isolated-westus3", ResourceGroupName("westus3"))
 }

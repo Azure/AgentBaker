@@ -37,6 +37,38 @@ import (
 const traceTestBootID = "11111111-1111-1111-1111-111111111111"
 const traceTestPrefix = "azure:///subscriptions/test/resourceGroups/nodes/providers/Microsoft.Compute/virtualMachineScaleSets/trace/virtualMachines/"
 
+func TestBootTraceExperimentRejectsMissingOrWrongCAWork(t *testing.T) {
+	base := "{\"task\":\"AKS.CSE.rcv1p.retrieveCerts\",\"exit_status\":0}\n" +
+		"{\"task\":\"AKS.CSE.rcv1p.installCertsToTrustStore\",\"exit_status\":0}\n"
+	update := "{\"task\":\"AKS.CSE.bootTrace.updateCaCertificates\",\"exit_status\":0}\n"
+	skip := "{\"task\":\"AKS.CSE.bootTrace.skippedUpdateCaCertificates\",\"exit_status\":0}\n"
+	for _, test := range []struct {
+		name, data, mode string
+		os               config.OS
+		ok               bool
+	}{
+		{"original", base + update, "enabled", config.OSUbuntu, true},
+		{"rust", base + update, "rust", config.OSUbuntu, true},
+		{"skip", base + skip, "skip-update-ca-certificates", config.OSUbuntu, true},
+		{"azurelinux", base, "enabled", config.OSAzureLinux, true},
+		{"not_opted_in", update, "enabled", config.OSUbuntu, false},
+		{"wrong_skip", base + update, "skip-update-ca-certificates", config.OSUbuntu, false},
+		{"duplicate", base + update + update, "rust", config.OSUbuntu, false},
+		{"failed", strings.ReplaceAll(base+update, "\"exit_status\":0", "\"exit_status\":1"), "enabled", config.OSUbuntu, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "cloud-timings.jsonl")
+			require.NoError(t, os.WriteFile(path, []byte(test.data), 0o600))
+			err := validateBootTraceExperimentTimings(path, test.mode, test.os)
+			if test.ok {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func traceTestNode(uid string, ready bool, transition time.Time) *corev1.Node {
 	status := corev1.ConditionFalse
 	if ready {
@@ -156,7 +188,7 @@ func TestBootTraceRefusesAnAlreadyRegisteredVMSS(t *testing.T) {
 	config.Config.SubscriptionID = "test"
 	defer func() { config.Config.SubscriptionID = oldSubscription }()
 	s := &Scenario{
-		Config: Config{BootTraceBackend: "lttng"},
+		Config: Config{BootTraceBackend: "ftrace"},
 		Runtime: &ScenarioRuntime{
 			Kube:     &Kubeclient{Typed: fake.NewSimpleClientset(traceTestNode("existing", true, time.Now()))},
 			VMSSName: "trace",
@@ -170,7 +202,7 @@ func TestBootTraceRefusesAnAlreadyRegisteredVMSS(t *testing.T) {
 }
 
 func TestBootTraceArchiveExtraction(t *testing.T) {
-	for _, name := range []string{"valid", "traversal", "symlink", "duplicate", "foreign-boot", "reserved-file", "oversize", "truncated"} {
+	for _, name := range []string{"valid", "traversal", "symlink", "duplicate", "foreign-boot", "reserved-file", "removed-format", "unexpected-directory", "oversize", "truncated"} {
 		t.Run(name, func(t *testing.T) {
 			directory := t.TempDir()
 			archivePath := filepath.Join(directory, "input.tar")
@@ -198,9 +230,12 @@ func TestBootTraceArchiveExtraction(t *testing.T) {
 				add("another-boot/metadata.json", tar.TypeReg, "{}")
 			case "reserved-file":
 				add(prefix+"readiness.json", tar.TypeReg, "{}")
+			case "removed-format":
+				add(prefix+"ctf/trace/channel_0", tar.TypeReg, "events")
+			case "unexpected-directory":
+				add(prefix+"ctf/", tar.TypeDir, "")
 			default:
 				add(prefix+"metadata.json", tar.TypeReg, "{}")
-				add(prefix+"ctf/trace/channel_0", tar.TypeReg, "events")
 				add(prefix+"trace.dat", tar.TypeReg, "binary events")
 				add(prefix+"trace-cmd.log", tar.TypeReg, "recorder diagnostics")
 				add(prefix+"containerd-waits.json", tar.TypeReg, `{"waits":[]}`)
@@ -224,10 +259,7 @@ func TestBootTraceArchiveExtraction(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			actual, err := os.ReadFile(filepath.Join(destination, "ctf/trace/channel_0"))
-			require.NoError(t, err)
-			require.Equal(t, "events", string(actual))
-			actual, err = os.ReadFile(filepath.Join(destination, "trace.dat"))
+			actual, err := os.ReadFile(filepath.Join(destination, "trace.dat"))
 			require.NoError(t, err)
 			require.Equal(t, "binary events", string(actual))
 			actual, err = os.ReadFile(filepath.Join(destination, "containerd-waits.json"))

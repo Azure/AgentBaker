@@ -5,3 +5,11 @@ captures/
 reports/
 *.dat
 *.ctf/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.key
+*.pem
+kubeconfig
+kubeconfig.*

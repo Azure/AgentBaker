@@ -364,6 +364,199 @@ Describe 'legacy CA certificate filenames'
     End
 End
 
+Describe 'RCV1P batched certificate retrieval'
+    setup_rcv1p() {
+        TEST_DIR=$(mktemp -d) || return 1
+        mkdir -p "$TEST_DIR/certs"
+        # shellcheck disable=SC1090
+        __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|$TEST_DIR/certs|g" \
+            ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
+        CERT_RESPONSE='{"requests":[{"ResouceFileName":"first.crt"},{"ResouceFileName":"second.crt"}]}'
+        CURL_MODE=success
+    }
+    cleanup_rcv1p() { rm -rf "$TEST_DIR"; }
+    BeforeEach 'setup_rcv1p'
+    AfterEach 'cleanup_rcv1p'
+
+    sleep() { printf '%s\n' "$1" >> "$TEST_DIR/sleeps"; }
+
+    curl() {
+        local batch=0 maximum=0 index url output name code body count
+        local -a outputs=() urls=()
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                --parallel) batch=1 ;;
+                --parallel-max) maximum=$2; shift ;;
+                --connect-timeout|--max-time|-w|--write-out) shift ;;
+                --no-progress-meter) ;;
+                --output) outputs+=("$2"); shift ;;
+                --url) urls+=("$2"); shift ;;
+                *) urls+=("$1") ;;
+            esac
+            shift
+        done
+        if [ "$batch" -eq 0 ]; then
+            url=${urls[0]}
+            printf 'single %s\n' "$url" >> "$TEST_DIR/calls"
+            body=$CERT_RESPONSE
+            code=200
+            case "$url" in
+                *type=retry\&*)
+                    body=retried-certificate
+                    case "$CURL_MODE" in
+                        exhausted) code=503 ;;
+                        rate)
+                            count=0
+                            [ ! -f "$TEST_DIR/retries" ] || read -r count < "$TEST_DIR/retries"
+                            printf '%s\n' "$((count + 1))" > "$TEST_DIR/retries"
+                            if [ "$count" -eq 0 ]; then
+                                code=403
+                                body=RequestRateLimitExceeded
+                            fi
+                            ;;
+                    esac
+                    ;;
+            esac
+            printf '%s\n%s' "$body" "$code"
+            return 0
+        fi
+        [ "$maximum" -eq 4 ] || return 2
+        printf 'batch %s\n' "${#urls[@]}" >> "$TEST_DIR/calls"
+        [ "$CURL_MODE" != missing ] || return 2
+        # Parallel transfers finish out of order.
+        for ((index=${#urls[@]}-1; index>=0; index--)); do
+            url=${urls[index]}
+            output=${outputs[index]}
+            name=${url#*type=}
+            name=${name%%&ext=*}
+            code=200
+            body="certificate-$name-$index"
+            case "$name:$CURL_MODE" in
+                retry:rate) code=403; body=RequestRateLimitExceeded ;;
+                retry:exhausted) code=503; body=unavailable ;;
+                retry:transport) code=000; body= ;;
+                retry:empty) body= ;;
+            esac
+            printf '%s' "$body" > "$output"
+            printf '%s\t%s\n' "$output" "$code"
+        done
+        case "$CURL_MODE" in transport) return 7 ;; esac
+    }
+
+    It 'parses compact JSON once and maps out-of-order results to their filenames'
+        When call process_cert_operations operationrequestsroot
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The contents of file "$TEST_DIR/certs/second.crt" should eq certificate-second-1
+        The lines of contents of file "$TEST_DIR/calls" should eq 2
+        The contents of file "$TEST_DIR/calls" should include 'batch 2'
+    End
+
+    It 'rejects traversal and control characters without losing a valid filename'
+        CERT_RESPONSE='[{"ResouceFileName":"../outside.crt"},{"ResouceFileName":"nested/bad.crt"},{"ResouceFileName":"bad\nname.crt"},{"ResouceFileName":"nul\u0000.crt"},{"ResouceFileName":false},{"ResouceFileName":"first.crt"}]'
+        When call process_cert_operations operationrequestsroot
+        The status should be success
+        The stdout should include 'rejecting certificate filename'
+        The stderr should be blank
+        The path "$TEST_DIR/outside.crt" should not be exist
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The contents of file "$TEST_DIR/calls" should include 'batch 1'
+    End
+
+    Describe 'invalid operation lists'
+        Parameters
+            '{"ResouceFileName":"first.crt"'
+            '{}'
+            '{"ResouceFileName":"first.crt"}{"ResouceFileName":"second.crt"}'
+        End
+        It 'does not download files from an invalid or empty list'
+            CERT_RESPONSE=$1
+            When call process_cert_operations operationrequestsroot
+            The status should eq 1
+            The stdout should include 'No certificate filenames'
+            if [ "$1" = '{}' ]; then
+                The stderr should be blank
+            else
+                The stderr should be present
+            fi
+            The path "$TEST_DIR/certs/first.crt" should not be exist
+        End
+    End
+
+    It 'preserves response bodies containing newlines and a numeric last line'
+        CERT_RESPONSE=$'first\nsecond\n123'
+        When call make_request_with_retry http://wireserver/example
+        The status should be success
+        The stdout should eq "$CERT_RESPONSE"
+        The stderr should be blank
+    End
+
+    It 'retries only failed transfers and preserves rate-limit backoff'
+        CURL_MODE=rate
+        When call download_cert_batch "$TEST_DIR/certs" first.crt retry.crt
+        The status should be success
+        The stdout should be blank
+        The stderr should include 'rate limited'
+        The stderr should include 'attempt 2/10'
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The contents of file "$TEST_DIR/certs/retry.crt" should eq retried-certificate
+        The contents of file "$TEST_DIR/sleeps" should eq $'3\n6'
+        The lines of contents of file "$TEST_DIR/calls" should eq 3
+    End
+
+    It 'keeps successful files when another transfer has a transport failure'
+        CURL_MODE=transport
+        When call download_cert_batch "$TEST_DIR/certs" first.crt retry.crt
+        The status should be success
+        The stdout should be blank
+        The stderr should include 'HTTP 000'
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The contents of file "$TEST_DIR/certs/retry.crt" should eq retried-certificate
+    End
+
+    It 'keeps the existing partial-success behavior and ten-attempt retry budget'
+        CURL_MODE=exhausted
+        When call download_cert_batch "$TEST_DIR/certs" first.crt retry.crt
+        The status should be success
+        The stdout should include 'No response received or request failed'
+        The stderr should include 'attempt 10/10'
+        The stderr should include 'exhausted all retries'
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The path "$TEST_DIR/certs/retry.crt" should not be exist
+        The lines of contents of file "$TEST_DIR/calls" should eq 10
+    End
+
+    It 'continues to skip an empty successful response without retrying'
+        CURL_MODE=empty
+        When call download_cert_batch "$TEST_DIR/certs" first.crt retry.crt
+        The status should be success
+        The stdout should include 'No response received or request failed'
+        The stderr should be blank
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The path "$TEST_DIR/certs/retry.crt" should not be exist
+        The lines of contents of file "$TEST_DIR/calls" should eq 1
+    End
+
+    It 'reports a batch invocation that cannot provide per-transfer statuses'
+        CURL_MODE=missing
+        When call download_cert_batch "$TEST_DIR/certs" first.crt
+        The status should eq 1
+        The stdout should be blank
+        The stderr should include 'did not report every transfer'
+        The path "$TEST_DIR/certs/first.crt" should not be exist
+    End
+
+    It 'keeps the last response when a filename occurs more than once'
+        When call download_cert_batch "$TEST_DIR/certs" first.crt first.crt
+        The status should be success
+        The stdout should be blank
+        The stderr should be blank
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-1
+    End
+End
+
 Describe 'cse_config_chrony.sh distro routing'
     script_path='./parts/linux/cloud-init/artifacts/cse_config_chrony.sh'
 

@@ -28,7 +28,7 @@ def main(argv=None):
     collect.add_argument("--context", required=True)
     collect.add_argument("--ssh-user", required=True)
     collect.add_argument("--ssh-config", type=Path)
-    collect.add_argument("--backend", choices=("ftrace", "lttng"), required=True)
+    collect.add_argument("--backend", choices=("ftrace",), required=True)
     collect.add_argument("--output", type=Path, required=True)
     collect.add_argument("--timeout", type=int, default=900)
     collect.add_argument("--max-mib", type=int, default=512)
@@ -37,7 +37,6 @@ def main(argv=None):
     render = commands.add_parser("report", help="Decode one local capture into HTML and JSON")
     render.add_argument("bundle", type=Path)
     render.add_argument("--output", type=Path, required=True)
-    render.add_argument("--ctf-offset-seconds", type=float)
     cse = commands.add_parser("import-cse", help="Convert an exported CSE BootDatapoints object")
     cse.add_argument("input", type=Path)
     cse.add_argument("--output", type=Path, required=True, help="Typically BUNDLE/milestones.json")
@@ -52,7 +51,7 @@ def main(argv=None):
         if args.action == "collect":
             scale_and_collect(args)
         elif args.action == "report":
-            result = analyze(args.bundle, args.ctf_offset_seconds)
+            result = analyze(args.bundle)
             args.output.mkdir(parents=True, mode=0o700, exist_ok=False)
             (args.output / "report.json").write_text(
                 json.dumps(result, indent=2, allow_nan=False) + "\n", encoding="utf-8",

@@ -14,16 +14,12 @@ check_trace_target() {
         echo "Boot tracing only supports Ubuntu 26.04 or Azure Linux 3.0 x86_64" >&2
         return 1
     fi
-    if [[ "$backend" != ftrace && "$backend" != lttng ]]; then
-        echo "Expected ftrace or lttng" >&2
+    if [[ "$backend" != ftrace ]]; then
+        echo "Expected ftrace" >&2
         return 1
     fi
     if [[ ! "$base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || ! "$image_label" =~ ^[a-zA-Z0-9._-]+$ ]]; then
         echo "An exact base image version and a safe image label are required" >&2
-        return 1
-    fi
-    if [[ "$os_id" == azurelinux && "$backend" != ftrace ]]; then
-        echo "Azure Linux 3 boot tracing only supports ftrace" >&2
         return 1
     fi
     if [[ "$os_id" == ubuntu && "$(uname -r)" != 7.0.0-1020-azure ]] ||
@@ -62,11 +58,8 @@ EOF
 
 prepare_trace_image() {
     local backend="$1" base_version="$2" image_label="$3" source_dir="$4"
-    local max_mib=256
+    local max_mib=512
     check_trace_target "$backend" "$base_version" "$image_label"
-    if [[ "$backend" == ftrace ]]; then
-        max_mib=512
-    fi
     install -d -m 0755 /opt/aks-node-boot-trace
     install -m 0644 "$source_dir/capture.py" "$source_dir/stop_capture.py" "$source_dir/diagnostics.py" \
         "$source_dir/ftrace-grub.cfg" /opt/aks-node-boot-trace/
@@ -81,46 +74,14 @@ prepare_trace_image() {
 
     if grep -qx 'ID=azurelinux' /etc/os-release; then
         install_azurelinux_ftrace_recorder
-    elif [[ "$backend" == ftrace ]]; then
-        install_ftrace_recorder
     else
-        apt-get update
-        DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            lttng-tools=2.14.1-1build1 lttng-modules-dkms=2.15.0-1ubuntu1.1
-        apt-mark manual lttng-tools lttng-modules-dkms "linux-headers-$(uname -r)"
-        dkms autoinstall -k "$(uname -r)"
-        depmod -a "$(uname -r)"
-        modinfo -k "$(uname -r)" lttng-tracer
-        systemctl disable --now lttng-sessiond.service
-        install -d -m 0755 /etc/systemd/system/lttng-sessiond.service.d \
-            /etc/systemd/system/aks-node-boot-trace.service.d
-        cat > /etc/systemd/system/lttng-sessiond.service.d/boot-trace.conf <<'EOF'
-[Unit]
-DefaultDependencies=no
-After=local-fs.target
-Before=aks-node-boot-trace.service sysinit.target shutdown.target
-Conflicts=shutdown.target
-
-[Service]
-EnvironmentFile=
-Environment=DAEMON_ARGS=
-EOF
-        cat > /etc/systemd/system/aks-node-boot-trace.service.d/lttng.conf <<'EOF'
-[Unit]
-Requires=lttng-sessiond.service
-After=lttng-sessiond.service
-EOF
+        install_ftrace_recorder
     fi
     if ! grep -qx 'ID=azurelinux' /etc/os-release; then
         dpkg-query -W -f='${binary:Package}=${Version}\n' python3 "linux-image-$(uname -r)" \
             >> /opt/aks-node-boot-trace/image.txt
-        if [[ "$backend" == ftrace ]]; then
-            dpkg-query -W -f='${binary:Package}=${Version}\n' trace-cmd libtraceevent1 libtraceevent1-plugin \
-                >> /opt/aks-node-boot-trace/image.txt
-        else
-            dpkg-query -W -f='${binary:Package}=${Version}\n' lttng-tools lttng-modules-dkms \
-                >> /opt/aks-node-boot-trace/image.txt
-        fi
+        dpkg-query -W -f='${binary:Package}=${Version}\n' trace-cmd libtraceevent1 libtraceevent1-plugin \
+            >> /opt/aks-node-boot-trace/image.txt
     fi
     systemctl daemon-reload
     systemctl disable aks-node-boot-trace.service
@@ -143,30 +104,22 @@ arm_trace_image() {
         echo "A capture already exists on the builder; refusing to seal this image" >&2
         return 1
     fi
-    if [[ "$backend" == ftrace ]]; then
-        if [[ ! -e /sys/kernel/tracing/available_events ]]; then
-            mount -t tracefs tracefs /sys/kernel/tracing
-        fi
-        for event in sched:sched_switch sched:sched_wakeup sched:sched_wakeup_new \
-            sched:sched_process_fork sched:sched_process_exec sched:sched_process_exit \
-            block:block_rq_issue block:block_rq_complete \
-            net:net_dev_xmit net:netif_receive_skb_entry \
-            net:netif_receive_skb_list_entry net:netif_rx_entry; do
-            grep -qx "$event" /sys/kernel/tracing/available_events
-        done
-        if grep -qx 'ID=azurelinux' /etc/os-release; then
-            arm_azurelinux_ftrace
-        else
-            install -m 0644 /opt/aks-node-boot-trace/ftrace-grub.cfg \
-                /etc/default/grub.d/99-aks-boot-trace.cfg
-            update-grub
-        fi
+    if [[ ! -e /sys/kernel/tracing/available_events ]]; then
+        mount -t tracefs tracefs /sys/kernel/tracing
+    fi
+    for event in sched:sched_switch sched:sched_wakeup sched:sched_wakeup_new \
+        sched:sched_process_fork sched:sched_process_exec sched:sched_process_exit \
+        block:block_rq_issue block:block_rq_complete \
+        net:net_dev_xmit net:netif_receive_skb_entry \
+        net:netif_receive_skb_list_entry net:netif_rx_entry; do
+        grep -qx "$event" /sys/kernel/tracing/available_events
+    done
+    if grep -qx 'ID=azurelinux' /etc/os-release; then
+        arm_azurelinux_ftrace
     else
-        modinfo -k "$kernel" lttng-tracer
-        if [[ -e /etc/default/grub.d/99-aks-boot-trace.cfg ]]; then
-            echo "LTTng image must not contain ftrace boot arming" >&2
-            return 1
-        fi
+        install -m 0644 /opt/aks-node-boot-trace/ftrace-grub.cfg \
+            /etc/default/grub.d/99-aks-boot-trace.cfg
+        update-grub
     fi
     python3 /opt/aks-node-boot-trace/diagnostics.py \
         --instrument-cloud /opt/azure/containers/init-aks-cloud.sh
@@ -175,7 +128,7 @@ arm_trace_image() {
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     if [[ "$#" != 4 ]]; then
-        echo "Usage: install.sh prepare|arm ftrace|lttng BASE_VERSION IMAGE_LABEL" >&2
+        echo "Usage: install.sh prepare|arm ftrace BASE_VERSION IMAGE_LABEL" >&2
         exit 1
     fi
     case "$1" in

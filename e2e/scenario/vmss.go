@@ -1758,7 +1758,11 @@ func injectWriteFilesEntriesToBoothookCustomData(decoded []byte, entries []Custo
 	insertPos = strings.LastIndex(boothookStr[:insertPos], "\n") + 1
 
 	boothookStr = boothookStr[:insertPos] + entryBlock + boothookStr[insertPos:]
-	return base64.StdEncoding.EncodeToString([]byte(boothookStr)), nil
+	encoded := base64.StdEncoding.EncodeToString([]byte(boothookStr))
+	if len(encoded) > agent.MaxCustomDataLength {
+		return "", fmt.Errorf("customData exceeds Azure limit after fixture injection: %d encoded characters, maximum %d", len(encoded), agent.MaxCustomDataLength)
+	}
+	return encoded, nil
 }
 
 func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, error) {
@@ -1780,9 +1784,17 @@ func renderBoothookWriteFilesEntries(entries []CustomDataWriteFile) (string, err
 		}
 
 		quotedPath := shellSingleQuote(entry.Path)
+		var compressed bytes.Buffer
+		writer := gzip.NewWriter(&compressed)
+		if _, err := writer.Write([]byte(entry.Content)); err != nil {
+			return "", fmt.Errorf("compress boothook fixture %s: %w", entry.Path, err)
+		}
+		if err := writer.Close(); err != nil {
+			return "", fmt.Errorf("close compressed boothook fixture %s: %w", entry.Path, err)
+		}
 		entryBuilder.WriteString(fmt.Sprintf("mkdir -p \"$(dirname %s)\"\n", quotedPath))
-		entryBuilder.WriteString(fmt.Sprintf("cat <<'EOF' | base64 -d > %s\n", quotedPath))
-		entryBuilder.WriteString(base64.StdEncoding.EncodeToString([]byte(entry.Content)))
+		entryBuilder.WriteString(fmt.Sprintf("cat <<'EOF' | base64 -d | gzip -d > %s\n", quotedPath))
+		entryBuilder.WriteString(base64.StdEncoding.EncodeToString(compressed.Bytes()))
 		entryBuilder.WriteString("\nEOF\n")
 		entryBuilder.WriteString(fmt.Sprintf("chmod %s %s\n", shellSingleQuote(permissions), quotedPath))
 		entryBuilder.WriteString(fmt.Sprintf("chown %s %s\n\n", shellSingleQuote(owner), quotedPath))

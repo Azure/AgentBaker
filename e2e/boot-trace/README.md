@@ -2,39 +2,26 @@
 
 Experimental first-boot tracing for a **dedicated AKS Linux VMSS test pool**:
 find work worth optimizing between Linux boot and NodeReady, including work
-running in parallel. Capture with **ftrace or LTTng on separate new nodes**, then
+running in parallel. Capture with **ftrace on separate new nodes**, then
 produce the same standalone, interactive HTML report.
 
-**Status: local checks passed; VHD builds and guest runtime remain unvalidated.**
-The AgentBaker VHD/E2E integration has passed the offline Python tests, targeted
-Go tests, ShellSpec checks and repository shell lint. The systemd unit was
-checked statically and the pipeline YAML parsed locally, not expanded by Azure
-DevOps. No VHD build has been launched. Public Ubuntu
-package metadata and package contents were inspected without guest installation.
-Kernel compatibility at runtime, DKMS loading, Babeltrace decoding, boot ordering,
-browser rendering and end-to-end collection remain unvalidated. There are no
-measured results yet.
+**Experimental tooling, not a production image configuration.** Tracing changes
+boot ordering and adds overhead. Validate the selected image, kernel and backend
+together before interpreting timings. Captures and generated reports contain
+operational metadata and must remain private unless reviewed and anonymized.
 
-## AgentBaker integration workspace
+## AgentBaker integration
 
-The original integration target is **Ubuntu 26.04 Minimal Gen2 x64**.
-An opt-in **Azure Linux 3 Gen2 x64 ftrace image** is also prepared below.
-A copy of this experiment lives in `e2e/boot-trace/` on the AgentBaker experimental branch
-[`thicohen/trace-node-boot-time`](https://github.com/Azure/AgentBaker/tree/thicohen/trace-node-boot-time).
-
-Local Orca worktree:
-`/home/thicohen/orca/workspaces/AgentBaker/trace-node-boot-time`.
-
-The original `node-sig` code is intentionally retained until the AgentBaker PR
-is opened. The copies are not automatically synchronized. No PR is open;
-publishing this experimental branch does not trigger the manual VHD pipeline.
+The supported image targets are **Ubuntu 26.04 Minimal Gen2 x64** and
+**Azure Linux 3 Gen2 x64** (ftrace only). This experimental branch keeps its
+tracing-oriented pipeline defaults; publishing source changes does not run
+the manual VHD pipeline. Tracing E2E execution requires explicit selection.
 
 ### Prepared VHD and E2E path
 
 The existing manual VHD pipeline `.pipelines/.vsts-vhd-builder-release.yaml`
-provides two instrumented Ubuntu 26.04 Minimal Gen2 x64 builds:
-`2604minimalgen2containerd-boot-trace-ftrace` and
-`2604minimalgen2containerd-boot-trace-lttng`. They never replace the normal
+provides an instrumented Ubuntu 26.04 Minimal Gen2 x64 build:
+`2604minimalgen2containerd-boot-trace-ftrace`. It never replaces the normal
 `2604minimalgen2containerd` image. Publishing-info generation, production
 publication and prefetch optimization are disabled for this experimental path;
 the pipeline still creates billable build VMs and separate versions in its
@@ -46,15 +33,14 @@ not limited to this experiment. The standard build helper may
 recreate a failed staging gallery; the content test also deletes its temporary
 resource group unless debugging is enabled.
 
-On this experimental branch, `build2604minimalgen2containerdBootTraceFtrace`
-and the uninstrumented `build2604minimalgen2containerd` reference are enabled
-by default. The LTTng image and all other image builds default to disabled;
-ftrace is the default tracing backend. Select the AgentBaker branch in the
-existing pipeline run form to load these defaults. `useOverrides=false` does
-not require an aks-rp branch. For tracing E2E and the comparison report, enable
-the ftrace build and `runBootTraceE2E`, and ensure `SKIP_E2E_TESTS` is not
-`true`. This runs three fresh-node ftrace captures concurrently. To include
-LTTng, also enable `runBootTraceLttngE2E` and its image build. Parallel captures
+The Ubuntu ftrace image and its uninstrumented Ubuntu reference are selected
+by default on this branch; other image builds, including Azure Linux ftrace,
+default to disabled. Review the selections in the pipeline run form.
+Keep `build2604minimalgen2containerdBootTraceFtrace` enabled and enable
+`runBootTraceE2E` for tracing E2E and the comparison report, and ensure
+`SKIP_E2E_TESTS` is not `true`.
+`useOverrides=false` does not require an aks-rp branch.
+This runs three fresh-node ftrace captures concurrently. Parallel captures
 are useful for spotting recurring patterns, but shared-cluster load can affect
 timings; they are not a statistical performance verdict.
 This selects the tracing E2E stage instead of the regular Linux E2E stage.
@@ -62,17 +48,18 @@ Without that option, the regular E2E stage still follows its normal setting;
 set `SKIP_E2E_TESTS=true` if only building images.
 
 The shared `bootTraceCanonicalBaseVersion` defaults to `26.04.202610280`, with URN
-`Canonical:ubuntu-26_04-lts:minimal:26.04.202610280`. Azure Marketplace metadata
-was checked on 2026-11-06: the image is active, x64 and Hyper-V V2 in `eastus`
-and `eastus2`. Recheck availability in the actual `PACKER_BUILD_LOCATION`
-before launching; its value comes from the pipeline environment. This metadata
-check does not verify the guest kernel or tracing runtime.
+`Canonical:ubuntu-26_04-lts:minimal:26.04.202610280`. Check availability in the
+actual `PACKER_BUILD_LOCATION` before launching; its value comes from the
+pipeline environment. Marketplace availability does not verify the guest kernel
+or tracing runtime.
 Any override must also be an exact version, not `latest`.
-All three jobs use it. The standard reference retains the normal Packer template,
+The Ubuntu tracing job and the optional
+`build2604minimalgen2containerd` reference use that version,
 with publishing-info generation and prefetch optimization disabled like the
-tracing images. It is built for a later uninstrumented timing comparison;
-the tracing E2E and automatic report cover the three ftrace captures and
-optionally LTTng.
+tracing images. These reference-job overrides remain in place on this
+experimental branch even when tracing image builds are deselected. The reference retains
+the normal Packer template for an uninstrumented timing comparison; the tracing
+E2E and automatic report cover the three ftrace captures.
 Template generation for the tracing images fails if Packer settings silently
 override it, or if production naming/publishing or another OS/architecture is
 selected. Normal builds retain their original Packer template.
@@ -86,33 +73,18 @@ then, preserving Ubuntu's initrdless boot path. The main initramfs is not modifi
 Ubuntu can skip it and load only the early microcode archive.
 The helper refuses a changed kernel or an existing builder capture.
 No bootconfig utility or kernel source download is required.
-Prepared images stop ftrace collection at a sampled 512 MiB threshold and
-LTTng collection at 256 MiB. Final flushing and metadata can exceed these
-thresholds; binary ftrace pages are never byte-truncated.
+Prepared images stop ftrace collection at a sampled 512 MiB threshold.
+Final flushing and metadata can exceed this threshold; binary ftrace pages are
+never byte-truncated.
 E2E archive transfer and extraction are bounded separately at 1 GiB.
 ftrace finalization combines temporary per-CPU files into `trace.dat`, so
 reserve at least twice the capture size in free guest disk space plus headroom.
-The LTTng kernel channel uses sixteen 4 MiB sub-buffers per CPU (128 MiB total
-on the two-vCPU test nodes, excluding metadata/consumer overhead), up from 16 MiB.
-The read timer is 20 ms instead of 200 ms. The forced 100 ms packet switch timer
-is disabled, so partially filled 4 MiB packets are not flushed periodically.
-CTF streams are not split into 16 MiB files: LTTng documents inaccurate CTF 1.8
-discard counts with trace-file segmentation. Discard mode never overwrites old
-ring-buffer events. The existing 256 MiB sampled archive watchdog remains;
-final buffer draining can exceed it by roughly the outstanding buffer capacity.
-Check the stopped session's discarded-event count and Babeltrace diagnostics
-after every capture. Missing counters fail finalization; nonzero counters remain
-explicit warnings, not a loss-free measurement. Larger buffers do not guarantee
-loss-free recording, and LTTng still cannot capture the early kernel boot.
 
 | Component | Prepared version/source |
 | --- | --- |
 | Azure kernel | `7.0.0-1020-azure`, package `7.0.0-1020.21` |
 | ftrace recorder | Ubuntu `trace-cmd=3.4-2`, with `libtraceevent1` and `libtraceevent1-plugin=1:1.9.0-2` |
 | Report-job ftrace decoder | Ubuntu 26.04 `trace-cmd=3.3.3-1ubuntu2`; captures use trace.dat version 6 |
-| LTTng tools | Ubuntu `2.14.1-1build1` |
-| LTTng DKMS | Ubuntu `2.15.0-1ubuntu1.1`, compiled during the VHD build for the running pinned kernel |
-| Report-job Babeltrace bindings | Ubuntu 26.04 `python3-bt2=2.1.2-1build2` |
 
 These are intentional experiment pins, not proof of runtime compatibility.
 Recheck them together before changing the kernel. Missing pinned packages fail
@@ -121,22 +93,17 @@ lacks `record -K`: it would reset early boot buffers. The ftrace-only preparatio
 therefore installs the three pinned Ubuntu 26.10 packages above from the official
 Ubuntu archive after SHA-512 verification, with remaining dependencies resolved
 from Ubuntu 26.04. It does not add another APT repository or change the kernel.
-The LTTng package's
-session daemon is disabled on the builder, then required by the early recorder
-with default boot dependencies removed. Its distribution environment override
-is cleared so it cannot silently disable kernel tracing.
 
 `runBootTraceE2E` defaults to **false**. If explicitly enabled in a pipeline run,
 the E2E stage selects `Ubuntu2604Minimal_BootTrace_ftrace`,
 `Ubuntu2604Minimal_BootTrace_ftrace_2`, and
-`Ubuntu2604Minimal_BootTrace_ftrace_3`; LTTng is selected only when
-`runBootTraceLttngE2E` is enabled. All selected captures run concurrently and
+`Ubuntu2604Minimal_BootTrace_ftrace_3`. All selected captures run concurrently and
 scenario retries are disabled. Separate scenarios are necessary because each
 capture needs its own fresh VM. They are skipped in ordinary suites unless
 `E2E_BOOT_TRACE=true` and exact VHD metadata are provided; they are excluded
 from automatic NBC sampling and do not support PIS/VHD caching.
 
-Both tracing scenarios pin the test node's kubelet/kubectl to **1.36.5**,
+The tracing scenarios pin the test node's kubelet/kubectl to **1.36.5**,
 matching the Ubuntu 26.04 VHD cache rather than downloading a newer version
 during the measured boot. This applies to both NBC and AKSNodeConfig provisioning.
 The shared latest-GA kubenet cluster and its control-plane version are unchanged.
@@ -151,9 +118,8 @@ The normal `AzureLinuxV3gen2` image and production publication are unchanged.
 
 `bootTraceAzureLinuxBaseVersion` defaults to `3.20261105.01`, giving the URN
 `MicrosoftCBLMariner:azure-linux-3:azure-linux-3-gen2:3.20261105.01`.
-This exact non-FIPS x64 Gen2 image was verified in `eastus2` and `westus3` on 2026-11-16;
-availability must also be checked in the actual build region.
-`latest`, FIPS, Trusted Launch, ARM64 and LTTng are rejected for this experiment.
+Check this non-FIPS x64 Gen2 image's availability in the actual build region.
+`latest`, FIPS, Trusted Launch, ARM64 and non-ftrace backends are rejected for this experiment.
 The running kernel must be on the Azure Linux 3 `6.6.*.azl3` track, expose the
 required tracing configuration/events, and remain identical between preparation
 and arming. Its exact release is recorded in the baked provenance.
@@ -177,20 +143,111 @@ are used. GRUB arming uses `/etc/default/grub` and `grub2-mkconfig`, preserving
 the normal Azure Linux initramfs/boot path. The recorder is enabled only after
 the final VHD cleanup and is not started on the builder.
 
-For an **image-only** run, disable the default Ubuntu reference and tracing
-builds, enable only the Azure Linux tracing build, leave `runBootTraceE2E=false`,
-and set `SKIP_E2E_TESTS=true`. The existing VHD content checks still run.
-This option does not register or launch Azure Linux tracing E2E scenarios:
-the existing three-node E2E selection and automatic comparison renderer remain
-Ubuntu-only. Azure Linux first-boot runtime and a three-node comparison need
-separate validation; preparing this image does not establish their timings.
+For an **image-only** run, disable all standard image builds, enable only the
+Azure Linux tracing build, leave `runBootTraceE2E=false`, and set
+`SKIP_E2E_TESTS=true`. The existing VHD content checks still run.
+This option does not select Azure Linux tracing E2E scenarios: the pipeline's
+three-node E2E selection and automatic comparison renderer remain Ubuntu-only.
+The local CA matrix below separately supports Azure Linux captures. Preparing
+an image alone does not establish its first-boot timings.
+
+### Experimental Rust certificate updater (not activated)
+
+`update-ca-certificates-rs/` contains a standalone Linux Rust rewrite of the
+Debian/Ubuntu shell updater. It is **not installed or selected by the VHD build
+or any production path**. The local comparison matrix below explicitly selects
+it on the Rust variants. Azure Linux's `update-ca-trust` is a different tool and
+is not replaced.
+
+The executable has no Cargo dependencies. Certificate discovery, filename
+mapping, symlink checks, orphan cleanup and bundle assembly run in-process.
+It still invokes the system's `openssl rehash` when links change, optionally
+`/sbin/restorecon`, and `run-parts --test` to select the original hooks. Hooks
+receive additions before removals on stdin and `--fresh` when appropriate;
+hook failures are reported without preventing subsequent hooks, as upstream.
+The bundle is replaced atomically with mode `0644`; existing unrelated files
+are not purged. This is not a transaction over the entire trust store: a failure
+can leave changed symlinks, just as with the shell command.
+
+```bash
+cd e2e/boot-trace/update-ca-certificates-rs
+cargo build --release --locked
+cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
+python3 -B tests/compatibility.py \
+  --binary target/release/update-ca-certificates-rs \
+  --reference /usr/sbin/update-ca-certificates -v
+```
+
+The differential suite uses temporary stores, generated test certificates and
+the installed distro command; it never updates the host trust store. The
+supported flags are `-v`/`--verbose`, `-f`/`--fresh`, `-d`/`--default`,
+`--certsconf`, `--certsdir`, `--localcertsdir`, `--etccertsdir`, `--hooksdir`,
+`--certbundle`, and `--sysroot`. Run `--help` for usage. Do not run without path
+overrides on a real node until image-level compatibility has been validated.
+
+Ordering matches the shell command under `LC_ALL=C` (byte ordering), not
+locale-specific collation. Invalid arguments and filesystem, discovery or
+rehash errors fail explicitly instead of reproducing shell-pipeline error
+masking. Relative input paths are resolved before processing. Source-directory
+symlink cycles fail explicitly. Paths containing newlines cannot be represented
+by the hooks protocol and are rejected when adding a certificate. Selection
+otherwise follows upstream, including its unnormalized basename on explicit
+removal, duplicate bundle entries with `--default`, and retaining an existing
+bundle when no certificates are selected. These compatibility quirks are not
+security fixes and should be reconsidered separately, not silently changed
+during a performance comparison.
+
+This standalone derivative follows the
+[Ubuntu/Debian implementation](https://git.launchpad.net/ubuntu/+source/ca-certificates/plain/sbin/update-ca-certificates?h=ubuntu/devel)
+and is licensed **GPL-2.0-or-later**, separately from AgentBaker's MIT-licensed
+code; its license is included in its own directory. No binary or benchmark
+result establishes a node boot improvement until a new paired VM run is made.
+
+### Local CA comparison matrix
+
+`E2E_BOOT_TRACE_MATRIX_DIR` opts into 21 fresh-node captures: three repetitions
+of Ubuntu original, skipped CA update, Rust, parallel retrieval, and parallel
+retrieval plus Rust; and Azure Linux 3 original and parallel retrieval.
+Ordinary tracing scenarios remain unchanged when this variable is unset.
+Parallel retrieval in `parts/linux/cloud-init/artifacts/init-aks-cloud.sh` also
+applies to ordinary RCV1P provisioning, independently of tracing. The matrix uses
+pinned original and parallel script copies for comparison; Rust and skipped CA
+updates remain experiment-only.
+The directory supplies `fixture.json` with the pinned `rust_sha256`,
+`prepare-fixture.sh`, and instrumented `init-original.sh` / `init-parallel.sh`.
+Exact image metadata, `E2E_BOOT_TRACE=true`, and an isolated
+`--resource-group-prefix abe2e-ca-<unique>` are required. The infrastructure prefix
+defaults to `abe2e` for existing suites.
+
+For three balanced waves, add `--boot-trace-waves --parallel 7 --retries 0`
+and select all 21 matrix scenarios. Wave 1 runs one fresh VM for each of the
+seven OS/variant combinations; waves 2 and 3 repeat those same combinations.
+The runner waits for every scenario in a wave, including collection and scenario
+cleanup, before starting the next wave. A failed scenario is retained in the
+final result and does not skip subsequent waves; suite cancellation stops further
+waves. All waves share one runner invocation, infrastructure cache, log directory
+and final JUnit report. Incomplete matrices, duplicate variants and NBC sampling
+are rejected before Azure initialization. Without the flag, scheduling is unchanged.
+
+Additional boothook fixtures are gzip-compressed and Base64-encoded, then restored
+before the controller starts. Injection rejects a final CustomData payload above
+Azure's 87,380-character encoded limit before attempting VM creation.
+
+The same versioned internal Rust fixture is prepared on every variant before
+the CA steps, using the test VM's managed identity and verifying its SHA-256.
+This preparation is outside the measured CA spans but **is included in total
+boot/NodeReady time**; these runs are not pristine-image timing measurements.
+Collection verifies the actual guest script/binary hashes, requested mode,
+nonempty downloaded CA set, and successful CA-step timing evidence. Bundle and
+downloaded-certificate-set fingerprints are retained for subsequent comparisons.
+The fixture does not replace the system command globally.
 
 ### Targeted diagnostics
 
-Both backends record network device activity alongside block I/O: TX
+The recorder captures network device activity alongside block I/O: TX
 `net_dev_xmit` and RX `netif_receive_skb_entry`,
-`netif_receive_skb_list_entry`, and `netif_rx_entry` (LTTng uses `net_if_*`
-names for RX, normalized on import). The report adds separate green TX and
+`netif_receive_skb_list_entry`, and `netif_rx_entry`. The report adds separate green TX and
 blue RX lanes with event counts in 100 ms bins. These are not packet counts:
 receive batching, multiple receive paths and offloads prevent that interpretation.
 TX does not prove delivery, and neither lane measures DNS/TCP/HTTP latency or
@@ -200,7 +257,7 @@ increase trace volume and overhead; check the existing loss and size warnings.
 Older captures without these events show network coverage as unavailable, not
 zero traffic. Rebuild the tracing VHDs and capture fresh boots to collect them.
 
-Both backends sample containerd threads in uninterruptible sleep (D state) every
+The recorder samples containerd threads in uninterruptible sleep (D state) every
 200 ms, discovering the daemon at most once per second until it appears.
 `containerd-waits.json` retains bounded kernel-stack/wait-channel samples,
 read/sync syscall numbers and descriptor IDs when available, and contemporaneous
@@ -246,7 +303,7 @@ Successful bundles are under each scenario's `boot-trace/` artifact directory.
 They include exact image provenance, VM/cluster/network settings, Ready evidence
 and only the four recognized CSE boot datapoints, never full CSE output.
 The report stage uses an Ubuntu 26.04 container, requires exactly three
-successful ftrace bundles and accepts at most one optional LTTng bundle. It
+successful ftrace bundles. It
 rejects mismatched base/kernel/VM/cluster settings and reused node identities,
 and writes the autonomous `boot-trace-report/comparison.html` plus each trial's
 HTML/JSON. The comparison page keeps each capture selectable and reports
@@ -255,14 +312,14 @@ statistical performance verdict.
 Second-resolution CSE timestamps can map slightly before the precise boot
 origin: such milestones remain in the raw sanitized export but are excluded
 from the rendered timeline with a warning, never silently clamped to zero.
-The container job and its dependency installation are recipes only, not run here.
 
 The opt-in pipeline parameter `bootTraceCAExperiment=true` keeps exactly three
 parallel ftrace nodes: trials 1 and 2 run `update-ca-certificates`, while trial 3
 skips only that command in the instrumented image's `init-aks-cloud.sh`.
-LTTng must be disabled. All three use the same tracing VHD; per-node cloud-init
-files select the mode. Standard images and the source provisioning script are
-unchanged. Retrieval and copying of CA files still run, and TLS verification is
+All three use the same tracing VHD; per-node cloud-init
+files select the mode. The skip mode exists only in the instrumented image's copy;
+standard images still update their trust stores. Retrieval and copying of CA
+files still run, and TLS verification is
 not disabled, so the skip node can fail provisioning because its new CAs are not
 activated. This is diagnostic only, never a production configuration.
 Readiness configuration records the mode, and guest timing evidence must confirm
@@ -286,9 +343,8 @@ disk spooling. Ordering corrections are reported; timestamps and events are reta
 Backwards per-CPU timestamps, or reordering combined with lost/undecodable records,
 fail explicitly rather than hiding ambiguous scheduler intervals.
 
-The instructions and commands in this document are **not execution history**.
-VHD builds and Azure E2E execution still require separate authorization and an
-exact Canonical base image version.
+VHD builds and Azure E2E execution require explicit authorization and an exact
+base image version.
 
 ## What is measured
 
@@ -333,11 +389,11 @@ The existing boot-data parser unit test is not a first-boot performance benchmar
 
 - `trace_boot.py`: local CLI; `orchestrate.py`: explicit scale-out/watch/SSH.
 - `guest/`: image-side recorder, systemd unit, safety stop and ftrace GRUB drop-in.
-- `events.py`: trace.dat, legacy tracefs-text and CTF adapters; `timeline.py`: shared accounting.
+- `events.py`: trace.dat and legacy tracefs-text adapters; `timeline.py`: shared accounting.
 - `milestones.py`: CSE datapoint import; `report.py`: embedded HTML/CSS/JavaScript.
 - `prepare_vhd.py`, `guest/install.sh`: opt-in Packer image integration.
 - `render_e2e.py`: offline E2E artifact selection and comparison.
-- `tests/`: synthetic offline `unittest` cases; local checks passed.
+- `tests/`: synthetic offline `unittest` cases.
 - `../scenario/boot_trace*.go`: E2E watch, Bastion collection and focused Go tests.
 - `../../spec/e2e/boot_trace_install_spec.sh`: image-guard ShellSpec tests.
 
@@ -346,13 +402,11 @@ Local requirements: Python **3.10+**; for collection, existing authenticated
 Azure pool-scale and VMSS-read permissions, and Kubernetes list/watch nodes.
 No packages are installed by the report/collection CLI. Rendering binary ftrace
 requires `trace-cmd` on the report host; legacy `ftrace.txt` bundles still need
-only the Python standard library. Rendering LTTng additionally requires the distro's
-Babeltrace 2 Python bindings (`python3-bt2`) in the selected interpreter.
+only the Python standard library.
 
 The guest needs Python 3.10+, systemd, writable local storage, root permissions
-and either tracefs with ftrace boot parameters and trace-cmd 3.4 (including
-coreutils `stdbuf`), or compatible LTTng kernel modules and tools.
-LTTng modules must match the kernel and any Secure Boot signing policy.
+and tracefs with ftrace boot parameters and trace-cmd 3.4 (including
+coreutils `stdbuf`).
 All configured events must exist on that image. No full-syscall or function-graph
 capture is enabled.
 
@@ -380,7 +434,7 @@ In that image-build process, arrange the following before the measured VM exists
 | `guest/aks-node-boot-trace.service` | `/etc/systemd/system/aks-node-boot-trace.service`, enabled for `sysinit.target` |
 | Adapted `guest/config.env.example` | `/etc/aks-node-boot-trace.env`, root-owned mode 0600 |
 
-Set `BACKEND`, the actual `IMAGE_LABEL`, `MAX_SECONDS` (1..600) and `MAX_MIB`
+Set `BACKEND=ftrace`, the actual `IMAGE_LABEL`, `MAX_SECONDS` (1..600) and `MAX_MIB`
 (at least 16). Do not bake credentials or earlier build/boot captures into the
 image. Do not start the recorder on the image builder. Remove only experiment
 artifacts from the image before sealing; retain required OS state.
@@ -406,12 +460,6 @@ Reserve 4 MiB per CPU for the early buffer and verify that no other consumer
 owns the root trace instance. The reduction in overhead still requires a new
 guest measurement; binary recording is not overhead-free.
 
-For **LTTng**, do not apply the ftrace boot parameters. Prepare kernel modules,
-sessiond and consumer support without an existing measurement session. The
-recorder creates one private `aks-boot-<boot-id>` session and a targeted kernel
-channel. Its first event necessarily follows session setup: it cannot observe
-the early kernel prefix. Raw CTF remains available for Trace Compass.
-
 The unit orders recorder activation before cloud-init, the Azure agent,
 containerd and kubelet. `Type=notify` waits for recorder setup, so this
 **perturbs boot ordering and adds setup overhead**. It is not a production
@@ -427,7 +475,7 @@ failure/stop paths on the chosen image before any measurement campaign.
 
 ## Standalone pool collection CLI (not the AgentBaker E2E path)
 
-Examples below are documentation only; they were **not run**.
+Commands without `--execute` perform read-only preflight checks.
 
 Run from this directory. A read-only preflight queries Azure and Kubernetes,
 prints the proposed +1 operation, and does not create an output directory:
@@ -469,15 +517,10 @@ bounds archive transfer and extraction independently (default 512 MiB).
 Use `--max-mib 1024` when collecting an image with a 512 MiB ftrace capture cap
 to leave room for archive headers and capture metadata.
 
-For LTTng, prepare the LTTng-only image/pool, use `--backend lttng`, and create
-another fresh node with equivalent configuration. Do not run both backends
-together or silently reboot the ftrace node.
-
 ## Offline reports and comparison
 
 ```bash
 python3 -B trace_boot.py report captures/ftrace-01 --output reports/ftrace-01
-python3 -B trace_boot.py report captures/lttng-01 --output reports/lttng-01
 python3 -B trace_boot.py compare \
   reports/ftrace-01/report.json reports/ftrace-02/report.json \
   --output reports/before-after
@@ -494,9 +537,6 @@ event field names/flags are retained, and timestamps remain boot-monotonic.
 Accounting uses event timestamps; the raw traces retain deeper evidence. The view limits
 displayed threads, not the normalized JSON accounting.
 
-CTF with a Unix-origin clock is mapped through the paired guest clock sample.
-Other CTF clocks require an explicitly established
-`--ctf-offset-seconds` (boot seconds minus CTF seconds). Never guess an offset.
 Legacy text ftrace must already be chronologically merged across CPUs.
 Prefer the original binary capture and its embedded event formats over a
 manual text conversion with unverified clock/fields.
@@ -553,7 +593,6 @@ capture/
   trace-cmd.log        # native recorder diagnostics
   ftrace.txt           # legacy text ftrace bundles only
   ftrace-stats.json    # ftrace per-CPU buffer diagnostics
-  ctf/                # LTTng backend only
   milestones.json      # optional imported semantic evidence
   operation.json       # standalone pool collector's requested operation only
   cse-boot-datapoints.json # sanitized CSE timestamps from E2E, when available
@@ -579,8 +618,12 @@ The standalone pool collector does not install dependencies, build images, chang
 settings, scale down, delete resources or roll back a requested scale-out.
 Capture files and local outputs use restrictive permissions. Tar extraction
 rejects traversal, links and special files, and enforces a byte limit.
-Keep captures, HTML, JSON, CTF, SSH settings, kubeconfigs and credentials private;
+Keep captures, HTML, JSON, SSH settings, kubeconfigs and credentials private;
 generated `captures/` and `reports/` directories are ignored.
+HTML reports embed the normalized capture data, including Azure resource IDs,
+node identities and diagnostic paths; hiding a section does not anonymize it.
+Review and redact those values before external sharing. Serve only the intended
+report directory, never a campaign directory containing credentials or raw logs.
 
 **Every executed standalone pool collection leaves a billable node allocated.** After reviewing
 the run and checking workloads/concurrent operations, explicitly retire the
@@ -593,7 +636,7 @@ AgentBaker E2E instead retains the framework's existing cleanup of its own VMSS
 and tunnel (subject to the framework's keep-resources setting). It does not
 delete the shared AKS cluster, Bastion, unrelated nodes or system pools.
 
-## Local validation and pending runtime checks
+## Validation
 
 Synthetic tests cover scheduler accounting, parallel CPUs, PID reuse, coverage
 gaps, clocks/boot IDs, CSE parsing, HTML escaping, unsafe archives and dry-run/
@@ -609,16 +652,13 @@ systemd-analyze verify e2e/boot-trace/guest/aks-node-boot-trace.service
 ```
 
 ShellSpec 0.28.1 is the version used by the repository's test container.
-The checks above passed locally, along with existing VMSS provisioning and SSH
-retry regression tests. This is not a VHD build or a validation against Azure.
-Live validation is pending separately for ftrace and LTTng, including kernel
-options, image integration, stop/watchdog behavior, Babeltrace field
-compatibility, HTML interactions and instrumentation overhead against an
-uninstrumented control.
+Offline checks do not establish guest runtime compatibility. Validate ftrace
+on each target image, including kernel options, image
+integration, stop/watchdog behavior, trace-cmd field compatibility, HTML
+interactions and instrumentation overhead against an uninstrumented control.
 The integration adds Python cases in `tests/test_integration.py`, Go cases named
 `TestBootTrace*` in `e2e/scenario/boot_trace_test.go`, and ShellSpec cases in
 `spec/e2e/boot_trace_install_spec.sh`.
 
 References: [kernel boot tracing](https://docs.kernel.org/trace/boottime-trace.html),
-[LTTng](https://lttng.org/docs/v2.14/),
 [systemd-analyze](https://www.freedesktop.org/software/systemd/man/latest/systemd-analyze.html).

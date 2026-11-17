@@ -50,8 +50,8 @@ func startBootTraceWatch(ctx context.Context, s *Scenario) (*bootTraceWatch, err
 		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil {
 		return nil, errors.New("boot tracing requires the scenario's cluster, node resource group and Kubernetes client")
 	}
-	if s.BootTraceBackend != "ftrace" && s.BootTraceBackend != "lttng" {
-		return nil, errors.New("boot tracing requires ftrace or lttng")
+	if s.BootTraceBackend != "ftrace" {
+		return nil, errors.New("boot tracing requires ftrace")
 	}
 	prefix := fmt.Sprintf("azure:///subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachineScaleSets/%s/virtualMachines/",
 		config.Config.SubscriptionID, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName)
@@ -211,6 +211,16 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 	if s.BootTraceSkipCAUpdate {
 		configuration["ca_update_mode"] = "skip-update-ca-certificates"
 	}
+	if s.VHD.OS == config.OSAzureLinux {
+		configuration["os_sku"] = "AzureLinux"
+	}
+	if experiment := s.BootTraceExperiment; experiment != nil {
+		configuration["ca_update_mode"] = experiment.CAUpdateMode
+		configuration["retrieve_mode"] = experiment.RetrieveMode
+		configuration["experiment_variant"] = experiment.Variant
+		configuration["init_sha256"] = experiment.InitSHA256
+		configuration["rust_sha256"] = experiment.RustSHA256
+	}
 	readiness := map[string]any{
 		"node": node.Name, "node_uid": node.UID, "provider_id": node.Spec.ProviderID,
 		"boot_id": bootID, "transition_time": ready.transition.UTC().Format(time.RFC3339Nano),
@@ -266,12 +276,15 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 	baseVersion := metadata.ImageProvenance["base_version"]
 	if baseVersion == "" || metadata.ImageProvenance["backend"] != s.BootTraceBackend ||
 		metadata.ImageLabel != s.VHD.Name+"-"+baseVersion {
-		return errors.New("capture does not identify the expected instrumented image and Canonical base version")
+		return errors.New("capture does not identify the expected instrumented image and base version")
 	}
 	if metadata.ClockEnd.Realtime < float64(ready.transition.UnixNano())/1e9 {
 		return errors.New("capture ended before the first Ready transition")
 	}
-	configuration["canonical_base_version"] = baseVersion
+	configuration["base_image_version"] = baseVersion
+	if s.VHD.OS == config.OSUbuntu {
+		configuration["canonical_base_version"] = baseVersion
+	}
 	if err := writeBootTraceJSON(bundle, "readiness.json", readiness); err != nil {
 		return err
 	}
@@ -285,6 +298,11 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 	}
 	if err := collectBootTraceCSR(ctx, s, bundle, node.Name); err != nil {
 		return err
+	}
+	if s.BootTraceExperiment != nil {
+		if err := collectBootTraceExperiment(ctx, s, vm, bundle); err != nil {
+			return err
+		}
 	}
 	if err := os.Remove(archivePath); err != nil {
 		return err
@@ -466,23 +484,14 @@ func extractBootTraceArchive(archivePath, destination, bootID string, maximum in
 		allowed := name == "metadata.json" || name == "services.json" || name == "ftrace.txt" ||
 			name == "trace.dat" || name == "trace-cmd.log" ||
 			name == "containerd-waits.json" || name == "cloud-timings.jsonl" ||
-			name == "ftrace-stats.json" || name == "journal.jsonl" || name == "ctf" || strings.HasPrefix(name, "ctf/")
-		if !allowed || (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeDir) ||
+			name == "ftrace-stats.json" || name == "journal.jsonl"
+		if !allowed || header.Typeflag != tar.TypeReg ||
 			header.Size < 0 || header.Size > maximum-total {
 			return fmt.Errorf("unexpected or oversized capture archive entry %q", header.Name)
 		}
 		seen[name] = true
 		total += header.Size
 		target := filepath.Join(destination, filepath.FromSlash(name))
-		if header.Typeflag == tar.TypeDir {
-			if name != "ctf" && !strings.HasPrefix(name, "ctf/") {
-				return fmt.Errorf("unexpected capture directory %q", name)
-			}
-			if err := os.MkdirAll(target, 0o700); err != nil {
-				return err
-			}
-			continue
-		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			return err
 		}

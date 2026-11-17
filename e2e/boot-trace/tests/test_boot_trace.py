@@ -11,13 +11,12 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import types
 import unittest
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from events import ftrace_events, lttng_events
+from events import ftrace_events
 from guest import capture, diagnostics
 from milestones import import_cse
 from orchestrate import provider, scale_and_collect, unpack
@@ -82,6 +81,11 @@ class AnalysisTests(unittest.TestCase):
     def test_wrong_boot_rejected(self):
         self.write("readiness.json", {"boot_id": "other", "transition_time": "1970-01-01T00:16:42Z"})
         with self.assertRaisesRegex(ValueError, "BootID"):
+            analyze(self.bundle)
+
+    def test_removed_backend_is_rejected(self):
+        self.write("metadata.json", dict(self.metadata, backend="lttng"))
+        with self.assertRaisesRegex(ValueError, "Unknown backend"):
             analyze(self.bundle)
 
     def test_missing_ready_is_unknown_not_zero(self):
@@ -311,7 +315,7 @@ class AnalysisTests(unittest.TestCase):
         for enabled, expected in (
             ([], {"tx": False, "rx": False}),
             (["net:net_dev_xmit"], {"tx": True, "rx": False}),
-            (["net_dev_xmit", "net_if_receive_skb_list_entry"], {"tx": True, "rx": True}),
+            (["net_dev_xmit", "netif_receive_skb_list_entry"], {"tx": True, "rx": True}),
         ):
             with self.subTest(enabled=enabled):
                 self.metadata["enabled_events"] = enabled
@@ -641,6 +645,11 @@ class RecorderTests(unittest.TestCase):
                     (tracefs / name).write_text(value)
                 process = Mock()
                 process.poll.return_value = 1 if exited else None
+                boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+                destination = root / "captures" / boot_id
+                destination.mkdir(parents=True)
+                early_timing = '{"task":"AKS.CSE.rcv1p.retrieveCerts","start":1,"end":2,"exit_status":0}\n'
+                (destination / "cloud-timings.jsonl").write_text(early_timing)
 
                 def stop(_process):
                     self.assertEqual((tracefs / "tracing_on").read_text(), "0")
@@ -672,10 +681,13 @@ class RecorderTests(unittest.TestCase):
                         capture.record(args)
                     stopped.assert_called_once_with(process)
                     sleep.assert_not_called()
+                    with self.assertRaises(FileExistsError):
+                        capture.record(args)
                 destination = next((root / "captures").iterdir())
                 metadata = json.loads((destination / "metadata.json").read_text())
                 self.assertEqual(metadata["status"], "failed" if exited else "stopped")
                 self.assertIn("finalized_at", metadata)
+                self.assertEqual((destination / "cloud-timings.jsonl").read_text(), early_timing)
                 self.assertFalse((destination / "ftrace.txt").exists())
 
     def test_native_recorder_preserves_boot_configuration_and_identifies_itself(self):
@@ -746,60 +758,25 @@ class RecorderTests(unittest.TestCase):
                 capture.stop_ftrace(process)
             kill.assert_called_once_with(123, signal.SIGKILL)
 
-    def test_lttng_buffers_are_bounded_and_loss_is_not_silently_accepted(self):
-        for discarded in (0, 940, None):
-            with self.subTest(discarded=discarded), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                commands = []
-                boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
-                destination = root / "captures" / boot_id
-                destination.mkdir(parents=True)
-                early_timing = '{"task":"AKS.CSE.rcv1p.retrieveCerts","start":1,"end":2,"exit_status":0}\n'
-                (destination / "cloud-timings.jsonl").write_text(early_timing)
-
-                def command(*args, **kwargs):
-                    commands.append(args)
-                    return f"Discarded events: {discarded}\n" if discarded is not None else "unknown output"
-
-                args = argparse.Namespace(
-                    backend="lttng", max_seconds=600, max_mib=16,
-                    image_label="test", include_journal=False,
-                )
-                with (
-                    patch.object(capture, "ROOT", root / "captures"),
-                    patch.object(capture, "TRACEFS", root / "tracefs"),
-                    patch.object(capture.os, "geteuid", return_value=0),
-                    patch.object(capture.os, "umask"),
-                    patch.object(capture.signal, "signal"),
-                    patch.dict(capture.os.environ, {}, clear=True),
-                    patch.object(capture, "run", side_effect=command),
-                    patch.object(capture, "disk_size", return_value=16 * 1024 * 1024),
-                    patch.object(capture, "systemd_services", return_value=[]),
-                ):
-                    if discarded is None:
-                        with self.assertRaisesRegex(RuntimeError, "discarded-event counters"):
-                            capture.record(args)
-                    else:
-                        capture.record(args)
-                    with self.assertRaises(FileExistsError):
-                        capture.record(args)
-                enable = next(command for command in commands if command[1] == "enable-channel")
-                self.assertIn("--subbuf-size=4M", enable)
-                self.assertIn("--num-subbuf=16", enable)
-                self.assertIn("--read-timer=20000", enable)
-                self.assertIn("--switch-timer=0", enable)
-                self.assertIn("--tracefile-size=0", enable)
-                self.assertNotIn("--overwrite", enable)
-                self.assertEqual(commands[-1][1], "destroy")
-                self.assertEqual(len({command[-1] for command in commands if command[1] in ("stop", "destroy")}), 1)
-                destination = next((root / "captures").iterdir())
-                metadata = json.loads((destination / "metadata.json").read_text())
-                self.assertEqual((destination / "cloud-timings.jsonl").read_text(), early_timing)
-                if discarded is not None:
-                    self.assertEqual(metadata["lttng_discarded_events"], discarded)
-                    self.assertEqual(any("scheduler accounting is partial" in warning for warning in metadata["warnings"]), bool(discarded))
-                else:
-                    self.assertEqual(metadata["status"], "failed")
+    def test_removed_backend_cannot_start_a_recorder_or_create_capture_files(self):
+        args = argparse.Namespace(
+            backend="lttng", max_seconds=600, max_mib=16,
+            image_label="test", include_journal=False,
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "captures"
+            with (
+                patch.object(capture, "ROOT", root),
+                patch.object(capture.os, "geteuid", return_value=0),
+                patch.object(capture.os, "umask"),
+                patch.object(capture, "run") as run,
+                patch.object(capture, "start_ftrace") as start,
+            ):
+                with self.assertRaisesRegex(ValueError, "only supports ftrace"):
+                    capture.record(args)
+                run.assert_not_called()
+                start.assert_not_called()
+            self.assertFalse(root.exists())
 
 
 class TargetedDiagnosticsTests(unittest.TestCase):
@@ -808,6 +785,7 @@ class TargetedDiagnosticsTests(unittest.TestCase):
         for mode, expected_status, expected_task in (
             (None, 7, "AKS.CSE.bootTrace.updateCaCertificates"),
             ("enabled\n", 7, "AKS.CSE.bootTrace.updateCaCertificates"),
+            ("rust\n", 9, "AKS.CSE.bootTrace.updateCaCertificates"),
             ("skip-update-ca-certificates\n", 0, "AKS.CSE.bootTrace.skippedUpdateCaCertificates"),
             ("invalid\n", 1, None),
         ):
@@ -823,6 +801,10 @@ class TargetedDiagnosticsTests(unittest.TestCase):
                 text = script.read_text().replace("/etc/aks-node-boot-trace-ca-update-mode", str(root / "mode"))
                 text = text.replace("/var/log/aks-node-boot-trace", str(root))
                 text = text.replace("/proc/sys/kernel/random/boot_id", str(root / "boot-id"))
+                rust = root / "rust"
+                rust.write_text("#!/bin/sh\necho RUST_UPDATE_CALLED\nexit 9\n")
+                rust.chmod(0o700)
+                text = text.replace("/opt/aks-node-boot-trace/update-ca-certificates-rs", str(rust))
                 script.write_text(text.replace("/proc/uptime", str(root / "uptime")))
                 result = subprocess.run(
                     ["bash", "-c", '''
@@ -845,6 +827,9 @@ aks_boot_trace_update_ca
                     self.assertIn("EXPERIMENT ONLY", result.stderr)
                 elif mode in (None, "enabled\n"):
                     self.assertIn("REAL_UPDATE_CALLED", result.stdout)
+                elif mode == "rust\n":
+                    self.assertIn("RUST_UPDATE_CALLED", result.stdout)
+                    self.assertNotIn("REAL_UPDATE_CALLED", result.stdout)
                 else:
                     self.assertIn("invalid boot-trace", result.stderr)
 
@@ -1010,55 +995,7 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(json.loads((args.output / "result.json").read_text())["status"], "incomplete")
 
 
-class LttngTests(unittest.TestCase):
-    def test_receive_event_aliases_are_normalized(self):
-        class EventMessage:
-            default_clock_snapshot = types.SimpleNamespace(
-                clock_class=types.SimpleNamespace(origin_is_unix_epoch=True),
-                ns_from_origin=1_000_000_000,
-            )
-
-            def __init__(self, name):
-                self.event = types.SimpleNamespace(
-                    name=name, payload_field={"skbaddr": "0x1"},
-                    common_context_field={}, packet=None,
-                )
-
-        fake = types.SimpleNamespace(
-            _EventMessageConst=EventMessage,
-            _DiscardedEventsMessageConst=type("DiscardedEvents", (), {}),
-            _DiscardedPacketsMessageConst=type("DiscardedPackets", (), {}),
-            TraceCollectionMessageIterator=lambda _path: [
-                EventMessage(name) for name in (
-                    "net_dev_xmit", "net_if_receive_skb_entry",
-                    "net_if_receive_skb_list_entry", "net_if_rx_entry",
-                )
-            ],
-        )
-        with patch.dict(sys.modules, {"bt2": fake}):
-            events = list(lttng_events(Path("/unused"), []))
-        self.assertEqual([item["name"] for item in events], [
-            "net_dev_xmit", "netif_receive_skb_entry",
-            "netif_receive_skb_list_entry", "netif_rx_entry",
-        ])
-        self.assertEqual([item["t"] for item in events], [1.0] * 4)
-
-    def test_non_epoch_ctf_requires_explicit_clock_mapping(self):
-        class EventMessage:
-            default_clock_snapshot = types.SimpleNamespace(
-                clock_class=types.SimpleNamespace(origin_is_unix_epoch=False),
-            )
-
-        fake = types.SimpleNamespace(
-            _EventMessageConst=EventMessage,
-            _DiscardedEventsMessageConst=type("DiscardedEvents", (), {}),
-            _DiscardedPacketsMessageConst=type("DiscardedPackets", (), {}),
-            TraceCollectionMessageIterator=lambda _path: [EventMessage()],
-        )
-        with patch.dict(sys.modules, {"bt2": fake}):
-            with self.assertRaisesRegex(ValueError, "no Unix origin"):
-                list(lttng_events(Path("/unused"), []))
-
+class FtraceParsingTests(unittest.TestCase):
     def test_ftrace_headers_are_not_unknown_records(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.txt"

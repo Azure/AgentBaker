@@ -30,7 +30,7 @@ var (
 )
 
 func ResourceGroupName(location string) string {
-	return "abe2e-" + location
+	return Config.ResourceGroupPrefix + "-" + location
 }
 
 func PrivateACRNameNotAnon(location string) string {
@@ -47,6 +47,7 @@ type Configuration struct {
 	AzureContainerRegistrytargetRepository string
 	BlobContainer                          string
 	BlobStorageAccountPrefix               string
+	BootTraceWaves                         bool
 	BuildID                                string
 	DefaultLocation                        string
 	DefaultPollInterval                    time.Duration
@@ -68,6 +69,7 @@ type Configuration struct {
 	NetworkIsolatedNSGName                 string
 	Parallel                               int
 	Retries                                int
+	ResourceGroupPrefix                    string
 	JUnitFile                              string
 	OutputMode                             string
 	SIGVersionTagName                      string
@@ -120,6 +122,7 @@ func DefaultConfiguration() *Configuration {
 		},
 		NetworkIsolatedNSGName: "abe2e-networkisolated-securityGroup",
 		Parallel:               60,
+		ResourceGroupPrefix:    "abe2e",
 		OutputMode:             "auto",
 		SIGVersionTagName:      "branch",
 		SIGVersionTagValue:     "refs/heads/main",

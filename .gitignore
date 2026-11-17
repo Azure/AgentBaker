@@ -64,3 +64,6 @@ vhdbuilder/packer/boot-trace.generated.json
 
 # Ignore AI related configs
 .claude
+
+# Local Orca workspace artifacts
+.orca/

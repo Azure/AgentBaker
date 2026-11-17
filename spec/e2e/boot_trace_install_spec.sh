@@ -19,12 +19,8 @@ Describe 'boot-trace image preparation guards'
     esac
   }
 
-  It 'accepts either separately prepared backend on the pinned target'
-    check_both_backends() {
-      check_trace_target ftrace 26.04.20260701 test-ftrace &&
-        check_trace_target lttng 26.04.20260701 test-lttng
-    }
-    When call check_both_backends
+  It 'accepts ftrace on the pinned target'
+    When call check_trace_target ftrace 26.04.20260701 test-ftrace
     The status should be success
     The output should be blank
   End
@@ -38,7 +34,13 @@ Describe 'boot-trace image preparation guards'
   It 'rejects an unsupported combined backend'
     When call check_trace_target both 26.04.20260701 test-image
     The status should be failure
-    The stderr should include 'Expected ftrace or lttng'
+    The stderr should include 'Expected ftrace'
+  End
+
+  It 'rejects the removed backend before installing or arming anything'
+    When call check_trace_target lttng 26.04.20260701 test-image
+    The status should be failure
+    The stderr should include 'Expected ftrace'
   End
 
   It 'requires rechecking compatibility when the kernel changes'
@@ -49,7 +51,7 @@ Describe 'boot-trace image preparation guards'
         *) return 1 ;;
       esac
     }
-    When call check_trace_target lttng 26.04.20260701 test-image
+    When call check_trace_target ftrace 26.04.20260701 test-image
     The status should be failure
     The stderr should include 'pinned kernel'
   End
@@ -77,10 +79,10 @@ Describe 'boot-trace image preparation guards'
       The output should be blank
     End
 
-    It 'rejects LTTng instead of installing Ubuntu DKMS packages'
+    It 'rejects the removed backend on Azure Linux too'
       When call check_trace_target lttng 3.20261105.01 azurelinux-test
       The status should be failure
-      The stderr should include 'only supports ftrace'
+      The stderr should include 'Expected ftrace'
     End
 
     It 'rejects a kernel from another OS'

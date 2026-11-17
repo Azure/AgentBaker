@@ -31,6 +31,9 @@ aks_boot_trace_update_ca() {
         enabled)
             logs_to_events "AKS.CSE.bootTrace.updateCaCertificates" update-ca-certificates
             ;;
+        rust)
+            logs_to_events "AKS.CSE.bootTrace.updateCaCertificates" /opt/aks-node-boot-trace/update-ca-certificates-rs
+            ;;
         skip-update-ca-certificates)
             logs_to_events "AKS.CSE.bootTrace.skippedUpdateCaCertificates" aks_boot_trace_skip_ca_update
             ;;

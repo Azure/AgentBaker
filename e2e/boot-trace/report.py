@@ -208,14 +208,18 @@ function cancelRangeSelection(event){
 }
 function cards(){
  $("cards").replaceChildren();
- data.captures.forEach((r,i)=>{
+ $("identity").replaceChildren();
+ const indices=data.show_comparison===false?[current]:data.captures.map((_,i)=>i);
+ for(const i of indices){
+  const r=data.captures[i];
+  const badge=document.createElement("span");badge.className="badge";badge.textContent=r.metadata.backend+" / "+r.metadata.kernel+" / "+r.metadata.boot_id;$("identity").append(badge);
   for(const [label,value] of [[`${data.labels[i]} · boot → Ready`,fmt(r.ready_seconds)+" s"],
    ["First trace event",fmt(r.trace_first)+" s"],["Observed block events",String(r.block_event_count)]]){
     const box=document.createElement("div");box.className="card";
     const labelNode=document.createElement("span");labelNode.className="muted";labelNode.textContent=label;
     const valueNode=document.createElement("strong");valueNode.textContent=value;box.append(labelNode,valueNode);$("cards").append(box);
   }
- });
+ }
 }
 function draw(){
  const r=data.captures[current],canvas=$("timeline"),ctx=canvas.getContext("2d");
@@ -349,11 +353,9 @@ function refresh(){
 for(const [label,key] of [["Thread","comm"],["TID/generation","tid"],["Observed span (s)","observed_span_seconds"],["CPU (s)","cpu_seconds"],["Runnable wait (s)","runnable_seconds"],["Switch-outs","switches"]]){
  const th=document.createElement("th"),button=document.createElement("button");button.textContent=label;button.onclick=()=>{ascending=sortKey===key?!ascending:false;sortKey=key;refresh();};th.append(button);$("thread-head").append(th);
 }
-data.captures.forEach((r,i)=>{const option=document.createElement("option");option.value=i;option.textContent=data.labels[i]+" · "+r.metadata.backend;$("capture").append(option);
- const badge=document.createElement("span");badge.className="badge";badge.textContent=r.metadata.backend+" / "+r.metadata.kernel+" / "+r.metadata.boot_id;$("identity").append(badge);
-});
+data.captures.forEach((r,i)=>{const option=document.createElement("option");option.value=i;option.textContent=data.labels[i]+" · "+r.metadata.backend;$("capture").append(option);});
 function reset(){const r=data.captures[current];rangeDrag=null;$("timeline-selection").style.display="none";$("from").value=0;$("to").value=(Math.ceil(limit(r)*1000)/1000).toFixed(3);$("timeline-scroll").scrollTop=0;refresh();}
-$("capture").onchange=()=>{current=Number($("capture").value);reset();};
+$("capture").onchange=()=>{current=Number($("capture").value);cards();reset();};
 ["filter","from","to"].forEach(id=>$(id).addEventListener("input",refresh));$("reset").onclick=reset;
 $("service-filter-search").addEventListener("input",renderServiceFilter);
 $("show-services").onclick=()=>{hiddenServices.clear();refresh();};
@@ -411,7 +413,7 @@ resizeHandle.addEventListener("keydown",event=>{
 });
 updateResizeAria();
 window.addEventListener("resize",()=>{if(timelineScroll.style.height)setTimelineHeight(timelineScroll.clientHeight);else{updateResizeAria();draw();}});
-if(data.captures.length>=2){
+if(data.show_comparison!==false&&data.captures.length>=2){
  $("comparison").hidden=false;
  if(data.captures.length!==2){
   $("pair-comparison").hidden=true;$("repeat-summary").hidden=false;
@@ -488,8 +490,9 @@ cards();reset();
 """
 
 
-def write_html(path, captures, labels):
+def write_html(path, captures, labels, *, show_comparison=True):
     payload = json.dumps(
-        {"captures": captures, "labels": labels}, ensure_ascii=True, allow_nan=False,
+        {"captures": captures, "labels": labels, "show_comparison": show_comparison},
+        ensure_ascii=True, allow_nan=False,
     ).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
     path.write_text(PAGE.replace("__PAYLOAD__", payload), encoding="utf-8")

@@ -17,6 +17,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/pkg/agent"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -133,6 +134,45 @@ func (l *vmssCreationTestLogger) Logf(format string, args ...any) {
 
 func (f vmssCreationTestPolicy) Do(req *policy.Request) (*http.Response, error) {
 	return f(req.Raw()), nil
+}
+
+func TestInjectBoothookFilesCompressesAndRestoresContent(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, "fixture file")
+	observed := filepath.Join(directory, "observed-at-start")
+	content := strings.Repeat("# representative bootstrap script content\n", 3000) + "'EOF'\nEOF\n\x00\n"
+	input := "#cloud-boothook\nset -euo pipefail\nsystemctl() { cat " + shellSingleQuote(path) +
+		" > " + shellSingleQuote(observed) + "; }\nsystemctl start --no-block aks-node-controller.service\n"
+	result, err := injectWriteFilesEntriesToCustomData(
+		base64.StdEncoding.EncodeToString([]byte(input)),
+		[]CustomDataWriteFile{{
+			Path: path, Permissions: "0700",
+			Owner: fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()), Content: content,
+		}},
+	)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(result), agent.MaxCustomDataLength)
+	script, err := base64.StdEncoding.DecodeString(result)
+	require.NoError(t, err)
+	output, err := exec.Command("bash", "-c", string(script)).CombinedOutput()
+	require.NoError(t, err, "%s", output)
+	actual, err := os.ReadFile(observed)
+	require.NoError(t, err)
+	require.Equal(t, content, string(actual), "restore the exact fixture before starting the controller")
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0700), info.Mode().Perm())
+}
+
+func TestInjectBoothookFilesRejectsOversizeCustomData(t *testing.T) {
+	input := "#cloud-boothook\n" + strings.Repeat("# existing bootstrap configuration\n", 3000) +
+		"systemctl start --no-block aks-node-controller.service\n"
+	result, err := injectWriteFilesEntriesToCustomData(
+		base64.StdEncoding.EncodeToString([]byte(input)),
+		[]CustomDataWriteFile{{Path: "/test-fixture", Content: "fixture"}},
+	)
+	require.ErrorContains(t, err, "customData exceeds Azure")
+	require.Empty(t, result)
 }
 
 type vmssCreationTestCase struct {

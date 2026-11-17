@@ -89,6 +89,29 @@ func (e *executor) schedule(name string, original *scenario.Scenario) {
 
 func (e *executor) wait(gracePeriod time.Duration) error {
 	defer e.shutdown(nil)
+	return e.waitForScenarios(gracePeriod)
+}
+
+func (e *executor) runWaves(waves [][]*scenario.Scenario) error {
+	defer e.shutdown(nil)
+	for index, wave := range waves {
+		if err := e.ctx.Err(); index > 0 && err != nil {
+			return err
+		}
+		if len(waves) > 1 {
+			_, _ = fmt.Fprintf(e.stdout, "Boot-trace wave %d/%d: %d scenarios\n", index+1, len(waves), len(wave))
+		}
+		for _, s := range wave {
+			e.schedule(s.Name, s)
+		}
+		if err := e.waitForScenarios(scenario.CleanupTimeout + 30*time.Second); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *executor) waitForScenarios(gracePeriod time.Duration) error {
 	done := make(chan struct{})
 	go func() {
 		e.scenarios.Wait()

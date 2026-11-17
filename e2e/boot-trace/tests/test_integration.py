@@ -40,16 +40,21 @@ class VHDIntegrationTests(unittest.TestCase):
 
     def test_inserts_install_after_reboot_and_arms_after_last_cleanup(self):
         original = copy.deepcopy(self.template)
-        for backend in ("ftrace", "lttng"):
-            result = instrument_template(self.template, backend, "26.04.20260701", "test-image")
-            commands = result["provisioners"]
-            post = next(i for i, step in enumerate(commands)
-                        if "/home/packer/post-install-dependencies.sh" in step.get("inline", []))
-            self.assertIn("install.sh prepare " + backend, commands[post - 1]["inline"][0])
-            self.assertEqual(commands[-1]["inline"][0], "/opt/azure/containers/cleanup-vhd.sh")
-            self.assertIn("install.sh arm " + backend, commands[-1]["inline"][1])
-            self.assertIn("deprovision", commands[-1]["inline"][2])
-            self.assertEqual(self.template, original)
+        result = instrument_template(self.template, "ftrace", "26.04.20260701", "test-image")
+        commands = result["provisioners"]
+        post = next(i for i, step in enumerate(commands)
+                    if "/home/packer/post-install-dependencies.sh" in step.get("inline", []))
+        self.assertIn("install.sh prepare ftrace", commands[post - 1]["inline"][0])
+        self.assertEqual(commands[-1]["inline"][0], "/opt/azure/containers/cleanup-vhd.sh")
+        self.assertIn("install.sh arm ftrace", commands[-1]["inline"][1])
+        self.assertIn("deprovision", commands[-1]["inline"][2])
+        self.assertEqual(self.template, original)
+
+    def test_rejects_removed_backend_before_preparing_an_image(self):
+        with self.assertRaisesRegex(ValueError, "Expected ftrace"):
+            instrument_template(self.template, "lttng", "26.04.20260701", "test-image")
+        with self.assertRaisesRegex(ValueError, "BOOT_TRACE_BACKEND must be ftrace"):
+            validate_environment(dict(self.environment, BOOT_TRACE_BACKEND="lttng"), self.settings)
 
     def test_rejects_changed_lifecycle_or_later_reboot(self):
         for broken in (
@@ -105,18 +110,17 @@ class E2EReportTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
         self.bundles = {}
-        for index, label in enumerate(("ftrace", "ftrace_2", "ftrace_3", "lttng")):
-            backend = "lttng" if label == "lttng" else "ftrace"
+        for index, label in enumerate(("ftrace", "ftrace_2", "ftrace_3")):
             bundle = self.root / ("Ubuntu2604Minimal_BootTrace_" + label) / "boot-trace"
             bundle.mkdir(parents=True)
             self.bundles[label] = bundle
             self.write(bundle, "result.json", {"status": "collected"})
             self.write(bundle, "metadata.json", {
-                "backend": backend, "boot_id": f"boot-{index}", "status": "stopped",
+                "backend": "ftrace", "boot_id": f"boot-{index}", "status": "stopped",
                 "finalized_at": "test", "kernel": "test-kernel", "architecture": "x86_64",
                 "clock_start": {"realtime": 1000.5, "monotonic": 0},
                 "image_provenance": {
-                    "backend": backend, "kernel": "test-kernel", "base_version": "26.04.20260701",
+                    "backend": "ftrace", "kernel": "test-kernel", "base_version": "26.04.20260701",
                 },
             })
             self.write(bundle, "readiness.json", {
@@ -138,7 +142,6 @@ class E2EReportTests(unittest.TestCase):
         self.write(bundle, filename, value)
 
     def test_ca_experiment_requires_two_controls_and_guest_skip_evidence(self):
-        self.bundles["lttng"].joinpath("result.json").unlink()
         self.update("ftrace_3", "readiness.json",
                     lambda value: value["configuration"].update(ca_update_mode="skip-update-ca-certificates"))
         self.assertEqual(len(select_trials(self.root)), 3)
@@ -171,18 +174,18 @@ class E2EReportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exactly two controls"):
             select_trials(self.root)
 
-    def test_selects_three_distinct_comparable_ftrace_nodes_and_optional_lttng(self):
-        self.assertEqual(
-            select_trials(self.root),
-            [(label, self.bundles[label]) for label in ("ftrace", "ftrace_2", "ftrace_3", "lttng")],
-        )
-        self.bundles["lttng"].joinpath("result.json").unlink()
+    def test_selects_three_distinct_comparable_ftrace_nodes(self):
         self.assertEqual(
             select_trials(self.root),
             [(label, self.bundles[label]) for label in ("ftrace", "ftrace_2", "ftrace_3")],
         )
         self.bundles["ftrace_2"].joinpath("result.json").unlink()
         with self.assertRaises(ValueError):
+            select_trials(self.root)
+
+    def test_rejects_removed_backend_in_collected_bundles(self):
+        self.update("ftrace", "metadata.json", lambda value: value.update(backend="lttng"))
+        with self.assertRaisesRegex(ValueError, "Unexpected boot-trace backend"):
             select_trials(self.root)
 
     def test_rejects_missing_incomplete_duplicate_and_incomparable_trials(self):

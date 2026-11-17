@@ -12,19 +12,21 @@ import (
 
 // Each capture needs its own fresh node; ftrace repeats reveal run-to-run patterns.
 func init() {
-	for _, trial := range []struct {
-		backend string
-		name    string
-	}{
-		{backend: "ftrace", name: "Ubuntu2604Minimal_BootTrace_ftrace"},
-		{backend: "ftrace", name: "Ubuntu2604Minimal_BootTrace_ftrace_2"},
-		{backend: "ftrace", name: "Ubuntu2604Minimal_BootTrace_ftrace_3"},
-		{backend: "lttng", name: "Ubuntu2604Minimal_BootTrace_lttng"},
+	if directory := os.Getenv("E2E_BOOT_TRACE_MATRIX_DIR"); directory != "" {
+		if err := registerBootTraceMatrix(directory); err != nil {
+			panic(err)
+		}
+		return
+	}
+	for _, name := range []string{
+		"Ubuntu2604Minimal_BootTrace_ftrace",
+		"Ubuntu2604Minimal_BootTrace_ftrace_2",
+		"Ubuntu2604Minimal_BootTrace_ftrace_3",
 	} {
 		image := *config.VHDUbuntu2604MinimalGen2Containerd
-		image.Name += "-boot-trace-" + trial.backend
+		image.Name += "-boot-trace-ftrace"
 		caExperiment := strings.EqualFold(os.Getenv("E2E_BOOT_TRACE_CA_EXPERIMENT"), "true")
-		skipCAUpdate := caExperiment && trial.name == "Ubuntu2604Minimal_BootTrace_ftrace_3"
+		skipCAUpdate := caExperiment && name == "Ubuntu2604Minimal_BootTrace_ftrace_3"
 		var experimentFiles []CustomDataWriteFile
 		if caExperiment {
 			mode := "enabled"
@@ -37,7 +39,7 @@ func init() {
 			}}
 		}
 		Register(&Scenario{
-			Name:        trial.name,
+			Name:        name,
 			Description: "Captures first-boot activity on a fresh node before workload validation",
 			SkipIf: func(context.Context) string {
 				if os.Getenv("E2E_BOOT_TRACE") != "true" {
@@ -51,7 +53,7 @@ func init() {
 			Config: Config{
 				Cluster:                ClusterLatestKubernetesVersionKubenet,
 				VHD:                    &image,
-				BootTraceBackend:       trial.backend,
+				BootTraceBackend:       "ftrace",
 				BootTraceSkipCAUpdate:  skipCAUpdate,
 				CustomDataWriteFiles:   experimentFiles,
 				ExcludeFromNBCSampling: true,

@@ -14,8 +14,8 @@ AZURELINUX_IMAGE_NAME = "AzureLinuxV3gen2-boot-trace-"
 
 
 def instrument_template(template, backend, base_version, image_label):
-    if backend not in ("ftrace", "lttng"):
-        raise ValueError("Expected ftrace or lttng")
+    if backend != "ftrace":
+        raise ValueError("Expected ftrace")
     if not re.fullmatch(r"\d+\.\d+\.\d+", base_version):
         raise ValueError("An exact Marketplace image version is required, not latest")
     if not re.fullmatch(r"[a-zA-Z0-9._-]+", image_label):
@@ -57,14 +57,12 @@ def instrument_template(template, backend, base_version, image_label):
 
 def validate_environment(environment, settings):
     backend = environment.get("BOOT_TRACE_BACKEND")
-    if backend not in ("ftrace", "lttng"):
-        raise ValueError("BOOT_TRACE_BACKEND must be ftrace or lttng")
+    if backend != "ftrace":
+        raise ValueError("BOOT_TRACE_BACKEND must be ftrace")
     required = {
         "MODE": "linuxVhdMode", "ARCHITECTURE": "X86_64", "HYPERV_GENERATION": "V2",
     }
     if environment.get("OS_SKU") == "AzureLinux":
-        if backend != "ftrace":
-            raise ValueError("Azure Linux 3 boot tracing only supports ftrace")
         required.update({
             "OS_SKU": "AzureLinux", "OS_VERSION": "V3", "FEATURE_FLAGS": "None",
             "IMG_PUBLISHER": "MicrosoftCBLMariner", "IMG_OFFER": "azure-linux-3",
