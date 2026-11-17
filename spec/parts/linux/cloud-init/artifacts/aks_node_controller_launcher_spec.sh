@@ -119,8 +119,7 @@ EOF
         chmod +x "$BIN_PATH"
     }
 
-    # Stands in for a staged hotfix binary whose embedded payload fails to apply. The flow is
-    # fail-open there, so selection must still stand.
+    # A failed apply may leave partially updated files, so provisioning must not continue.
     create_failing_apply_hotfix_binary() {
         cat >"${BIN_PATH}-hotfix" <<'EOF'
 #!/bin/sh
@@ -137,7 +136,7 @@ EOF
     # binary it selected. This is the seam the extraction bought: these cases assert what the
     # flow itself does, so they do not need a config/nbc-cmd file or a provision invocation.
     run_hotfix_flow() {
-        bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5"; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' \
+        bash -c 'source "$1"; anc_run_hotfix_flow "$2" "$3" "$4" "$5" || exit 1; printf "%s\n" "$ANC_HOTFIX_SELECTED_BIN"' \
             _ "$HOTFIX_SCRIPT" "$BIN_PATH" "${BIN_PATH}-hotfix" "$HOTFIX_JSON" "$FEATURES_PATH"
     }
 
@@ -375,8 +374,8 @@ EOF
         When run bash "$SCRIPT"
         The status should be success
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
-        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
-        The variable hotfixCall should eq "provision"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "$(printf 'apply-embedded-hotfix\nprovision')"
         # The VHD-baked binary must not have been invoked at all on this path.
         The path "${TEST_DIR}/calls" should not be exist
     End
@@ -408,10 +407,10 @@ EOF
         The output should include "ANC download-hotfix completed"
         The output should include "Using hotfix binary"
         bakedCalls=$(cat "${TEST_DIR}/calls")
-        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
         # The baked binary only downloads; it must never be the one that provisions.
         The variable bakedCalls should eq "download-hotfix"
-        The variable hotfixCall should eq "provision"
+        The variable hotfixCalls should eq "$(printf 'apply-embedded-hotfix\nprovision')"
     End
 
     # download-hotfix disarms a stale binary on integrity failure by unlinking it and, failing
@@ -429,8 +428,21 @@ EOF
         The status should be success
         The output should include "ANC download-hotfix failed; binary selection follows"
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
-        hotfixCall=$(tail -n 1 "${TEST_DIR}/hotfix_calls")
-        The variable hotfixCall should eq "provision"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "$(printf 'apply-embedded-hotfix\nprovision')"
+    End
+
+    It 'provisions with the VHD-baked binary when download-hotfix fails without a staged hotfix'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        create_failing_download_aks_node_controller
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include "ANC download-hotfix failed; binary selection follows"
+        The output should include "Using VHD-baked binary: ${BIN_PATH}"
+        calls=$(cat "${TEST_DIR}/calls")
+        The variable calls should eq "$(printf 'download-hotfix\nprovision')"
+        The path "${TEST_DIR}/hotfix_calls" should not be exist
     End
 
     It 'can run the extracted hotfix flow without invoking provision'
@@ -480,20 +492,55 @@ EOF
         The variable calls should eq "download-hotfix"
     End
 
-    # apply-embedded-hotfix is fail-open: a payload that cannot be applied must not unselect the
-    # hotfix binary, because it is still the newer ANC and provisioning has to proceed on it.
-    It 'keeps the hotfix binary selected when apply-embedded-hotfix fails'
+    It 'returns failure from the extracted flow when apply-embedded-hotfix fails'
         create_recording_aks_node_controller
         create_failing_apply_hotfix_binary
 
         When run run_hotfix_flow
-        The status should be success
-        The output should include "ANC apply-embedded-hotfix failed"
+        The status should eq 1
+        The output should end with "ANC apply-embedded-hotfix failed"
         The output should include "Using hotfix binary: ${BIN_PATH}-hotfix"
-        # The selection is the flow's only output contract, and it must survive the failure.
-        The output should include "${BIN_PATH}-hotfix"
         hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
         The variable hotfixCalls should eq "apply-embedded-hotfix"
+    End
+
+    It 'exits without printing the selected binary when the direct hotfix script fails to apply'
+        create_recording_aks_node_controller
+        create_failing_apply_hotfix_binary
+
+        When run bash "$HOTFIX_SCRIPT"
+        The status should eq 1
+        The output should end with "ANC apply-embedded-hotfix failed"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
+        The path "${TEST_DIR}/calls" should not be exist
+    End
+
+    It 'prints the selected binary when the direct hotfix script applies successfully'
+        create_recording_aks_node_controller
+        create_staged_hotfix_binary
+
+        When run bash "$HOTFIX_SCRIPT"
+        The status should be success
+        The output should include "ANC apply-embedded-hotfix completed"
+        The output should end with "${BIN_PATH}-hotfix"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
+        The path "${TEST_DIR}/calls" should not be exist
+    End
+
+    It 'exits without provisioning with either binary when apply-embedded-hotfix fails'
+        touch "$CONFIG_PATH"
+        create_recording_aks_node_controller
+        create_failing_apply_hotfix_binary
+
+        When run bash "$SCRIPT"
+        The status should eq 1
+        The output should include "ANC apply-embedded-hotfix failed"
+        The output should not include "Spawned aks-node-controller"
+        hotfixCalls=$(cat "${TEST_DIR}/hotfix_calls")
+        The variable hotfixCalls should eq "apply-embedded-hotfix"
+        The path "${TEST_DIR}/calls" should not be exist
     End
 
     # Only the literal "true" arms the gate, and the feature file is the delivery channel for it.

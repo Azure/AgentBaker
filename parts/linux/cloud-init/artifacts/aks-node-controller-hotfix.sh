@@ -67,6 +67,7 @@ anc_run_hotfix_flow() {
             anc_hotfix_log "ANC apply-embedded-hotfix completed"
         else
             anc_hotfix_log "ANC apply-embedded-hotfix failed"
+            return 1
         fi
     fi
 
@@ -78,6 +79,6 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     HOTFIX_BIN="${HOTFIX_BIN:-${BIN_PATH}-hotfix}"
     HOTFIX_JSON="${HOTFIX_JSON:-/opt/azure/containers/aks-node-controller-hotfix.json}"
     FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
-    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+    anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH" || exit 1
     printf '%s\n' "$ANC_HOTFIX_SELECTED_BIN"
 fi
