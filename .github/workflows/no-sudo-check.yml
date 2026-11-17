@@ -15,7 +15,8 @@ jobs:
         # Search for 'sudo ' as a command invocation in shell scripts and service/timer files,
         # excluding comment lines. These scripts run as root so sudo is unnecessary.
         SEARCH_DIR="parts/linux/cloud-init/artifacts"
-        matches=$(grep -rn --include='*.sh' --include='*.service' --include='*.timer' 'sudo ' "$SEARCH_DIR" \
+        matches=$(grep -rn --include='*.sh' --include='*.service' --include='*.timer' 'sudo ' "$SEARCH_DIR" parts/root \
+          | grep -vE '^parts/root/.*/opt/azure/image-build/.*\.sh:' \
           | grep -v ':[[:space:]]*#' \
           | grep -v 'sudo\.log' \
           | grep -v 'sudoers' \

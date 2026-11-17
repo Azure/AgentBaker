@@ -9,6 +9,8 @@ user.env
 .editorconfig
 _dist/
 bin/
+!parts/root/**/bin/
+!parts/root/**/bin/**
 .env
 .coverprofile
 coverage.txt

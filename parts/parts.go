@@ -7,3 +7,8 @@ import "embed"
 //
 //go:embed *
 var Templates embed.FS
+
+// Root lets ANC embed the script trees without the unrelated service templates.
+//
+//go:embed root
+var Root embed.FS

@@ -132,7 +132,6 @@ type ScriptHotfixFixture struct {
 
 type ScriptHotfixFile struct {
 	Destination string
-	Mode        string
 	Payload     []byte
 }
 
@@ -177,7 +176,7 @@ type Config struct {
 	CustomDataWriteFiles []CustomDataWriteFile
 
 	// ScriptHotfixFixture builds ANC in an isolated temporary module with this
-	// generated script-hotfix payload. It bypasses the shared ANC binary cache.
+	// modified embedded root. It bypasses the shared ANC binary cache.
 	ScriptHotfixFixture *ScriptHotfixFixture
 
 	// ANCHotfixFlowFixture validates the real hotfix download/stage/select flow by seeding the

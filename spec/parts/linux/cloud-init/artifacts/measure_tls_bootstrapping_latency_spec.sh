@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'measure-tls-bootstrapping-latency.sh'
-    Include "./parts/linux/cloud-init/artifacts/measure-tls-bootstrapping-latency.sh"
+    Include "./parts/root/common/opt/azure/containers/measure-tls-bootstrapping-latency.sh"
 
     KUBECONFIG_PATH="spec-test/kubeconfig"
     KUBECONFIG_DIR="$(dirname "$KUBECONFIG_PATH")"

@@ -4,7 +4,7 @@ Describe 'aks-log-collector.sh'
     setup() {
         TEST_DIR="$(mktemp -d)"
         # shellcheck disable=SC1091
-        __SOURCED__=1 . "./parts/linux/cloud-init/artifacts/aks-log-collector.sh"
+        __SOURCED__=1 . "./parts/root/common/opt/azure/containers/aks-log-collector.sh"
         LOG_BUNDLE_DIR="${TEST_DIR}/logcollector"
         LOG_BUNDLE="${LOG_BUNDLE_DIR}/logs.zip"
     }

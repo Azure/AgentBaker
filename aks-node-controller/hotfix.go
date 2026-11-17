@@ -46,36 +46,7 @@ func (a *App) downloadHotfix(ctx context.Context) error {
 			"path", hotfixPath, "error", err)
 		return nil
 	}
-	// Applying node custom data is best-effort/fail-open: it must never block the
-	// binary hotfix download below, or provisioning as a whole.
-	if err := a.applyNodeCustomDataIfNeeded(cfg); err != nil {
-		slog.Warn("failed to apply node custom data", "path", hotfixPath, "error", err)
-	}
 	return a.downloadBinaryHotfixIfNeeded(ctx, cfg)
-}
-
-func (a *App) applyNodeCustomDataIfNeeded(cfg *hotfixConfig) error {
-	hotfixVersion := strings.TrimSpace(cfg.ScriptsVersion)
-	if hotfixVersion == "" {
-		slog.Info("hotfix config does not request a scripts version for this base, skipping nodecustomdata apply", "current", Version)
-		return nil
-	}
-
-	// Patch-only matching: only upgrade if same YYYYMM.DD base and hotfix has
-	// a strictly higher PATCH. Parse errors (e.g. "dev" builds) result in skip.
-	shouldUpgrade, err := shouldUpgradeToHotfix(Version, hotfixVersion)
-	if err != nil {
-		slog.Warn("failed to compare versions, skipping nodecustomdata apply",
-			"current", Version, "hotfix", hotfixVersion, "error", err)
-		return nil
-	}
-	if !shouldUpgrade {
-		slog.Info("CSE scripts version not targeted by hotfix, skipping nodecustomdata apply",
-			"current", Version, "hotfix", hotfixVersion)
-		return nil
-	}
-
-	return applyNodeCustomData(a.getNodeCustomDataPath())
 }
 
 func (a *App) downloadBinaryHotfixIfNeeded(ctx context.Context, cfg *hotfixConfig) (resultErr error) {
@@ -211,9 +182,6 @@ type hotfixConfig struct {
 	// Version is the legacy single-version pointer. It is still honored when Hotfixes
 	// is empty, preserving backward compatibility with the original config shape.
 	Version string `json:"version,omitempty"`
-
-	// ScriptsVersion is override version for cse scripts
-	ScriptsVersion string `json:"scripts_version,omitempty"`
 
 	// Hotfixes maps an ANC version base ("YYYYMM.DD") to the hotfix version
 	// ("YYYYMM.DD.PATCH") to apply to nodes whose baked ANC version shares that base.

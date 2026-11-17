@@ -153,10 +153,10 @@ else
   fi
 fi
 
-source ./AgentBaker/parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh 2>/dev/null
-source ./AgentBaker/parts/linux/cloud-init/artifacts/cse_helpers.sh 2>/dev/null
-source ./AgentBaker/vhdbuilder/scripts/linux/tool_installs.sh
-source ./AgentBaker/vhdbuilder/packer/packer_source.sh
+source ./AgentBaker/parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh 2>/dev/null
+source ./AgentBaker/parts/root/common/opt/azure/containers/provision_source.sh 2>/dev/null
+source ./AgentBaker/parts/root/common/opt/azure/image-build/tool_installs.sh
+source ./AgentBaker/parts/root/shared/opt/azure/image-build/packer_source.sh
 
 validateDownloadPackage() {
   local downloadURL=$1
@@ -1391,7 +1391,7 @@ testLoginDefs() {
   # all-caps and include letters and '_'. Values can be anything, so we make sure they're printable.
   testSettingFileFormat $test $settings_file '^[[:space:]]*(#|$)' '^[[:space:]]*[A-Z_]+[[:space:]]+[^[:cntrl:]]+$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file PASS_MAX_DAYS '^[[:space:]]*PASS_MAX_DAYS[[:space:]]' ' ' 90
@@ -1414,7 +1414,7 @@ testUserAdd() {
   # is pretty loose (any printable character).
   testSettingFileFormat $test $settings_file '^[[:space:]]*(#|$)' '^[A-Z_]+=[^[:cntrl:]]*$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file INACTIVE '^INACTIVE=' '=' 30
@@ -1484,7 +1484,7 @@ testNetworkSettings() {
 }
 
 # Ensures that the content /etc/profile.d/umask.sh is correct, per code in
-# <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+# <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh
 testUmaskSettings() {
     local test="testUmaskSettings"
     local settings_file=/etc/profile.d/umask.sh
@@ -1513,7 +1513,7 @@ testUmaskSettings() {
 }
 
 # Tests that the modes on the cron-related files and directories in /etc are set correctly, per the
-# function assignFilePermissions in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# function assignFilePermissions in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh.
 testCronPermissions() {
   local test="testCronPermissions"
   echo "$test:Start"
@@ -1561,7 +1561,7 @@ testCronPermissions() {
 }
 
 # Tests that /etc/systemd/coredump.conf is set correctly, per the function
-# configureCoreDump in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# configureCoreDump in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh.
 testCoreDumpSettings() {
   local test="testCoreDumpSettings"
   local settings_file=/etc/systemd/coredump.conf
@@ -1575,7 +1575,7 @@ testCoreDumpSettings() {
   #   is pretty loose (more or less any printable character).
   testSettingFileFormat $test $settings_file '^(#|$)' '^\[Coredump\]$' '^[A-Za-z_]+=[^[:cntrl:]]*$'
 
-  # Look for the settings we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+  # Look for the settings we specifically set in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh
   # and ensure they're set to the values we expect.
   echo "$test: Checking specific settings in $settings_file"
   testSetting $test $settings_file 'Storage' '^Storage=' '=' 'none'
@@ -1585,7 +1585,7 @@ testCoreDumpSettings() {
 }
 
 # Tests that the nfs-server systemd service is masked, per the function
-# configuremaskNfsServerNfsServer in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh.
+# configuremaskNfsServerNfsServer in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh.
 testNfsServerService() {
   local test="testNfsServerService"
   local service_name="nfs-server.service"
@@ -1779,7 +1779,7 @@ testPamDSettings() {
     #   Whitespace at beginning and end of line, along with around the '=' is ignored.
     testSettingFileFormat $test $settings_file '^(#|$)' '^[[:space:]]*$' '^[[:space:]]*[a-z_][[:space:]]*' '^[[:space:]]*[a-z_]+[[:space::]]*=[^[:cntrl:]]*$'
 
-    # Look for the setting we specifically set in <repo-root>/parts/linux/cloud-init/artifacts/cis.sh
+    # Look for the setting we specifically set in <repo-root>/parts/root/shared/opt/azure/image-build/cis.sh
     # and ensure it's set to the values we expect.
     echo "$test: Checking specific settings in $settings_file"
     testSetting $test $settings_file 'dir' '^[[:space:]]*dir[[:space:]]*=' '=' '/var/log/faillock'

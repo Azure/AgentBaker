@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'localdns-exporter@.service security hardening'
-    UNIT_FILE="./parts/linux/cloud-init/artifacts/localdns-exporter@.service"
+    UNIT_FILE="./parts/root/shared/etc/systemd/system/localdns-exporter@.service"
 
     It 'should have DynamicUser=yes'
         When run grep -q "^DynamicUser=yes$" "$UNIT_FILE"
@@ -85,7 +85,7 @@ Describe 'localdns-exporter@.service security hardening'
 End
 
 Describe 'localdns_exporter.sh HTTP request routing'
-    SCRIPT_PATH="./parts/linux/cloud-init/artifacts/localdns_exporter.sh"
+    SCRIPT_PATH="./parts/root/shared/opt/azure/containers/localdns/localdns_exporter.sh"
 
     It 'should return 404 for root path'
         When run bash -c "echo 'GET / HTTP/1.1' | $SCRIPT_PATH"

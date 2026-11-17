@@ -5,7 +5,7 @@
 # Uses real apt/dpkg or tdnf/rpm and the published package. Only NPD stop and restart are stubbed.
 set -euo pipefail
 
-source ./parts/linux/cloud-init/artifacts/npd-update.sh
+source ./parts/root/shared/opt/azure/containers/npd-update.sh
 npd_select_component npdConfig
 
 package="$(realpath "$1")"

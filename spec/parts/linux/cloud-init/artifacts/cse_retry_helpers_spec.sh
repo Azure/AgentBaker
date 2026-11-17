@@ -11,7 +11,7 @@ Describe 'long running cse helper functions'
     }
     BeforeEach cse_retry_helpers_precheck
 
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
 
     Describe 'timeout behavior of helper functions'
         # mock timeout to always return 124 - default exit code for timeout command
@@ -131,7 +131,7 @@ Describe 'long running cse helper functions'
             It 'retries the guarded VHD enable call under errexit and continues after recovery'
                 ENABLE_MODE=recovering
                 export ENABLE_MODE ENABLE_CALLS ENABLE_TIMEOUTS ENABLE_SLEEPS
-                enable_command=$(sed -n '/^  systemctl_enable .*cache-warmup.service/p' ./vhdbuilder/packer/pre-install-dependencies.sh)
+                enable_command=$(sed -n '/^  systemctl_enable .*cache-warmup.service/p' ./parts/root/shared/opt/azure/image-build/pre-install-dependencies.sh)
                 When run bash -eu -c "$(declare -f _systemctl_retry_svc_operation systemctl_enable timeout systemctl sleep)
                     $enable_command
                     echo continued"
@@ -214,7 +214,7 @@ Describe 'long running cse helper functions'
                 printf '' > "$probe_dir/attempts"
                 printf '#!/bin/bash\nprintf x >> %s/attempts\nexit 1\n' "$probe_dir" > "$probe_dir/failing-cmd"
                 chmod +x "$probe_dir/failing-cmd"
-                When run bash -eu -c "source ./parts/linux/cloud-init/artifacts/cse_helpers.sh; retrycmd_if_failure 3 0 5 $probe_dir/failing-cmd"
+                When run bash -eu -c "source ./parts/root/common/opt/azure/containers/provision_source.sh; retrycmd_if_failure 3 0 5 $probe_dir/failing-cmd"
                 The status should eq 1
                 The stdout should be defined
                 The stderr should be defined

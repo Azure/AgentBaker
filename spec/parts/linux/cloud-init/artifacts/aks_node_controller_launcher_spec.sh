@@ -1,8 +1,8 @@
 #!/usr/bin/env shellspec
 
 Describe 'aks-node-controller-launcher.sh'
-    SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-launcher.sh"
-    HOTFIX_SCRIPT="./parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.sh"
+    SCRIPT="./parts/root/common/opt/azure/containers/aks-node-controller-launcher.sh"
+    HOTFIX_SCRIPT="./parts/root/common/opt/azure/containers/aks-node-controller-hotfix.sh"
 
     setup_wrapper_test() {
         TEST_DIR="${SHELLSPEC_WORKDIR}/aks-node-controller-launcher"

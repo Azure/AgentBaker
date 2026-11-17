@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe '10_azure_nvidia'
-    SCRIPT='./parts/linux/cloud-init/artifacts/10_azure_nvidia'
+    SCRIPT='./parts/root/overlays/nvidia-grub/etc/grub.d/10_azure_nvidia'
 
     Mock rpm
         for arg do

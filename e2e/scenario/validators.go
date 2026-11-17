@@ -809,7 +809,7 @@ func ValidateFileExists(ctx context.Context, s *Scenario, fileName string) error
 }
 
 // ValidateACLFIPSEnabled asserts ACL-specific FIPS markers are present on the node:
-// the /etc/system-fips marker file written by vhdbuilder/scripts/linux/acl/tool_installs_acl.sh.
+// the /etc/system-fips marker file written by parts/root/acl/opt/azure/image-build/tool_installs_distro.sh.
 // Kernel FIPS mode (/proc/sys/crypto/fips_enabled == 1) is universal and is asserted by
 // ValidateFIPSProvider; callers should compose the two validators when both are needed.
 func ValidateACLFIPSEnabled(ctx context.Context, s *Scenario) error {

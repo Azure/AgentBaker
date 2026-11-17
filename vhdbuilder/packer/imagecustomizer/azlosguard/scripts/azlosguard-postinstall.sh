@@ -23,6 +23,13 @@ FEATURE_FLAGS="${FEATURE_FLAGS:-}"
 
 echo "Starting build on $(date)" > ${VHD_LOGS_FILEPATH}
 
+/opt/azure/containers/aks-node-controller unpack-scripts
+chmod 0600 /etc/ssh/sshd_config /etc/security/pwquality.conf
+chmod 0444 /NOTICE.txt
+
+systemctl enable kubelet resolv-uplink-override measure-tls-bootstrapping-latency emit-kubelet-active-flags systemd-sysext ipv6_nftables update_certs.path disk_queue ci-syslog-watcher.path ci-syslog-watcher.service aks-log-collector.timer sync-container-logs.service
+systemctl disable iptables auditd aks-node-controller
+
 source /opt/azure/containers/provision_source.sh
 
 # Fixup repart config from base image
@@ -37,11 +44,7 @@ ln -s /opt/bin /etc/extensions/lg-redirect-sysext/usr/local/bin
 mount --bind /opt/bin /usr/local/bin
 trap "umount /usr/local/bin" EXIT
 
-# Link /opt/azure/containers to /home/packer for postinstall
-ln -s /opt/azure/containers /home/packer
-
 ### pre-install-dependencies ###
-echo -e "\nnews.none                          -/var/log/messages" >> /etc/rsyslog.d/60-CIS.conf
 # Create dir for update_certs.path
 mkdir -p /opt/certs
 chmod 755 /opt/certs
@@ -59,25 +62,16 @@ trap "kill $CONTAINERD_PID" EXIT
 # Precache packages and containers from components.json
 # Use fetch-only mode to avoid unpacking images, saving disk space on OSGuard's constrained root partition
 export IMAGE_FETCH_ONLY=true
-/opt/azure/containers/install-dependencies.sh
+/opt/azure/image-build/install-dependencies.sh
 
 # Apply CIS compliance changes
-/opt/azure/containers/cis.sh
+/opt/azure/image-build/cis.sh
 
 # List images for image-bom.json
-/home/packer/list-images.sh
+/opt/azure/image-build/list-images.sh
+rm -f /opt/azure/containers/image-fetcher
 
-# Cleanup scripts only used during the build
-rm /home/packer/install-dependencies.sh
-rm /home/packer/provision_source_benchmarks.sh
-rm /home/packer/tool_installs.sh
-rm /home/packer/tool_installs_distro.sh
-rm /home/packer/install-node-exporter.sh
-rm /home/packer/image-fetcher
-rm /home/packer/list-images.sh
-rm /home/packer/cis.sh
-rm /home/packer/install-ig.sh
-rm /home/packer
+# Build tools are part of the versioned payload and can be refreshed by a hotfix.
 
 chage -I -1 -M -1 root
 

@@ -2,13 +2,13 @@
 
 Describe 'localdns-fallback.sh'
 # Tests the kernel-NAT fallback in
-# parts/linux/cloud-init/artifacts/localdns-fallback.sh.
+# parts/root/common/opt/azure/containers/localdns/localdns-fallback.sh.
 #
 # The script shells out to iptables, systemctl, curl and jq. Each Describe below
 # replaces the ones it needs with functions, so the real control flow runs
 # against synthetic output rather than the node's networking.
 #------------------------------------------------------------------------------
-    FALLBACK="./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+    FALLBACK="./parts/root/common/opt/azure/containers/localdns/localdns-fallback.sh"
 
     Describe 'wait_for_vnet_dns'
         setup() {
@@ -322,8 +322,8 @@ Describe 'localdns-fallback.service unit wiring'
 # left 'failed' -- which goes red if the directive is removed, whereas a grep
 # only proves someone typed it.
 #------------------------------------------------------------------------------
-    UNIT="./parts/linux/cloud-init/artifacts/localdns-fallback.service"
-    LOCALDNS_UNIT="./parts/linux/cloud-init/artifacts/localdns.service"
+    UNIT="./parts/root/common/etc/systemd/system/localdns-fallback.service"
+    LOCALDNS_UNIT="./parts/root/common/etc/systemd/system/localdns.service"
 
     # Without this the unit lands in 'failed' on a node whose localdns recovered:
     # OnFailure= fires on every failed start attempt, not only the terminal one,
@@ -397,7 +397,7 @@ Describe 'localdns-fallback.sh binds nothing'
 # would also collide with localdns on recovery.
 #------------------------------------------------------------------------------
     It 'runs no CoreDNS and opens no socket'
-        When run grep -qE "coredns|-conf |bind " "./parts/linux/cloud-init/artifacts/localdns-fallback.sh"
+        When run grep -qE "coredns|-conf |bind " "./parts/root/common/opt/azure/containers/localdns/localdns-fallback.sh"
         The status should be failure
     End
 End

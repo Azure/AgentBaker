@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'Azure Linux securityPatch handler'
-    Include ./parts/linux/cloud-init/artifacts/mariner/security-update.sh
+    Include ./parts/root/shared/opt/azure/containers/security-update.sh
 
     It 'compares the selected profile without requiring dispatcher state'
         node='{"metadata":{"labels":{"kubernetes.azure.com/agentpool":"ap1"}}}'
