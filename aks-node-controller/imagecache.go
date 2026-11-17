@@ -464,15 +464,17 @@ func imageCacheNBCBootstrap(data []byte) (imageCacheBootstrap, error) {
 	var bootstrap imageCacheBootstrap
 	vars := parseEnvVarsFromNBCCmdContent(string(data))
 	bootstrap.fqdn = vars["API_SERVER_NAME"]
+	poolSet := false
 	for _, label := range strings.Split(vars["KUBELET_NODE_LABELS"], ",") {
 		value, ok := strings.CutPrefix(label, agentPoolLabelKey+"=")
 		if !ok {
 			continue
 		}
-		if bootstrap.pool != "" {
-			return bootstrap, errors.New("duplicate agent pool label in NBC")
+		if poolSet && bootstrap.pool != value {
+			return bootstrap, errors.New("conflicting agent pool labels in NBC")
 		}
 		bootstrap.pool = value
+		poolSet = true
 	}
 	var err error
 	bootstrap.ca, err = base64.StdEncoding.DecodeString(vars["KUBE_CA_CRT"])

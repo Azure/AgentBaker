@@ -312,6 +312,47 @@ func TestImageCacheNBCDoesNotReadPresentJSON(t *testing.T) {
 	require.Equal(t, []byte(testCAPEM), bootstrap.ca)
 }
 
+func TestImageCacheNBCPoolLabels(t *testing.T) {
+	for _, test := range []struct {
+		name, labels string
+		valid        bool
+	}{
+		{
+			name:   "native repeated identical labels",
+			labels: "agentpool=pool,kubernetes.azure.com/agentpool=pool,agentpool=pool,kubernetes.azure.com/agentpool=pool",
+			valid:  true,
+		},
+		{
+			name:   "conflicting pools",
+			labels: "kubernetes.azure.com/agentpool=pool,kubernetes.azure.com/agentpool=other",
+		},
+		{
+			name:   "empty first pool",
+			labels: "kubernetes.azure.com/agentpool=,kubernetes.azure.com/agentpool=pool",
+		},
+		{
+			name:   "empty last pool",
+			labels: "kubernetes.azure.com/agentpool=pool,kubernetes.azure.com/agentpool=",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			app := imageCacheTestApp(t)
+			path := os.Getenv("ANC_IMAGE_CACHE_INPUT")
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			data = []byte(strings.Replace(string(data), agentPoolLabelKey+"=pool", test.labels, 1))
+			require.NoError(t, os.WriteFile(path, data, 0600))
+			bootstrap, err := app.imageCacheBootstrap()
+			if test.valid {
+				require.NoError(t, err)
+				require.Equal(t, "pool", bootstrap.pool)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func TestImageCacheBootstrapEndpoint(t *testing.T) {
 	for _, endpoint := range []string{
 		"api.example.com", "api.example.com:443", ".", "api..example.com",
