@@ -17,16 +17,16 @@ vhdbuilder/release-notes/security-patch/ @Azure/agentbakeradmin @yagmurbaydogan 
 
 # Code owners for security patching
 
-parts/linux/cloud-init/artifacts/ubuntu/security-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/opt/azure/containers/security-update.ubuntu.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/security-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/snapshot-update-service_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/mariner/package-update.service @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/mariner/package-update.timer @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/mariner/security-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.service @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/ubuntu/snapshot-update.timer @Azure/agentbakeradmin @yewmsft @YaoC
-parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/etc/systemd/system/snapshot-update.azurelinux.service @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/etc/systemd/system/snapshot-update.azurelinux.timer @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/opt/azure/containers/mariner-package-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/opt/azure/containers/security-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/etc/systemd/system/snapshot-update.service @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/etc/systemd/system/snapshot-update.timer @Azure/agentbakeradmin @yewmsft @YaoC
+parts/root/shared/opt/azure/containers/ubuntu-snapshot-update.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/ubuntu-snapshot-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-package-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
 spec/parts/linux/cloud-init/artifacts/mariner-security-update_spec.sh @Azure/agentbakeradmin @yewmsft @YaoC
@@ -35,15 +35,15 @@ spec/parts/linux/cloud-init/artifacts/mariner-reconcile_spec.sh @Azure/agentbake
 
 # Code owners for localdns
 
-parts/linux/cloud-init/artifacts/localdns.sh @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
-parts/linux/cloud-init/artifacts/localdns.service @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
-parts/linux/cloud-init/artifacts/localdns-delegate.conf @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
+parts/root/common/opt/azure/containers/localdns/localdns.sh @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
+parts/root/common/etc/systemd/system/localdns.service @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
+parts/root/common/etc/systemd/system/localdns.service.d/delegate.conf @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
 spec/parts/linux/cloud-init/artifacts/localdns_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft @robbiezhang
 
 # Code owners for the localdns pod-DNS fallback
 
-parts/linux/cloud-init/artifacts/localdns-fallback.sh @Azure/agentbakeradmin @saewoni @yewmsft
-parts/linux/cloud-init/artifacts/localdns-fallback.service @Azure/agentbakeradmin @saewoni @yewmsft
+parts/root/common/opt/azure/containers/localdns/localdns-fallback.sh @Azure/agentbakeradmin @saewoni @yewmsft
+parts/root/common/etc/systemd/system/localdns-fallback.service @Azure/agentbakeradmin @saewoni @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns-fallback_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft
 
 # Set components.json & windows_settings.json to no code-owner so that it can be approved and merged by component owner
@@ -53,7 +53,7 @@ vhdbuilder/packer/windows/windows_settings.json
 
 # Code owners for localdns exporter
 
-parts/linux/cloud-init/artifacts/localdns_exporter.sh @Azure/agentbakeradmin @saewoni @yewmsft
+parts/root/shared/opt/azure/containers/localdns/localdns_exporter.sh @Azure/agentbakeradmin @saewoni @yewmsft
 spec/parts/linux/cloud-init/artifacts/localdns_exporter_spec.sh @Azure/agentbakeradmin @saewoni @yewmsft
 e2e/localdns/validate-localdns-exporter-metrics.sh @Azure/agentbakeradmin @saewoni @yewmsft
 

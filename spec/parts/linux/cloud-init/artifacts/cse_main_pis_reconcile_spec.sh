@@ -4,7 +4,7 @@
 # nodePrep and must not be captured in the image.
 
 Describe 'cse_main.sh PIS-safe configuration'
-    CSE_MAIN="./parts/linux/cloud-init/artifacts/cse_main.sh"
+    CSE_MAIN="./parts/root/common/opt/azure/containers/provision.sh"
 
     phase_body() {
         awk -v name="${1}" '

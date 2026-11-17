@@ -2,7 +2,7 @@
 # shellcheck disable=SC2329,SC2317
 
 # ShellSpec tests for pruneStaleWALinuxAgentDirs (defined in
-# vhdbuilder/packer/post-deprovision-walinuxagent.sh).
+# parts/root/shared/opt/azure/containers/post-deprovision-walinuxagent.sh).
 #
 # Background: 'waagent -force -deprovision+user' at the end of a packer bake
 # does NOT remove /var/lib/waagent/WALinuxAgent-*/ directories.
@@ -13,7 +13,7 @@
 # pruneStaleWALinuxAgentDirs ensures that only the version specified in components.json remains.
 
 Describe 'pruneStaleWALinuxAgentDirs'
-  POST_DEPROV_SCRIPT="./vhdbuilder/packer/post-deprovision-walinuxagent.sh"
+  POST_DEPROV_SCRIPT="./parts/root/shared/opt/azure/containers/post-deprovision-walinuxagent.sh"
 
   # Extract just the function definition and eval it into the test shell.
   # Mirrors the pattern used by linux_vhd_content_test_helpers_spec.sh.

@@ -10,7 +10,7 @@ Describe 'cse_start.sh completion markers'
         mkdir -p "${root}/var/log/azure"
         PRE_PROVISION_ONLY="${1}" bash -c "$(
             awk '/^# Create the marker for the completed provisioning stage\.$/,/^touch .*provision\.complete$/' \
-                ./parts/linux/cloud-init/artifacts/cse_start.sh |
+                ./parts/root/common/opt/azure/containers/provision_start.sh |
                 sed "s|/opt/azure/containers|${root}/opt/azure/containers|g; s|/var/log/azure|${root}/var/log/azure|g"
         )"
         ls "${root}/opt/azure/containers" | sort

@@ -146,7 +146,7 @@ cleanup-prefetch: az-login
 
 generate-prefetch-scripts:
 	@echo "${MODE}: Generating prefetch scripts"
-	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --postfix-path=../../parts/linux/cloud-init/artifacts/cse_preload.sh --output-path=../packer/prefetch.sh || exit 1; popd"
+	@bash -c "pushd vhdbuilder/prefetch; go run cmd/main.go --components-path=../../parts/common/components.json --postfix-path=../../parts/root/common/opt/azure/containers/provision_preload.sh --output-path=../packer/prefetch.sh || exit 1; popd"
 
 setup-golang:
 	@echo "Setting up Go environment"

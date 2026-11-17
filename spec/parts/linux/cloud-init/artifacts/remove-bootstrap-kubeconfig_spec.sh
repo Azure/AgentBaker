@@ -2,7 +2,7 @@
 # shellcheck disable=SC2317
 
 Describe 'remove-bootstrap-kubeconfig.sh'
-    Include "./parts/linux/cloud-init/artifacts/remove-bootstrap-kubeconfig.sh"
+    Include "./parts/root/common/opt/azure/containers/remove-bootstrap-kubeconfig.sh"
 
     setup() {
         TEST_DIR=$(mktemp -d)

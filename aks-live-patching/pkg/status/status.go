@@ -3,8 +3,8 @@
 // live-patching-status document the node writes back.
 //
 // The node-side writer of this contract is the live-patching loop on the VHD
-// (parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh and
-// parts/linux/cloud-init/artifacts/mariner/mariner-package-update.sh). Keep the two in sync.
+// (parts/root/shared/opt/azure/containers/ubuntu-snapshot-update.sh and
+// parts/root/shared/opt/azure/containers/mariner-package-update.sh). Keep the two in sync.
 package status
 
 import (

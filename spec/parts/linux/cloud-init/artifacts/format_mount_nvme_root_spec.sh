@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'format-mount-nvme-root.sh'
-    script='parts/linux/cloud-init/artifacts/ubuntu/gb/format-mount-nvme-root.sh'
+    script='parts/root/overlays/gb/opt/azure/containers/format-mount-nvme-root.sh'
 
     It 'removes group and other write access after the bind mount'
         When run grep -F -e 'chown root:root "${KUBELET_DIR}"' -e 'chmod go-w "${KUBELET_DIR}"' "${script}"

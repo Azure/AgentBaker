@@ -1,12 +1,12 @@
 #!/bin/bash
 
 Describe 'cse_config_gpu.sh'
-    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
-    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
-    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
-    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    CSE_CONFIG_GPU_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_network.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_configs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
     Describe 'pullGPUDriverImage'
         BeforeEach setup_gpu_image_pull
         setup_gpu_image_pull() {
@@ -178,7 +178,7 @@ Describe 'cse_config_gpu.sh'
 
             # Exercise the real helper's early return without replacing the caller's retry mock.
             oras_login_with_kubelet_identity() (
-                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                . "./parts/root/common/opt/azure/containers/provision_source.sh"
                 oras_login_with_kubelet_identity "$@"
             )
 
@@ -255,7 +255,7 @@ EOF
             }
             cleanup_gpu_login_budget() { command rm -f -- "$GPU_TEST_HELPER_FILE"; }
             retrycmd_if_failure() (
-                . "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                . "./parts/root/common/opt/azure/containers/provision_source.sh"
                 retrycmd_if_failure "$@"
             )
 
@@ -329,7 +329,7 @@ EOF
                 End
 
                 It "clears baked credentials with budgeted client=$1 tenant=$2"
-                    CSE_HELPERS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+                    CSE_HELPERS_FILEPATH="./parts/root/common/opt/azure/containers/provision_source.sh"
                     USER_ASSIGNED_IDENTITY_ID="$1"
                     TENANT_ID="$2"
                     MOCK_AUTH_STATE="stale-baked"
@@ -555,7 +555,7 @@ EOF
         End
     End
     Describe 'ensureArtifactStreaming'
-        Include "./parts/linux/cloud-init/artifacts/acl/cse_helpers_acl.sh"
+        Include "./parts/root/acl/opt/azure/containers/provision_source_distro.sh"
         # ensureArtifactStreaming runs the version-appropriate enablement path
         # before enabling the acr-mirror/overlaybd services:
         #   - acr-mirror 1.0.0+ -> setup.sh aks
@@ -794,7 +794,7 @@ EOF
                 ensureKubelet() { echo "ensureKubelet"; }
                 run_node_prep_streaming() {
                     eval "$(sed -n '/# Keep ACL sysexts masked during PIS image preparation/,/logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet/p' \
-                        ./parts/linux/cloud-init/artifacts/cse_main.sh)"
+                        ./parts/root/common/opt/azure/containers/provision.sh)"
                 }
 
                 It 'propagates a detected conflict before kubelet starts'
@@ -1837,7 +1837,7 @@ EXPECTED
         End
     End
     Describe 'managedGPUPackageList on Ubuntu'
-        Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+        Include "./parts/root/shared/opt/azure/containers/provision_installs_distro.ubuntu.sh"
 
         BeforeEach 'setup'
         setup() {

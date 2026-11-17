@@ -3,7 +3,7 @@
 
 Describe 'ubuntu-snapshot-update.sh generic reconciliation'
     setup() {
-        Include ./parts/linux/cloud-init/artifacts/ubuntu/ubuntu-snapshot-update.sh
+        Include ./parts/root/shared/opt/azure/containers/ubuntu-snapshot-update.sh
         TEST_DIR="/tmp/knead-component-test"
         rm -rf "${TEST_DIR}"
         mkdir -p "${TEST_DIR}"

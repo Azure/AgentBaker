@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'NVIDIA GPU driver mode configuration'
-    Include './parts/linux/cloud-init/artifacts/cse_config_gpu.sh'
+    Include './parts/root/common/opt/azure/containers/provision_configs_gpu.sh'
 
     setup() {
         command mkdir -p "${PWD}/tmp"

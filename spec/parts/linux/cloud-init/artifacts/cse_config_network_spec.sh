@@ -1,12 +1,12 @@
 #!/bin/bash
 
 Describe 'cse_config_network.sh'
-    CSE_CONFIG_GPU_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_gpu.sh"
-    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_localdns.sh"
-    CSE_CONFIG_KUBELET_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
-    CSE_CONFIG_NETWORK_FILEPATH="./parts/linux/cloud-init/artifacts/cse_config_network.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_config.sh"
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
+    CSE_CONFIG_GPU_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_gpu.sh"
+    CSE_CONFIG_LOCALDNS_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_localdns.sh"
+    CSE_CONFIG_KUBELET_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_kubelet.sh"
+    CSE_CONFIG_NETWORK_FILEPATH="./parts/root/common/opt/azure/containers/provision_configs_network.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_configs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
     Describe 'configPrivateClusterHosts'
         function [ {
             case "$*" in

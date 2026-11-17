@@ -16,8 +16,8 @@ readContainerImage() {
 }
 
 Describe 'cse_helpers.sh and build helpers'
-    Include "./parts/linux/cloud-init/artifacts/cse_helpers.sh"
-    Include "./vhdbuilder/scripts/linux/tool_installs.sh"
+    Include "./parts/root/common/opt/azure/containers/provision_source.sh"
+    Include "./parts/root/common/opt/azure/image-build/tool_installs.sh"
 
     Describe 'isAzureLinuxArm64BaseImage'
         Parameters
@@ -1018,7 +1018,7 @@ Describe 'GPU driver image reference resolution'
     # script in a clean child shell with the environment the RP would supply.
     resolve_driver_refs() {
         env -u NVIDIA_DRIVER_IMAGE -u NVIDIA_DRIVER_IMAGE_PULL_REF -u MCR_REPOSITORY_BASE "$@" bash -c \
-            'source ./parts/linux/cloud-init/artifacts/cse_helpers.sh >/dev/null 2>&1; echo "$NVIDIA_DRIVER_IMAGE $NVIDIA_DRIVER_IMAGE_PULL_REF"'
+            'source ./parts/root/common/opt/azure/containers/provision_source.sh >/dev/null 2>&1; echo "$NVIDIA_DRIVER_IMAGE $NVIDIA_DRIVER_IMAGE_PULL_REF"'
     }
 
     It 'uses public MCR for both references when MCR_REPOSITORY_BASE is unset'

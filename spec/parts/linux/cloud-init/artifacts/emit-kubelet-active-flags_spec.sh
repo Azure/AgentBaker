@@ -4,7 +4,7 @@ Describe 'emit-kubelet-active-flags.sh'
     # Source the script without running its entrypoint (emitKubeletActiveFlagsEvent), so the
     # individual functions can be unit-tested in isolation.
     EMIT_KUBELET_ACTIVE_FLAGS_SOURCE_ONLY=1
-    Include "./parts/linux/cloud-init/artifacts/emit-kubelet-active-flags.sh"
+    Include "./parts/root/common/opt/azure/containers/emit-kubelet-active-flags.sh"
 
     Describe 'getKubeletActiveFlagsJSON'
         It 'reads flags from /etc/default/kubelet and config file when both exist'

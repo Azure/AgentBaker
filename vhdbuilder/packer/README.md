@@ -114,7 +114,7 @@ node-image upgrade. OSGuard, Ubuntu, Mariner 2.0, and ACL are unchanged.
 
 # Linux CSE configuration modules
 
-`parts/linux/cloud-init/artifacts/cse_config.sh` is installed as
+`parts/root/common/opt/azure/containers/provision_configs.sh` is installed as
 `/opt/azure/containers/provision_configs.sh`. Its modules use the same runtime naming:
 
 - `cse_config_gpu.sh` -> `provision_configs_gpu.sh` (NVIDIA and AMD)

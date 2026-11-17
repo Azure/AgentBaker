@@ -50,7 +50,7 @@ Describe 'cgroup telemetry'
     prepare_memory_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
-            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/root/common/opt/scripts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
@@ -58,30 +58,30 @@ Describe 'cgroup telemetry'
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
             -e "s|CGROUP=\"/sys/fs/cgroup/memory\"|CGROUP=\"${CGROUP_ROOT}\"|" \
             -e "s|/proc/meminfo|${TEST_ROOT}/meminfo|" \
-            ./parts/linux/cloud-init/artifacts/cgroup-memory-telemetry.sh > "${TEST_ROOT}/cgroup-memory-telemetry.sh"
+            ./parts/root/common/opt/scripts/cgroup-memory-telemetry.sh > "${TEST_ROOT}/cgroup-memory-telemetry.sh"
     }
 
     prepare_pressure_script() {
         sed \
-            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/root/common/opt/scripts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e 's|CGROUP_VERSION=$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=cgroup2fs|' \
             -e "s|CGROUP=\"/sys/fs/cgroup\"|CGROUP=\"${CGROUP_ROOT}\"|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
             -e 's@KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)@KSLICE=system.slice@' \
-            ./parts/linux/cloud-init/artifacts/cgroup-pressure-telemetry.sh > "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
+            ./parts/root/common/opt/scripts/cgroup-pressure-telemetry.sh > "${TEST_ROOT}/cgroup-pressure-telemetry.sh"
     }
 
     prepare_cpu_script() {
         local cgroup_version="${1:-cgroup2fs}"
         sed \
-            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|" \
+            -e "s|/opt/scripts/cgroup-telemetry-events.sh|${PWD}/parts/root/common/opt/scripts/cgroup-telemetry-events.sh|" \
             -e "s|EVENTS_LOGGING_DIR=/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events/|EVENTS_LOGGING_DIR=${EVENTS_ROOT}/|" \
             -e "s|CGROUP_VERSION=\$(stat -fc %T /sys/fs/cgroup)|CGROUP_VERSION=${cgroup_version}|" \
             -e 's@CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)@CSLICE=system.slice@' \
             -e 's@KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)@KSLICE=system.slice@' \
             -e "s|CPU_CGROUP=\"/sys/fs/cgroup\"|CPU_CGROUP=\"${CGROUP_ROOT}\"|" \
-            ./parts/linux/cloud-init/artifacts/cgroup-cpu-telemetry.sh > "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
+            ./parts/root/common/opt/scripts/cgroup-cpu-telemetry.sh > "${TEST_ROOT}/cgroup-cpu-telemetry.sh"
     }
 
     emitted_event_file_name_class() {
@@ -289,7 +289,7 @@ STUB
         It 'enforces exact message and serialized event byte limits with ASCII and Unicode'
             check_telemetry_size_boundaries() {
                 local fits_filter
-                fits_filter=$(sed -n '/^    def fits:/p' ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh)
+                fits_filter=$(sed -n '/^    def fits:/p' ./parts/root/common/opt/scripts/cgroup-telemetry-events.sh)
                 [ -n "${fits_filter}" ] || return 1
                 jq -ne "${fits_filter}"'
                     def repeat_text($text; $count): [range(0; $count) | $text] | join("");
@@ -327,8 +327,8 @@ STUB
         It 'splits and reconstructs the requested object without losing its entries'
             publish_and_validate() {
                 local field="$1" message
-                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
-                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                # shellcheck source=./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
+                source ./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
                 message=$(jq -cn --arg field "${field}" '
                     {CgroupVersion: "cgroupv2", ($field):
                         ([range(0; 20) | {key: ("metric" + tostring), value: ([range(0; 200) | "x"] | join(""))}] | from_entries)}')
@@ -350,8 +350,8 @@ STUB
         It 'keeps small messages unchanged without chunk metadata'
             publish_small() {
                 local field="$1" message
-                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
-                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                # shellcheck source=./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
+                source ./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
                 message=$(jq -cn --arg field "${field}" '{CgroupVersion: "cgroupv2", ($field): {metric: "value"}}')
                 publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test || return 1
                 jq -se --arg message "${message}" 'length == 1 and .[0].Message == $message and
@@ -366,8 +366,8 @@ STUB
         It 'rejects oversized individual entries before publishing any chunks'
             publish_oversized() {
                 local field="$1" message
-                # shellcheck source=./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
-                source ./parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh
+                # shellcheck source=./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
+                source ./parts/root/common/opt/scripts/cgroup-telemetry-events.sh
                 message=$(jq -cn --arg field "${field}" '{($field): {metric: ([range(0; 4000) | "x"] | join(""))}}')
                 publishCgroupTelemetry "${EVENTS_ROOT}" 123 start end test 4 "${message}" "${field}" test
             }
@@ -421,7 +421,7 @@ STUB
             prepare_cpu_script
             prepare_memory_script
             printf '%s\n' 'publishCgroupTelemetry() { echo "publisher failed" >&2; return 42; }' > "${TEST_ROOT}/failing-helper.sh"
-            sed -i "s|${PWD}/parts/linux/cloud-init/artifacts/cgroup-telemetry-events.sh|${TEST_ROOT}/failing-helper.sh|" "${TEST_ROOT}/cgroup-$1-telemetry.sh"
+            sed -i "s|${PWD}/parts/root/common/opt/scripts/cgroup-telemetry-events.sh|${TEST_ROOT}/failing-helper.sh|" "${TEST_ROOT}/cgroup-$1-telemetry.sh"
             remaining_event_files() {
                 find "${EVENTS_ROOT}" -mindepth 1 -print
             }

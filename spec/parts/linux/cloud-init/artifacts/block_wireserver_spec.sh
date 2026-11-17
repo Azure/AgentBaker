@@ -1,8 +1,8 @@
 #!/bin/bash
 
 Describe 'block_wireserver.sh'
-    SCRIPT="./parts/linux/cloud-init/artifacts/block_wireserver.sh"
-    CSE_CONFIG="./parts/linux/cloud-init/artifacts/cse_config_kubelet.sh"
+    SCRIPT="./parts/root/common/opt/azure/containers/kubelet.sh"
+    CSE_CONFIG="./parts/root/common/opt/azure/containers/provision_configs_kubelet.sh"
 
     Mock iptables
         echo "iptables $*"

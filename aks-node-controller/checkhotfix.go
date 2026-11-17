@@ -214,7 +214,7 @@ func (a *App) checkHotfix(ctx context.Context) (checkHotfixOutcome, error) {
 	// An empty served hotfixes map means the LPS is reachable but has nothing published for
 	// this node's fleet yet - the expected steady state while the component exists but carries
 	// no entries. Treat it exactly like a benign NotFound: do NOT write, leaving the shared
-	// on-disk pointer (which cloud-init populated with version/scripts_version) intact, and
+	// on-disk pointer (which cloud-init populated with legacy version) intact, and
 	// report the benign no-op outcome. Writing an empty map here would clobber those fields and
 	// silently disable the cloud-init provisioning-hotfix path. This also makes a 200-"{}"
 	// response behave identically to a 404, and folds in the empty-body-is-benign parse case.
@@ -514,18 +514,18 @@ func (a *App) coldStartHotfixConfig() (hotfixConfig, bool, error) {
 
 // writeHotfixConfig stages the LPS-served hotfixes map to the path download-hotfix reads.
 // It is a read-modify-write: the shared file at defaultHotfixVersionPath is ALSO written by
-// cloud-init (from hotfix_generate.py) carrying "version" and "scripts_version", which
+// cloud-init (from hotfix_generate.py) carrying a legacy "version", which
 // download-hotfix reads to drive the binary and CSE-scripts hotfix respectively. To avoid
 // clobbering those fields, this preserves whatever the existing file holds and replaces only
 // the "hotfixes" map with the served one. The write is atomic (temp file + rename) so a
 // concurrent reader never sees a partial file.
 func writeHotfixConfig(path string, cfg hotfixConfig) error {
-	// Read-modify-write: carry forward cloud-init's version/scripts_version. If the existing
+	// Read-modify-write: carry forward cloud-init's legacy version. If the existing
 	// file is missing or unreadable we proceed with empty carry-over fields (best-effort,
 	// fail-open); it was already unusable to download-hotfix in that case.
 	existing, err := readHotfixConfig(path)
 	if err != nil {
-		slog.Warn("could not read existing hotfix pointer; version/scripts_version will not be preserved",
+		slog.Warn("could not read existing hotfix pointer; legacy version will not be preserved",
 			"path", path, "error", err)
 		existing = &hotfixConfig{}
 	}
@@ -538,13 +538,11 @@ func writeHotfixConfig(path string, cfg hotfixConfig) error {
 		hotfixes = map[string]string{}
 	}
 	out := struct {
-		Version        string            `json:"version,omitempty"`
-		ScriptsVersion string            `json:"scripts_version,omitempty"`
-		Hotfixes       map[string]string `json:"hotfixes"`
+		Version  string            `json:"version,omitempty"`
+		Hotfixes map[string]string `json:"hotfixes"`
 	}{
-		Version:        existing.Version,
-		ScriptsVersion: existing.ScriptsVersion,
-		Hotfixes:       hotfixes,
+		Version:  existing.Version,
+		Hotfixes: hotfixes,
 	}
 	data, err := json.Marshal(out)
 	if err != nil {
