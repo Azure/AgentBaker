@@ -79,7 +79,7 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 
 VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
     # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests

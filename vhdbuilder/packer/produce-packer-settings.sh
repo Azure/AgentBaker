@@ -137,7 +137,7 @@ if [ "${MODE}" = "linuxVhdMode" ]; then
 
 fi
 
-# shellcheck disable=SC3010
+# shellcheck disable=SC3010,SC3014
 if [[ "${MODE}" == "windowsVhdMode" ]] && [[ ${ARCHITECTURE,,} == "arm64" ]]; then
 	# only append 'Arm64' in windows builds, for linux we either take what was provided
 	# or base the name off the the value of SKU_NAME (see above)
