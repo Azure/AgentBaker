@@ -5,13 +5,20 @@ aks-diagnostic.py
 
 This script uploads a diagnostic log file to an Azure Blob Storage container using a REST API call.
 Usage:
+    AKS_DIAGNOSTIC_SAS_TOKEN=<sas_token> python aks-diagnostic.py <container> <storage_account_url> [--file-path <path>]
+
+    # Legacy usage remains supported:
     python aks-diagnostic.py <container> <storage_account_url> <sas_token> [file_path]
+
+Prefer AKS_DIAGNOSTIC_SAS_TOKEN to avoid exposing the token in the process command
+line. The environment variable takes precedence over a positional token.
 
 Arguments:
     container              : Name of the blob container.
     storage_account_url    : Full URL of the Azure storage account (e.g., https://<account>.blob.core.windows.net/).
-    sas_token              : Shared Access Signature token for authentication.
-    file_path (optional)   : Path to the log file to upload (default: /var/lib/waagent/logcollector/logs.zip).
+    sas_token (optional)   : Shared Access Signature token; prefer AKS_DIAGNOSTIC_SAS_TOKEN.
+    file_path (optional)   : Path to the log file (default: /var/lib/waagent/logcollector/logs.zip).
+    --file-path (optional) : Override file_path; use with an environment token and no positional token.
 """
 import requests
 import os
@@ -26,6 +33,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1000MB
 DEFAULT_LOG_PATH = "/var/lib/waagent/logcollector/logs.zip"
+SAS_TOKEN_ENV_VAR = "AKS_DIAGNOSTIC_SAS_TOKEN"
 
 def parse_arguments():
     """
@@ -38,9 +46,11 @@ def parse_arguments():
         description='Upload diagnostic log files to Azure Blob Storage',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-        Examples:
-        python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net "sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..."
-        python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net "sv=2020-08-04&ss=b&srt=co&sp=rwdlac&se=2023-01-01T00:00:00Z&st=2022-01-01T00:00:00Z&spr=https&sig=..." /custom/path/logs.zip
+        Examples (SAS token via environment variable):
+        AKS_DIAGNOSTIC_SAS_TOKEN="sig=..." \\
+            python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net
+        AKS_DIAGNOSTIC_SAS_TOKEN="sig=..." \\
+            python3 aks-diagnostic.py mycontainer https://mystorageaccount.blob.core.windows.net --file-path /custom/path/logs.zip
         """
     )
     
@@ -54,7 +64,8 @@ def parse_arguments():
     )
     parser.add_argument(
         'sas_token',
-        help='Shared Access Signature token for authentication'
+        nargs='?',
+        help=f'Shared Access Signature token; prefer the {SAS_TOKEN_ENV_VAR} environment variable'
     )
     parser.add_argument(
         'file_path',
@@ -62,8 +73,17 @@ def parse_arguments():
         default=DEFAULT_LOG_PATH,
         help=f'Path to the log file to upload (default: {DEFAULT_LOG_PATH})'
     )
-    
-    return parser.parse_args()
+    parser.add_argument(
+        '--file-path',
+        dest='file_path_flag',
+        default=None,
+        help='Override the positional file_path; use when passing the token via environment'
+    )
+
+    parsed = parser.parse_args()
+    if parsed.file_path_flag is not None:
+        parsed.file_path = parsed.file_path_flag
+    return parsed
 
 
 def validate_arguments(args):
@@ -114,13 +134,22 @@ def validate_arguments(args):
     if not args.container or not args.container.replace('-', '').replace('.', '').isalnum():
         print(f"Error: Invalid container name: {args.container}")
         sys.exit(1)
-        
+
+    # Prefer the environment token while preserving existing positional callers.
+    sas_token = os.environ.get(SAS_TOKEN_ENV_VAR) or args.sas_token
+    if not sas_token:
+        print(
+            f"Error: No SAS token provided. Set {SAS_TOKEN_ENV_VAR} "
+            "or pass a positional SAS token."
+        )
+        sys.exit(1)
+
     # Validate SAS token (basic check)
-    if not args.sas_token or 'sig=' not in args.sas_token:
+    if 'sig=' not in sas_token:
         print("Error: Invalid SAS token format")
         sys.exit(1)
-    
-    return args.container, args.storage_account_url, args.sas_token, args.file_path
+
+    return args.container, args.storage_account_url, sas_token, args.file_path
 
 
 def handleArgs(args):
