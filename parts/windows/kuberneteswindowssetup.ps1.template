@@ -75,6 +75,9 @@ $global:KubeBinariesPackageSASURL={{GetParameter "kubeBinariesSASURL" | PowerShe
 $global:WindowsKubeBinariesURL={{GetParameter "windowsKubeBinariesURL" | PowerShellLiteral}}
 $global:KubeBinariesVersion={{GetParameter "kubeBinariesVersion" | PowerShellLiteral}}
 $global:ContainerdUrl={{GetParameter "windowsContainerdURL" | PowerShellLiteral}}
+$global:WindowsHcsshimUrl={{GetParameter "windowsHcsshimURL" | PowerShellLiteral}}
+$global:WindowsMobyContainerdUrl={{GetParameter "windowsMobyContainerdURL" | PowerShellLiteral}}
+$global:WindowsCrictlUrl={{GetParameter "windowsCrictlURL" | PowerShellLiteral}}
 $global:ContainerdSdnPluginUrl={{GetParameter "windowsSdnPluginURL" | PowerShellLiteral}}
 
 ## Docker Version
@@ -438,7 +441,7 @@ function BasePrep {
         $cniConfigPath=$global:CNIConfigPath
     }
 
-    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion
+    Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $cniBinPath -CNIConfDir $cniConfigPath -KubeDir $global:KubeDir -KubernetesVersion $global:KubeBinariesVersion -HcsshimUrl $global:WindowsHcsshimUrl -MobyContainerdUrl $global:WindowsMobyContainerdUrl -CrictlUrl $global:WindowsCrictlUrl
 
     Retag-ImagesForAzureChinaCloud -TargetEnvironment $TargetEnvironment
 

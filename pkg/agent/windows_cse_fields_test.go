@@ -156,6 +156,15 @@ func windowsCSEFields() []windowsCSEField {
 		{action: `GetParameter "windowsContainerdURL"`, prefix: `$global:ContainerdUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			kubernetesConfig(c).WindowsContainerdURL = v
 		}},
+		{action: `GetParameter "windowsHcsshimURL"`, prefix: `$global:WindowsHcsshimUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsHcsshimURL = v
+		}},
+		{action: `GetParameter "windowsMobyContainerdURL"`, prefix: `$global:WindowsMobyContainerdUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsMobyContainerdURL = v
+		}},
+		{action: `GetParameter "windowsCrictlURL"`, prefix: `$global:WindowsCrictlUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
+			kubernetesConfig(c).WindowsCrictlURL = v
+		}},
 		{action: `GetParameter "windowsSdnPluginURL"`, prefix: `$global:ContainerdSdnPluginUrl=`, set: func(c *datamodel.NodeBootstrappingConfiguration, v string) {
 			kubernetesConfig(c).WindowsSdnPluginURL = v
 		}},

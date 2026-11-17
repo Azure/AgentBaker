@@ -722,6 +722,13 @@ type KubernetesConfig struct {
 	NetworkPluginMode                 string            `json:"networkPluginMode,omitempty"`
 	EbpfDataplane                     EbpfDataplane     `json:"ebpfDataplane,omitempty"`
 	BlockIptables                     bool              `json:"blockIptables,omitempty"`
+
+	// WindowsHcsshimURL, WindowsMobyContainerdURL and WindowsCrictlURL point to the DALEC Windows
+	// packages of one tested component set. When all three are set, Windows CSE installs containerd
+	// from them instead of the combined package in WindowsContainerdURL.
+	WindowsHcsshimURL        string `json:"windowsHcsshimURL,omitempty"`
+	WindowsMobyContainerdURL string `json:"windowsMobyContainerdURL,omitempty"`
+	WindowsCrictlURL         string `json:"windowsCrictlURL,omitempty"`
 }
 
 /*
