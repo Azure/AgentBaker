@@ -369,14 +369,19 @@ func encodePowerShellBase64Literal(value string) string {
 
 // powerShellLiteral returns a PowerShell expression that evaluates to value, with no character of value
 // treated as PowerShell syntax. Printable ASCII becomes a single-quoted string, in which PowerShell only
-// treats ' as special. Any other value is base64-encoded: Windows PowerShell 5.1 reads the CSE script
-// with the ANSI code page, which can turn the bytes of a non-ASCII character into a quote. The decode
-// expression is in parentheses so that it is also evaluated where it is a command argument.
+// treats ' as special. Values containing rendering markers or other characters are base64-encoded:
+// Windows PowerShell 5.1 reads the CSE script with the ANSI code page, which can turn the bytes of a
+// non-ASCII character into a quote. The decode expression is in parentheses so that it is also evaluated
+// where it is a command argument.
 func powerShellLiteral(value string) string {
 	return powerShellQuotedLiteral(value, '\'')
 }
 
 func powerShellQuotedLiteral(value string, quote byte) string {
+	// Hide the marker from the global replacement performed after template rendering.
+	if strings.Contains(value, "PREPROVISION_EXTENSION") {
+		return "(" + encodePowerShellBase64Literal(value) + ")"
+	}
 	for i := 0; i < len(value); i++ {
 		if value[i] < ' ' || value[i] > '~' {
 			return "(" + encodePowerShellBase64Literal(value) + ")"

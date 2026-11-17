@@ -32,6 +32,7 @@ var windowsCSETestValues = map[string]string{
 	"code":    `$(Set-Variable -Name AKSInjectionCanary -Value 1 -Scope Global);${env:PATH}@(1)#<#`,
 	"unicode": "i\u2018j\u2019k\u201cl\u201dm\u201en\u2013o\U0001F600",
 	"control": "x\r\ny\tz",
+	"marker":  "PREPROVISION_EXTENSION",
 	"empty":   "",
 }
 
@@ -785,23 +786,43 @@ func TestWindowsCSEWCNJSONCompatibility(t *testing.T) {
 	}
 }
 
-// Azure Blob URLs can name the $web container; PowerShell must not expand it as a variable.
+// Package URLs must survive both PowerShell interpolation and post-render extension insertion.
 func TestWindowsCSEPreservesPackageURL(t *testing.T) {
+	const markerURL = "https://example.invalid/PREPROVISION_EXTENSION.zip"
 	pwsh, err := exec.LookPath("pwsh")
 	if err != nil {
 		t.Skip("pwsh is not installed")
 	}
-	config := newWindowsBootstrapTestConfig()
-	config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = windowsCSEPackageURLWithDollar
-	customData, _ := renderWindowsCSE(t, config)
-	script := "$web = $null\n" +
-		windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=", 0) + "\n" +
-		"$global:CSEScriptsPackageUrl"
-	path := filepath.Join(t.TempDir(), "package-url.ps1")
-	require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
-	output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
-	require.NoError(t, err, string(output))
-	require.Equal(t, windowsCSEPackageURLWithDollar, strings.TrimSpace(string(output)))
+	for _, tt := range []struct {
+		name, url string
+		extension bool
+	}{
+		{"dollar", windowsCSEPackageURLWithDollar, false},
+		{"marker without extension", markerURL, false},
+		{"marker with extension", markerURL, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config := newWindowsBootstrapTestConfig()
+			config.ContainerService.Properties.WindowsProfile.CseScriptsPackageURL = tt.url
+			config.KubeletConfig["--aaa-test"] = tt.url
+			if tt.extension {
+				config.ContainerService.Properties.ExtensionProfiles = []*datamodel.ExtensionProfile{{
+					Name: "preprovision-test", RootURL: "https://example.invalid/", Version: "v1", Script: "setup.ps1",
+				}}
+				config.AgentPoolProfile.PreprovisionExtension = &datamodel.Extension{Name: "preprovision-test"}
+			}
+			customData, _ := renderWindowsCSE(t, config)
+			script := "$web = $null\n" +
+				windowsCSEFieldStatement(t, customData, "$global:CSEScriptsPackageUrl=", 0) + "\n" +
+				windowsCSEFieldStatement(t, customData, "$global:KubeletConfigArgs=", 0) + "\n" +
+				"$global:CSEScriptsPackageUrl\n$global:KubeletConfigArgs[0]"
+			path := filepath.Join(t.TempDir(), "package-url.ps1")
+			require.NoError(t, os.WriteFile(path, []byte(script), 0o600))
+			output, err := exec.Command(pwsh, "-NoProfile", "-NonInteractive", "-File", path).CombinedOutput()
+			require.NoError(t, err, string(output))
+			require.Equal(t, tt.url+"\n--aaa-test="+tt.url, strings.TrimSpace(strings.ReplaceAll(string(output), "\r\n", "\n")))
+		})
+	}
 }
 
 func newWindowsBootstrapTestConfig() *datamodel.NodeBootstrappingConfiguration {
