@@ -2,12 +2,35 @@ package scenario
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestSSHRebootScriptDoesNotRebootAgainAfterBoot(t *testing.T) {
+	const before = "00000000-0000-4000-8000-000000000001"
+	for _, current := range []string{before, "00000000-0000-4000-8000-000000000002"} {
+		t.Run(current, func(t *testing.T) {
+			mocks := fmt.Sprintf("cat() { echo %s; }\nsystemd-run() { echo scheduled; }\n", current)
+			command := exec.CommandContext(t.Context(), "bash", "-c", mocks+fmt.Sprintf(rebootSSHDisabledNodeScript, before))
+			output, err := command.CombinedOutput()
+			if err != nil {
+				t.Fatalf("reboot script failed: %v: %s", err, output)
+			}
+			expected := ""
+			if current == before {
+				expected = "scheduled\n"
+			}
+			if string(output) != expected {
+				t.Fatalf("output = %q, want %q", output, expected)
+			}
+		})
+	}
+}
 
 func TestSSHServiceDisabledScript(t *testing.T) {
 	if _, err := exec.LookPath("bash"); err != nil {
@@ -15,32 +38,36 @@ func TestSSHServiceDisabledScript(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		osID         string
-		variant      string
-		active       string
-		enabled      string
-		stateUnit    string
-		listeners    string
-		ssStatus     string
-		ubuntuSocket string
-		want         string
-		wantError    bool
+		name            string
+		osID            string
+		variant         string
+		active          string
+		enabled         string
+		stateUnit       string
+		listeners       string
+		ssStatus        string
+		ubuntuSocket    string
+		missingPolicy   bool
+		conditionResult string
+		want            string
+		wantError       bool
 	}{
 		{name: "ACL", osID: "azurelinux", variant: "azurecontainerlinux", want: "sshd.socket: active=inactive enabled=disabled"},
 		{name: "legacy ACL", osID: "azurecontainerlinux", want: "sshd.socket: active=inactive enabled=disabled"},
 		{name: "Ubuntu", osID: "ubuntu", want: "ssh.service: active=inactive enabled=disabled"},
 		{name: "Ubuntu with socket activation", osID: "ubuntu", ubuntuSocket: "true", want: "ssh.socket: active=inactive enabled=disabled"},
-		{name: "Ubuntu socket enabled but inactive", osID: "ubuntu", ubuntuSocket: "true", enabled: "enabled", stateUnit: "ssh.socket", want: "ssh.socket is not disabled", wantError: true},
+		{name: "Ubuntu socket enabled but blocked", osID: "ubuntu", ubuntuSocket: "true", enabled: "enabled", stateUnit: "ssh.socket", want: "SUCCESS:"},
 		{name: "Ubuntu socket active", osID: "ubuntu", ubuntuSocket: "true", active: "active", stateUnit: "ssh.socket", want: "ssh.socket is not inactive", wantError: true},
 		{name: "Azure Linux", osID: "azurelinux", want: "sshd.service: active=inactive enabled=disabled"},
 		{name: "Mariner", osID: "mariner", want: "sshd.service: active=inactive enabled=disabled"},
 		{name: "active socket", active: "active", want: "sshd.socket is not inactive", wantError: true},
-		{name: "enabled socket", enabled: "enabled", want: "sshd.socket is not disabled", wantError: true},
-		{name: "masked socket", enabled: "masked", want: "sshd.socket is not disabled", wantError: true},
+		{name: "enabled socket remains blocked", enabled: "enabled", want: "SUCCESS:"},
+		{name: "external masked socket", enabled: "masked", want: "SUCCESS:"},
 		{name: "active service", active: "active", stateUnit: "sshd.service", want: "sshd.service is not inactive", wantError: true},
-		{name: "enabled service", enabled: "enabled", stateUnit: "sshd.service", want: "sshd.service is not disabled", wantError: true},
-		{name: "missing unit", enabled: "not-found", want: "sshd.socket is not disabled", wantError: true},
+		{name: "enabled service remains blocked", enabled: "enabled", stateUnit: "sshd.service", want: "SUCCESS:"},
+		{name: "missing unit", enabled: "not-found", want: "sshd.socket is not loaded", wantError: true},
+		{name: "stop alone is insufficient", missingPolicy: true, want: "persistent SSH disable marker is missing", wantError: true},
+		{name: "condition bypass", conditionResult: "yes", want: "not blocked by its persistent condition", wantError: true},
 		{name: "inspection error", active: "unknown", want: "sshd.socket is not inactive", wantError: true},
 		{name: "IPv4 listener", listeners: "LISTEN 0 128 0.0.0.0:22 0.0.0.0:*", want: "TCP port 22 is listening", wantError: true},
 		{name: "IPv6 listener", listeners: "LISTEN 0 128 [::]:22 [::]:*", want: "TCP port 22 is listening", wantError: true},
@@ -63,6 +90,10 @@ systemctl() {
 	fi
     if [[ "$ID" == ubuntu ]]; then
         if [[ "$2" == ssh.socket ]]; then
+            if [[ "$1" == show && "$3" == --property=LoadState && "${TEST_UBUNTU_SOCKET:-}" != true ]]; then
+                echo not-found
+                return 0
+            fi
             [[ "${TEST_UBUNTU_SOCKET:-}" == true ]] || return 1
         else
             [[ "$2" == ssh.service ]] || return 1
@@ -72,6 +103,17 @@ systemctl() {
     fi
     case "$1" in
         cat) return 0 ;;
+        start) return 0 ;;
+        show)
+            case "$3" in
+                --property=LoadState)
+                    case "$enabled" in
+                        masked|not-found) echo "$enabled" ;;
+                        *) echo loaded ;;
+                    esac ;;
+                --property=ConditionResult) echo "${TEST_CONDITION_RESULT:-no}" ;;
+                *) return 1 ;;
+            esac ;;
 		is-active) printf '%s\n' "$active"; [[ "$active" == active ]] && return 0; return 3 ;;
 		is-enabled) printf '%s\n' "$enabled"; [[ "$enabled" == enabled ]] && return 0; return 1 ;;
         *) return 1 ;;
@@ -85,6 +127,23 @@ ss() {
 `
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			policyDir := t.TempDir()
+			unitDir := t.TempDir()
+			if !test.missingPolicy {
+				if err := os.WriteFile(filepath.Join(policyDir, "disabled"), nil, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, unit := range []string{"ssh.service", "sshd.service", "ssh.socket", "sshd.socket"} {
+				dir := filepath.Join(unitDir, unit+".d")
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "90-aks-ssh-access.conf"),
+					[]byte("[Unit]\nConditionPathExists=!"+policyDir+"/disabled\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			command := exec.CommandContext(ctx, "bash", "-c", mocks+validateSSHServiceDisabledScript)
@@ -93,6 +152,8 @@ ss() {
 				"TEST_ACTIVE="+test.active, "TEST_ENABLED="+test.enabled,
 				"TEST_STATE_UNIT="+test.stateUnit,
 				"TEST_UBUNTU_SOCKET="+test.ubuntuSocket,
+				"SSH_POLICY_DIR="+policyDir, "SSH_SYSTEMD_UNIT_DIR="+unitDir,
+				"TEST_CONDITION_RESULT="+test.conditionResult,
 				"TEST_LISTENERS="+test.listeners, "TEST_SS_STATUS="+test.ssStatus)
 			output, err := command.CombinedOutput()
 			if (err != nil) != test.wantError {
