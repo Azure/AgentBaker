@@ -126,6 +126,46 @@ Describe 'Install-Containerd-Based-On-Kubernetes-Version' {
       Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
     }
   }
+
+  Context 'containerd component package URLs' {
+    BeforeAll {
+      Mock Get-WindowsVersion -MockWith { return $global:WindowsVersion2025 }
+      Mock Install-ContainerdFromComponentPackages
+      $expectedHcsshimUrl = "https://packages.aks.azure.com/dalec-packages/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+      $expectedMobyContainerdUrl = "https://packages.aks.azure.com/dalec-packages/moby-containerd/2.3.7/windows/amd64/moby-containerd_2.3.7-4_amd64.zip"
+      $expectedCrictlUrl = "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-6_amd64.zip"
+    }
+
+    It 'installs from the component packages when all three URLs are set' {
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $expectedHcsshimUrl -MobyContainerdUrl $expectedMobyContainerdUrl -CrictlUrl $expectedCrictlUrl
+      Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 1 -ParameterFilter {
+        $HcsshimUrl -ceq $expectedHcsshimUrl -and $MobyContainerdUrl -ceq $expectedMobyContainerdUrl -and $CrictlUrl -ceq $expectedCrictlUrl -and
+        $CNIBinDir -eq "cniBinPath" -and $CNIConfDir -eq "cniConfigPath" -and $KubeDir -eq "kubeDir"
+      }
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 0
+    }
+
+    It 'uses the combined package when the VHD has no component package installer' {
+      Mock Logs-To-Event
+      Mock Get-Command -MockWith { $null } -ParameterFilter { $Name -eq 'Install-ContainerdFromComponentPackages' }
+      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $expectedHcsshimUrl -MobyContainerdUrl $expectedMobyContainerdUrl -CrictlUrl $expectedCrictlUrl
+      Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 0
+      Assert-MockCalled -CommandName "Logs-To-Event" -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.ContainerdComponentPackagesUnsupported' }
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+
+    It 'uses the combined package when <Case>' -ForEach @(
+      @{ Case = 'no URLs are set'; Hcsshim = ''; Moby = ''; Crictl = '' }
+      @{ Case = 'only some URLs are set'; Hcsshim = 'https://example.com/hcsshim.zip'; Moby = 'https://example.com/moby-containerd.zip'; Crictl = '' }
+      @{ Case = 'a URL is whitespace'; Hcsshim = 'https://example.com/hcsshim.zip'; Moby = 'https://example.com/moby-containerd.zip'; Crictl = '   ' }
+    ) {
+      $expectedURL = $ContainerdWindowsPackageDownloadURL + $LatestContainerd2Package
+      & Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $ContainerdWindowsPackageDownloadURL -KubernetesVersion "1.38.0" -CNIBinDir "cniBinPath" -CNIConfDir "cniConfigPath" -KubeDir "kubeDir" -HcsshimUrl $Hcsshim -MobyContainerdUrl $Moby -CrictlUrl $Crictl
+      Assert-MockCalled -CommandName "Install-ContainerdFromComponentPackages" -Exactly -Times 0
+      Assert-MockCalled -CommandName "Install-Containerd" -Exactly -Times 1 -ParameterFilter { $ContainerdUrl -eq $expectedURL }
+    }
+  }
 }
 
 Describe 'Get-WindowsVersion and Get-WindowsPauseVersion' {
