@@ -4002,15 +4002,10 @@ func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
 		s,
 		`set -eu
 config_path=/opt/azure/containers/aks-node-controller-config.json
-nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
 anc_path=/opt/azure/containers/aks-node-controller-hotfix
 
 sudo test ! -e "$config_path" || {
 	echo "$config_path unexpectedly exists" >&2
-	exit 1
-}
-sudo test -e "$nbc_cmd_path" || {
-	echo "$nbc_cmd_path does not exist" >&2
 	exit 1
 }
 if ! sudo test -x "$anc_path"; then
@@ -4051,10 +4046,8 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	if !usesScriptlessNBCCSECmd(s) {
 		return nil
 	}
-	fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	var errs []error
 	errs = append(errs,
-		ValidateFileExists(ctx, s, fileNameToCheck),
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
 	)
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
@@ -4079,7 +4072,6 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"
 	errs := []error{
-		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
 		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
 		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
 		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),
