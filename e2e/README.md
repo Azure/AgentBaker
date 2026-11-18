@@ -386,6 +386,11 @@ Shared setup does not delete cluster subnets: an empty subnet with no AKS cluste
 to another runner that is still creating its cluster. The external resource-group garbage
 collector owns cleanup of abandoned subnets.
 
+VHD-caching setup deletes and recreates a gallery image definition only when Azure reports
+its provisioning state as `Failed`. It waits for deletion before recreating the definition
+and stops on deletion errors. It does not delete child image versions or definitions in
+other states.
+
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
 Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
 
