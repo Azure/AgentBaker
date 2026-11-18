@@ -840,18 +840,42 @@ createKubeManifestDir() {
     mkdir -p $KUBEMANIFESTDIR
 }
 
+installSSHDisablePolicy() {
+    local policy_dir="${SSH_POLICY_DIR:-/etc/aks/ssh-policy}"
+    local unit_dir="${SSH_SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+    local unit dropin content
+    mkdir -p "$policy_dir" && chmod 0700 "$policy_dir" || return 1
+    touch "$policy_dir/disabled" || return 1
+    # Package scripts can undo masks. A separate condition also blocks dependency starts.
+    content="[Unit]
+ConditionPathExists=!$policy_dir/disabled"
+    for unit in ssh.socket sshd.socket ssh.service sshd.service; do
+        dropin="$unit_dir/$unit.d/90-aks-ssh-access.conf"
+        if [ -e "$dropin" ] && [ "$(cat "$dropin")" != "$content" ]; then
+            echo "Refusing to overwrite an existing SSH policy: $dropin" >&2
+            return 1
+        fi
+        mkdir -p "$unit_dir/$unit.d" &&
+            printf '%s\n' "$content" > "$dropin.tmp" &&
+            chmod 0644 "$dropin.tmp" &&
+            mv "$dropin.tmp" "$dropin" || return 1
+    done
+    systemctl daemon-reload
+}
+
 disableSSH() {
     local start_time attempt_id unit result=0
     start_time=$(date -u +"%F %T.%3N")
     attempt_id="$(date +%s%N)-$RANDOM"
     emitSSHDisableEvent "$attempt_id" Started "" "$start_time" null '{}' ||
         echo "WARNING: SSH disable telemetry failed" >&2
+    installSSHDisablePolicy || { echo "Failed to install persistent SSH disable policy" >&2; result=$ERR_DISABLE_SSH; }
     # Ubuntu uses ssh, Azure Linux uses sshd, and ACL also uses sshd.socket.
     # Close the listening socket first so no new connection is accepted mid-teardown.
-    # Keep going after a failure so a later unit still gets disabled, on ACL the
+    # Keep going after a failure so a later unit still gets stopped; on ACL the
     # socket owns port 22 and skipping it would leave SSH reachable.
-    for unit in sshd.socket ssh sshd; do
-        systemctlDisableAndStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
+    for unit in ssh.socket sshd.socket ssh sshd; do
+        systemctlStop "$unit" "$attempt_id" || result=$ERR_DISABLE_SSH
     done
     emitSSHDisableEvent "$attempt_id" Completed "" "$start_time" "$result" '{}' ||
         echo "WARNING: SSH disable telemetry failed" >&2

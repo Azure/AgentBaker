@@ -201,12 +201,6 @@ function basePrep {
 
     logs_to_events "AKS.CSE.installSecureTLSBootstrapClient" installSecureTLSBootstrapClient
 
-    if [ "${DISABLE_SSH}" = "true" ]; then
-        disableSSH || exit "$ERR_DISABLE_SSH"
-    elif [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
-        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
-    fi
-
     # This involves using proxy, log the config before fetching packages
     echo "private egress proxy address is '${PRIVATE_EGRESS_PROXY_ADDRESS}'"
     # TODO update to use proxy
@@ -439,6 +433,13 @@ EOF
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
 function nodePrep {
+    # Apply node access policy here so PIS images retain the distribution's SSH defaults.
+    if [ "${DISABLE_SSH}" = "true" ]; then
+        disableSSH || exit "$ERR_DISABLE_SSH"
+    elif [ "${DISABLE_PUBKEY_AUTH}" = "true" ]; then
+        logs_to_events "AKS.CSE.disableSSHPubkeyAuth" disableSSHPubkeyAuth
+    fi
+
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
     logs_to_events "AKS.CSE.ensureKubeCACert" ensureKubeCACert
 
