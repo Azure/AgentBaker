@@ -40,6 +40,10 @@ function GetWindowsDownloadPartForPackage {
             $part = $downloadUrls.ws2025
             break
         }
+        "2028*" {
+            $part = $downloadUrls.ws2028
+            break
+        }
     }
 
     if ($null -eq $part) {

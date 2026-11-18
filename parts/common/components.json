@@ -43,6 +43,12 @@
           "renovateTag": "<DO_NOT_UPDATE>",
           "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
+        },
+        {
+          "comment": "Windows Server 2028 preview caches WS2025 LTSC containers until preview container images are available.",
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2025",
+          "windowsSkuMatch": "2028*"
         }
       ]
     },
@@ -65,6 +71,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "ltsc2025",
+          "windowsSkuMatch": "2028*"
         }
       ]
     },
@@ -93,6 +104,11 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore/iis",
           "latestVersion": "windowsservercore-ltsc2025",
           "windowsSkuMatch": "2025*"
+        },
+        {
+          "renovateTag": "<DO_NOT_UPDATE>",
+          "latestVersion": "windowsservercore-ltsc2025",
+          "windowsSkuMatch": "2028*"
         }
       ]
     },
@@ -1229,6 +1245,15 @@
                 "latestVersion": "v1.7.20-azure.1",
                 "previousLatestVersion": "v1.7.17-azure.1"
               },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "v2.0.4-azure.1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/containerd/windows/${version}/binaries/containerd-${version}-windows-amd64.tar.gz"
+          },
+          "ws2028": {
+            "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
                 "latestVersion": "v2.0.4-azure.1"

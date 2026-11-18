@@ -109,6 +109,18 @@ if [ "${OS_TYPE}" = "Linux" ] && grep -q "cvm" <<< "$FEATURE_FLAGS"; then
 fi
 
 TEST_VM_USER_DATA_ARGS=()
+TEST_VM_PLAN_ARGS=()
+if [ "${OS_TYPE,,}" = "windows" ]; then
+  plan_name=$(jq -r '.windows_image_plan_name // ""' ./vhdbuilder/packer/settings.json)
+  if [ -n "${plan_name}" ]; then
+    TEST_VM_PLAN_ARGS=(
+      --plan-name "${plan_name}"
+      --plan-product "$(jq -r '.windows_image_plan_product' ./vhdbuilder/packer/settings.json)"
+      --plan-publisher "$(jq -r '.windows_image_plan_publisher' ./vhdbuilder/packer/settings.json)"
+    )
+  fi
+fi
+
 if [ "${OS_TYPE}" = "Linux" ] && [ "${OS_SKU:-}" = "AzureContainerLinux" ]; then
   TEST_VM_USER_DATA_ARGS=(--user-data "@./vhdbuilder/packer/acl-customdata.json")
 fi
@@ -168,6 +180,7 @@ else
       --admin-username "$TEST_VM_ADMIN_USERNAME" \
       --admin-password "$TEST_VM_ADMIN_PASSWORD" \
       --public-ip-address "" \
+      "${TEST_VM_PLAN_ARGS[@]}" \
       ${TARGET_COMMAND_STRING}
   set -x
 fi
