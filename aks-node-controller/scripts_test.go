@@ -576,6 +576,51 @@ func TestUnpackPreservesFinalImageBuildResults(t *testing.T) {
 	}
 }
 
+func TestUnpackHotfixPreservesKernelModuleConfiguration(t *testing.T) {
+	t.Setenv("ENABLE_FIPS", "false")
+	t.Setenv("FEATURE_FLAGS", "NVIDIA_GB")
+	for _, release := range []string{
+		"ID=ubuntu\nVERSION_ID=24.04\n",
+		"ID=azurelinux\nVERSION_ID=3.0\n",
+	} {
+		t.Run(release, func(t *testing.T) {
+			root := t.TempDir()
+			osRelease := filepath.Join(t.TempDir(), "os-release")
+			require.NoError(t, os.WriteFile(osRelease, []byte(release), 0o600))
+			cis := filepath.Join(root, "etc/modprobe.d/CIS.conf")
+			target := filepath.Join(root, "existing-cis.conf")
+			require.NoError(t, os.MkdirAll(filepath.Dir(cis), 0o755))
+			require.NoError(t, os.WriteFile(target, []byte("# existing kernel policy\n"), 0o640))
+			require.NoError(t, os.Symlink("../../existing-cis.conf", cis))
+
+			require.NoError(t, unpackScripts(osRelease, root, "etc/modprobe.d", "etc/modules-load.d"))
+
+			content, err := os.ReadFile(cis)
+			require.NoError(t, err)
+			require.Equal(t, "# existing kernel policy\n", string(content))
+			link, err := os.Readlink(cis)
+			require.NoError(t, err)
+			require.Equal(t, "../../existing-cis.conf", link)
+			info, err := os.Stat(target)
+			require.NoError(t, err)
+			require.Equal(t, fs.FileMode(0o640), info.Mode().Perm())
+			require.NoFileExists(t, filepath.Join(root, "etc/modprobe.d/nvidia.conf"))
+			require.NoDirExists(t, filepath.Join(root, "etc/modules-load.d"))
+			require.FileExists(t, filepath.Join(root, "opt/azure/containers/provision.sh"))
+
+			buildRoot := t.TempDir()
+			require.NoError(t, unpackScripts(osRelease, buildRoot))
+			for _, name := range []string{
+				"etc/modprobe.d/CIS.conf",
+				"etc/modprobe.d/nvidia.conf",
+				"etc/modules-load.d/nvidia-peermem.conf",
+			} {
+				require.FileExists(t, filepath.Join(buildRoot, name))
+			}
+		})
+	}
+}
+
 func TestUnpackFailsExplicitly(t *testing.T) {
 	release := filepath.Join(t.TempDir(), "os-release")
 	root := t.TempDir()

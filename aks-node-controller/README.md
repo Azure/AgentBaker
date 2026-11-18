@@ -112,9 +112,12 @@ system.
 Unpacking intentionally replaces all files in the selected tree, including custom
 copies of provisioning scripts and static configuration. It is not a selective
 patch and does not remove unrelated files. Runtime node configuration and secrets
-are not part of this embedded tree. The hotfix command reapplies the image build's
-kernel and systemd adjustments. Kernel-rule cleanup is limited to the embedded
-`CIS.conf`; it does not change other modprobe files on the node.
+are not part of this embedded tree. The hotfix command preserves all files under
+`/etc/modprobe.d` and `/etc/modules-load.d`, including their absence, and does not
+run kernel-module rule cleanup. Kernel-module policy remains owned by the image
+build and normal provisioning. The hotfix command still reapplies the image
+build's systemd adjustments. Direct `unpack-scripts` calls used for image building
+continue to install the kernel-module configuration.
 On an existing VHD (`vhd-install.complete`), unpacking preserves the final
 package-managed banners and does not restore the two WALinuxAgent installer
 scripts removed during image deprovisioning.

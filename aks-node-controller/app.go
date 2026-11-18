@@ -300,7 +300,8 @@ func (a *App) runApplyHotfixCommand(ctx context.Context) error {
 	applyHotfix := a.applyEmbeddedHotfix
 	if applyHotfix == nil {
 		applyHotfix = func(osReleasePath string) error {
-			return unpackScripts(osReleasePath, "/")
+			// Kernel module policy belongs to the image and normal provisioning, not hotfix delivery.
+			return unpackScripts(osReleasePath, "/", "etc/modprobe.d", "etc/modules-load.d")
 		}
 	}
 	if err := applyHotfix(a.osReleasePath); err != nil {
@@ -308,10 +309,9 @@ func (a *App) runApplyHotfixCommand(ctx context.Context) error {
 		return err
 	}
 	if _, statErr := os.Stat("/run/systemd/system"); statErr == nil {
-		// Restore the same kernel and systemd adjustments made by the image build.
+		// Restore the same systemd adjustments made by the image build.
 		normalize := `source /opt/azure/containers/provision_source.sh &&
 source /opt/azure/image-build/image_config.sh &&
-configureVulnerableKernelModuleDenyRules /etc/modprobe.d/CIS.conf &&
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')"`
 		if err := a.cmdRun(exec.CommandContext(ctx, "/bin/bash", "-c", normalize)); err != nil {
 			return fmt.Errorf("configure hotfixed systemd units: %w", err)

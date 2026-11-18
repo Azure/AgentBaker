@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,7 +24,7 @@ const (
 	logrotateDropInPath = "etc/systemd/system/logrotate.timer.d/override.conf"
 )
 
-func unpackScripts(osReleasePath, destination string) error {
+func unpackScripts(osReleasePath, destination string, preserveDirs ...string) error {
 	if !filepath.IsAbs(destination) {
 		return fmt.Errorf("destination must be absolute: %q", destination)
 	}
@@ -61,7 +62,7 @@ func unpackScripts(osReleasePath, destination string) error {
 		}
 		roots = append(roots, "overlays/"+overlay)
 	}
-	if err := unpackRoot(parts.Root, roots, destination); err != nil {
+	if err := unpackRoot(parts.Root, roots, destination, preserveDirs...); err != nil {
 		return err
 	}
 	// Hotfixes must use the image's feature selections, not the build host's environment.
@@ -396,11 +397,16 @@ func imageOutputPath(destination, relative string) (string, error) {
 	return target, nil
 }
 
-func unpackRoot(source fs.FS, roots []string, destination string) error {
+func unpackRoot(source fs.FS, roots []string, destination string, preserveDirs ...string) error {
 	files, err := resolveImageFiles(source, roots)
 	if err != nil {
 		return err
 	}
+	maps.DeleteFunc(files, func(name string, _ imageFile) bool {
+		return slices.ContainsFunc(preserveDirs, func(directory string) bool {
+			return strings.HasPrefix(name, directory+"/")
+		})
+	})
 	imageBuilt, err := imageHasFile(destination, "opt/azure/vhd-install.complete")
 	if err != nil {
 		return err
