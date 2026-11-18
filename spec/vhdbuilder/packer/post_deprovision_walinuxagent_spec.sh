@@ -151,3 +151,62 @@ Describe 'pruneStaleWALinuxAgentDirs'
     The path "${WAAGENT_DIR}/WALinuxAgent-2.16.0.0" should not be exist
   End
 End
+
+Describe 'Post-deprovision helper retention'
+  prepare_hook() (
+    export PREFETCH_OPTIMIZATION="$1"
+    createAIBDeprovisionHook() { printf 'hook flags=%s\n' "$1"; }
+    local script=./vhdbuilder/packer/post-deprovision-walinuxagent.sh
+    eval "$(sed -n '/^if .*PREFETCH_OPTIMIZATION/,/^fi$/p' "$script")"
+  )
+
+  Describe 'Packer hook preparation'
+    Parameters
+      true cvm 'hook flags=cvm'
+      True None 'hook flags=None'
+      False cvm ''
+      false None ''
+    End
+
+    It "prepares the hook only when optimization=$1 with flags=$2"
+      When call prepare_hook "$1" "$2"
+      The status should be success
+      The output should equal "$3"
+    End
+  End
+
+  cleanup_helpers() (
+    # Test the flag handling and cleanup without running the agent installer.
+    set -- "$@"
+    uname() { echo aarch64; }
+    rm() { printf '%s\n' "$*"; }
+    sync() { :; }
+    local script=./vhdbuilder/packer/post-deprovision-walinuxagent.sh
+    eval "$(sed -n '/^PREFETCH_OPTIMIZATION=/,/^# ---- resolv.conf/p' "$script")"
+    eval "$(sed -n '/^cleanup()/,/^}$/p' "$script")"
+    export RESOLV_CONF_ORIGINAL_STATE=""
+    cleanup
+  )
+
+  It 'trusts the effective true flag even on an ARM64 CVM'
+    When call cleanup_helpers true cvm
+    The status should be success
+    The output should equal ""
+  End
+
+  It 'removes helpers when the caller disables optimization'
+    When call cleanup_helpers False cvm
+    The status should be success
+    The output should include '-f /opt/azure/containers/install_walinuxagent.py'
+    The output should include '-f /opt/azure/containers/post-deprovision-walinuxagent.sh'
+    The output should include '-f /opt/azure/containers/deprovision.sh'
+    The output should include '-f /opt/azure/containers/aib-deprovision.sh'
+  End
+
+  It 'defaults to removing helpers for the argument-free AIB call'
+    When call cleanup_helpers
+    The status should be success
+    The output should include '-f /opt/azure/containers/deprovision.sh'
+    The output should include '-f /opt/azure/containers/aib-deprovision.sh'
+  End
+End
