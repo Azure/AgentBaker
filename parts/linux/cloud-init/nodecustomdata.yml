@@ -33,6 +33,15 @@ write_files:
   content: {{GetVariableProperty "cloudInitData" "initAKSCloud" | GetCloudInitFileContent}}
 {{end}}
 
+
+# ---- hotfix-scripts: auto-generated ----
+- path: {{GetCSEConfigGPUScriptFilepath}}
+  permissions: "0744"
+  {{GetCloudInitFileEncodingLine}}
+  owner: root
+  content: {{GetVariableProperty "cloudInitData" "provisionConfigsGPU" | GetCloudInitFileContent}}
+
+# ---- end hotfix-scripts ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
