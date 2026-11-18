@@ -24,7 +24,10 @@ Describe 'WS2028 preview components' {
         $images | Should -Not -Contain 'mcr.microsoft.com/windows/servercore:ltsc2022'
     }
 
-    It 'retains the default package when there is no WS2028 override' {
+}
+
+Describe 'GetWindowsDownloadPartForPackage' {
+    It 'does not select a WS2025 override for a later Windows SKU' {
         $windowsSku = '2028-gen2'
         $package = [PSCustomObject]@{ downloadURIs = @{ windows = @{ default = 'default-package'; ws2025 = '2025-package' } } }
         GetWindowsDownloadPartForPackage $package | Should -Be 'default-package'
