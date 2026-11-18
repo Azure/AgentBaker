@@ -77,6 +77,17 @@ configure_windows_build_mode() {
   echo "##vso[task.setvariable variable=DRY_RUN]${DRY_RUN}"
 }
 
+accept_windows_image_terms() {
+  if [ "${WINDOWS_SKU}" = "2028-gen2" ]; then
+    az vm image terms accept \
+      --subscription "${SUBSCRIPTION_ID}" \
+      --publisher microsoftwindowsserver \
+      --offer microsoftserveroperatingsystems-previews \
+      --plan windows-server-vnext-azure-edition-core \
+      --output none
+  fi
+}
+
 configure_windows_build_mode
 
 export MODE="windowsVhdMode"
@@ -127,6 +138,7 @@ echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
 packer version
 ./vhdbuilder/packer/produce-packer-settings.sh
+accept_windows_image_terms
 packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json vhdbuilder/packer/windows/windows-vhd-builder-sig.json | tee -a packer-output
 
 export OS_DISK_URI="$(cat packer-output | grep -a "OSDiskUri:" | cut -d " " -f 2)"
