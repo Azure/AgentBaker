@@ -123,6 +123,7 @@ func TestNBCSamplingRealLinuxPipelinePool(t *testing.T) {
 
 func TestNBCSamplingCLIEnvironmentAndFailFast(t *testing.T) {
 	restoreRunnerConfig(t)
+	t.Setenv("E2E_BOOT_TRACE_WAVES", "false")
 	t.Setenv("E2E_RANDOM_NBC_COVERAGE", "true")
 	t.Setenv("BUILD_ID", "build-id")
 	var stderr bytes.Buffer

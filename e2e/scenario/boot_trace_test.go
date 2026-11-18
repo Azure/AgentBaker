@@ -11,8 +11,11 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	goparser "go/parser"
+	"go/token"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,6 +39,153 @@ import (
 
 const traceTestBootID = "11111111-1111-1111-1111-111111111111"
 const traceTestPrefix = "azure:///subscriptions/test/resourceGroups/nodes/providers/Microsoft.Compute/virtualMachineScaleSets/trace/virtualMachines/"
+
+func TestBootTraceMatrixResolvesOnlyItsPrivateFixtureCopy(t *testing.T) {
+	upload := cachedUploadBootTraceFixture
+	previousConfig := config.Config
+	t.Cleanup(func() {
+		cachedUploadBootTraceFixture = upload
+		config.Config = previousConfig
+	})
+	t.Setenv("E2E_BOOT_TRACE_MATRIX_DIR", t.TempDir())
+	config.Config = config.DefaultConfiguration()
+	config.Config.ResourceGroupPrefix = "abe2e-ca-test"
+	config.Config.SubscriptionID = "test-subscription"
+	cachedUploadBootTraceFixture = func(_ context.Context, input bootTraceFixtureUpload) (string, error) {
+		require.Equal(t, "test-digest", input.SHA256)
+		require.Equal(t, filepath.Join(os.Getenv("E2E_BOOT_TRACE_MATRIX_DIR"), "update-ca-certificates-rs"), input.Path)
+		return "https://private.blob.core.windows.net/abe2e/test-fixture", nil
+	}
+	s := &Scenario{
+		Config: Config{
+			BootTraceExperiment: &BootTraceExperiment{RustSHA256: "test-digest"},
+			CustomDataWriteFiles: []CustomDataWriteFile{
+				{Path: "/opt/aks-node-boot-trace/prepare-fixture.sh", Content: "@RUST_URL@ @IDENTITY_RESOURCE_ID@"},
+				{Path: "/unchanged", Content: "unchanged"},
+			},
+		},
+	}
+	s.Location = "westus3"
+	entries, err := bootTraceMatrixWriteFiles(context.Background(), s)
+	require.NoError(t, err)
+	require.Contains(t, entries[0].Content, "https://private.blob.core.windows.net/abe2e/test-fixture")
+	require.Contains(t, entries[0].Content, "abe2e-ca-test-westus3")
+	require.NotContains(t, entries[0].Content, "@")
+	require.Equal(t, s.CustomDataWriteFiles[1], entries[1])
+	require.Equal(t, "@RUST_URL@ @IDENTITY_RESOURCE_ID@", s.CustomDataWriteFiles[0].Content)
+}
+
+func TestBootTraceMatrixRejectsMissingOrChangedBinaryBeforeUpload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-ca-certificates-rs")
+	_, err := cachedUploadBootTraceFixture(context.Background(), bootTraceFixtureUpload{Path: path, SHA256: "unexpected"})
+	require.ErrorContains(t, err, "read CI-built")
+	require.NoError(t, os.WriteFile(path, []byte("changed"), 0o600))
+	_, err = cachedUploadBootTraceFixture(context.Background(), bootTraceFixtureUpload{Path: path, SHA256: "different"})
+	require.ErrorContains(t, err, "SHA-256 mismatch")
+}
+
+func TestBootTraceCommandInstrumentation(t *testing.T) {
+	root, err := findRepoRoot()
+	require.NoError(t, err)
+	directory := t.TempDir()
+	for _, name := range []string{"app.go", "parser/templates/cse_cmd.sh.gtpl"} {
+		data, err := os.ReadFile(filepath.Join(root, "aks-node-controller", name))
+		require.NoError(t, err)
+		target := filepath.Join(directory, name)
+		require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o700))
+		require.NoError(t, os.WriteFile(target, data, 0o600))
+	}
+	require.NoError(t, instrumentBootTraceANC(directory))
+	template, err := os.ReadFile(filepath.Join(directory, "parser/templates/cse_cmd.sh.gtpl"))
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(string(template), bootTraceCommandMarker))
+	app, err := os.ReadFile(filepath.Join(directory, "app.go"))
+	require.NoError(t, err)
+	_, err = goparser.ParseFile(token.NewFileSet(), "app.go", app, goparser.AllErrors)
+	require.NoError(t, err)
+	require.Contains(t, string(app), `"boot-trace-cse", scriptPath)`)
+	require.ErrorContains(t, instrumentBootTraceANC(directory), "unexpected ANC command entry")
+}
+
+func TestBootTraceCommandStartValidation(t *testing.T) {
+	for _, test := range []struct {
+		name, data string
+		valid      bool
+	}{
+		{"missing", "", false},
+		{"wrong_boot", `{"boot_id":"other","start":1}`, false},
+		{"missing_start", `{"boot_id":"` + traceTestBootID + `"}`, false},
+		{"negative_start", `{"boot_id":"` + traceTestBootID + `","start":-1}`, false},
+		{"non_finite_start", `{"boot_id":"` + traceTestBootID + `","start":1e999}`, false},
+		{"valid", `{"boot_id":"` + traceTestBootID + `","start":0.75}`, true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			directory := t.TempDir()
+			if test.data != "" {
+				require.NoError(t, os.WriteFile(filepath.Join(directory, "cse-command-start.json"), []byte(test.data), 0o600))
+			}
+			err := validateBootTraceCommandStart(directory, traceTestBootID)
+			if test.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestBootTraceCommandMarkerRunsBeforeCommandAndPreservesExitStatus(t *testing.T) {
+	for _, flattened := range []bool{false, true} {
+		for _, fail := range []bool{false, true} {
+			t.Run(fmt.Sprintf("flattened=%t/failure=%t", flattened, fail), func(t *testing.T) {
+				directory := t.TempDir()
+				start := time.Now()
+				marker := strings.ReplaceAll(bootTraceCommandMarker, "/var/log/aks-node-boot-trace", directory+"/captures")
+				if flattened {
+					marker = strings.ReplaceAll(marker, "\n", " ")
+				}
+				boot, err := os.ReadFile("/proc/sys/kernel/random/boot_id")
+				require.NoError(t, err)
+				output := filepath.Join(directory, "captures", strings.TrimSpace(string(boot)), "cse-command-start.json")
+				if fail {
+					// Force a write failure without touching any guest or shared path.
+					require.NoError(t, os.WriteFile(filepath.Join(directory, "captures"), []byte("not a directory"), 0o600))
+				}
+				// The NBC runner must preserve script paths containing shell metacharacters.
+				script := filepath.Join(directory, "command ; ' quoted.sh")
+				body := "test -f " + shellSingleQuote(output) + " || exit 29\nexit 37\n"
+				require.NoError(t, os.WriteFile(script, []byte(body), 0o600))
+				command := exec.Command("/bin/bash", "-c", marker+`exec /bin/bash -- "$1"`, "boot-trace-cse", script)
+				result, err := command.CombinedOutput()
+				var exit *exec.ExitError
+				require.ErrorAs(t, err, &exit)
+				if fail {
+					require.Equal(t, 29, exit.ExitCode(), string(result))
+					require.Contains(t, string(result), "WARNING: boot-trace could not record CSE command start")
+					return
+				}
+				require.Equal(t, 37, exit.ExitCode(), string(result))
+				data, err := os.ReadFile(output)
+				require.NoError(t, err)
+				var timing struct {
+					BootID string  `json:"boot_id"`
+					Start  float64 `json:"start"`
+				}
+				require.NoError(t, json.Unmarshal(data, &timing))
+				require.Equal(t, strings.TrimSpace(string(boot)), timing.BootID)
+				uptime, err := os.ReadFile("/proc/uptime")
+				require.NoError(t, err)
+				var now float64
+				_, err = fmt.Sscan(string(uptime), &now)
+				require.NoError(t, err)
+				require.InDelta(t, now, timing.Start, time.Since(start).Seconds()+0.02)
+				info, err := os.Stat(output)
+				require.NoError(t, err)
+				require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+			})
+		}
+	}
+}
 
 func TestBootTraceExperimentRejectsMissingOrWrongCAWork(t *testing.T) {
 	base := "{\"task\":\"AKS.CSE.rcv1p.retrieveCerts\",\"exit_status\":0}\n" +
@@ -240,6 +390,8 @@ func TestBootTraceArchiveExtraction(t *testing.T) {
 				add(prefix+"trace-cmd.log", tar.TypeReg, "recorder diagnostics")
 				add(prefix+"containerd-waits.json", tar.TypeReg, `{"waits":[]}`)
 				add(prefix+"cloud-timings.jsonl", tar.TypeReg, `{"start":1,"end":2}`)
+				add(prefix+"cse-task-timings.jsonl", tar.TypeReg, `{"task":"AKS.CSE.setup","start":1,"end":2}`)
+				add(prefix+"cse-command-start.json", tar.TypeReg, `{"boot_id":"`+traceTestBootID+`","start":0.75}`)
 			}
 			require.NoError(t, writer.Close())
 			content := data.Bytes()
@@ -265,6 +417,12 @@ func TestBootTraceArchiveExtraction(t *testing.T) {
 			actual, err = os.ReadFile(filepath.Join(destination, "containerd-waits.json"))
 			require.NoError(t, err)
 			require.JSONEq(t, `{"waits":[]}`, string(actual))
+			actual, err = os.ReadFile(filepath.Join(destination, "cse-task-timings.jsonl"))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"task":"AKS.CSE.setup","start":1,"end":2}`, string(actual))
+			actual, err = os.ReadFile(filepath.Join(destination, "cse-command-start.json"))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"boot_id":"`+traceTestBootID+`","start":0.75}`, string(actual))
 		})
 	}
 }

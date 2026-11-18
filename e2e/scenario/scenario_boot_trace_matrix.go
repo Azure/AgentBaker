@@ -8,13 +8,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	aksnodeconfigv1 "github.com/Azure/agentbaker/aks-node-controller/pkg/gen/aksnodeconfig/v1"
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 )
 
 type BootTraceExperiment struct {
@@ -23,6 +27,59 @@ type BootTraceExperiment struct {
 	CAUpdateMode string `json:"ca_update_mode"`
 	InitSHA256   string `json:"init_sha256"`
 	RustSHA256   string `json:"rust_sha256"`
+}
+
+type bootTraceFixtureUpload struct {
+	Path, SHA256 string
+}
+
+var cachedBootTraceMatrixCluster = toolkit.Memoize(func(ctx context.Context, request ClusterRequest) (*Cluster, error) {
+	model, err := getLatestKubernetesVersionClusterModel(ctx, "abe2e-boot-trace-entra-kubenet-v1", request.Location, request.K8sSystemPoolSKU)
+	if err != nil {
+		return nil, fmt.Errorf("getting boot-trace cluster model: %w", err)
+	}
+	model.Properties.EnableRBAC = to.Ptr(true)
+	model.Properties.AADProfile = &armcontainerservice.ManagedClusterAADProfile{
+		Managed: to.Ptr(true),
+	}
+	return prepareCluster(ctx, kubenetClusterModelMutator(model), false, false)
+})
+
+var cachedUploadBootTraceFixture = toolkit.Memoize(func(ctx context.Context, input bootTraceFixtureUpload) (string, error) {
+	data, err := os.ReadFile(input.Path)
+	if err != nil {
+		return "", fmt.Errorf("read CI-built boot-trace Rust fixture: %w", err)
+	}
+	digest := sha256.Sum256(data)
+	if hex.EncodeToString(digest[:]) != input.SHA256 {
+		return "", fmt.Errorf("CI-built boot-trace Rust fixture SHA-256 mismatch")
+	}
+	file, err := os.Open(input.Path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	return config.Azure.UploadAndGetLink(ctx, "boot-trace/"+input.SHA256+"/update-ca-certificates-rs", file)
+})
+
+func bootTraceMatrixWriteFiles(ctx context.Context, s *Scenario) ([]CustomDataWriteFile, error) {
+	entries := append([]CustomDataWriteFile(nil), s.Config.CustomDataWriteFiles...)
+	for index, entry := range entries {
+		if entry.Path != "/opt/aks-node-boot-trace/prepare-fixture.sh" || !strings.Contains(entry.Content, "@RUST_URL@") {
+			continue
+		}
+		link, err := cachedUploadBootTraceFixture(ctx, bootTraceFixtureUpload{
+			Path:   filepath.Join(os.Getenv("E2E_BOOT_TRACE_MATRIX_DIR"), "update-ca-certificates-rs"),
+			SHA256: s.BootTraceExperiment.RustSHA256,
+		})
+		if err != nil {
+			return nil, err
+		}
+		entry.Content = strings.ReplaceAll(entry.Content, "@RUST_URL@", link)
+		entry.Content = strings.ReplaceAll(entry.Content, "@IDENTITY_RESOURCE_ID@", url.QueryEscape(config.Config.VMIdentityResourceID(s.Location)))
+		entries[index] = entry
+	}
+	return entries, nil
 }
 
 func registerBootTraceMatrix(directory string) error {
@@ -90,7 +147,7 @@ func registerBootTraceMatrix(directory string) error {
 					return ""
 				},
 				Config: Config{
-					Cluster: ClusterLatestKubernetesVersionKubenet, VHD: &image,
+					Cluster: cachedBootTraceMatrixCluster, VHD: &image,
 					BootTraceBackend: "ftrace", BootTraceExperiment: &experiment,
 					BootTraceWave:          repeat,
 					BootTraceSkipCAUpdate:  variant.ca == "skip-update-ca-certificates",

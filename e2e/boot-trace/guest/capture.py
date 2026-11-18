@@ -13,9 +13,9 @@ import sys
 import time
 
 if __package__:
-    from .diagnostics import ContainerdWaitSampler
+    from .diagnostics import CseTaskSampler, ContainerdWaitSampler
 else:
-    from diagnostics import ContainerdWaitSampler
+    from diagnostics import CseTaskSampler, ContainerdWaitSampler
 
 
 ROOT = Path("/var/log/aks-node-boot-trace")
@@ -228,6 +228,10 @@ def record(args):
     with (destination / "metadata.json").open("x") as initial:
         initial.write(json.dumps(metadata, indent=2) + "\n")
     stopping = False
+    clock = metadata["clock_start"]
+    cse_task_sampler = CseTaskSampler(
+        metadata["warnings"], clock["realtime"] - clock["monotonic"],
+    )
 
     def request_stop(_signum, _frame):
         nonlocal stopping
@@ -279,6 +283,7 @@ def record(args):
                 metadata["warnings"].append("Capture stopped by size watchdog.")
                 break
             wait_sampler.sample(time.monotonic())
+            cse_task_sampler.sample()
             time.sleep(0.2)
         metadata["status"] = "stopped"
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
@@ -311,6 +316,12 @@ def record(args):
                         "--lines=10000", *("--unit=" + unit for unit in JOURNAL_UNIT_NAMES),
                     )
                     (destination / "journal.jsonl").write_text(journal)
+            cse_task_sampler.sample()
+            with (destination / "cse-task-timings.jsonl").open(
+                "w", encoding="utf-8",
+            ) as output:
+                for task in cse_task_sampler.result():
+                    output.write(json.dumps(task, separators=(",", ":")) + "\n")
             metadata["finalized_at"] = datetime.datetime.now(
                 datetime.timezone.utc,
             ).isoformat()

@@ -250,6 +250,28 @@ def analyze(bundle):
     milestones, services = semantic_evidence(
         bundle, realtime_origin, ready, stream_last,
     )
+    command_start_path = bundle / "cse-command-start.json"
+    if command_start_path.exists():
+        command_start = json.loads(command_start_path.read_text(encoding="utf-8"))
+        if command_start["boot_id"] != metadata["boot_id"]:
+            raise ValueError("CSE command start belongs to a different boot")
+        timestamp = number(command_start["start"])
+        if timestamp < 0:
+            raise ValueError("Invalid CSE command start timestamp")
+        if ready is None or timestamp <= ready:
+            milestones.append({
+                "name": "CSE command start (cse_cmd.sh)",
+                "t": timestamp,
+                "source": "Boot-trace command entry /proc/uptime "
+                          "(10 ms resolution; assumes no suspend)",
+            })
+        else:
+            diagnostics.append("CSE command start occurs after Ready and was omitted.")
+    else:
+        diagnostics.append(
+            "No measured CSE command entry (older capture or failed instrumentation); "
+            "cse_start.sh entry is a later, separate milestone."
+        )
     targeted = {}
     wait_path = bundle / "containerd-waits.json"
     if wait_path.exists():
@@ -273,12 +295,50 @@ def analyze(bundle):
             targeted["cloud_timings"].append(item)
             if item["exit_status"]:
                 diagnostics.append(f"Certificate task {item['task']} exited with status {item['exit_status']}.")
+    cse_task_path = bundle / "cse-task-timings.jsonl"
+    cse_task_names = set()
+    if cse_task_path.exists():
+        cse_task_count = 0
+        for line in cse_task_path.read_text(encoding="utf-8").splitlines():
+            if not line:
+                continue
+            cse_task_count += 1
+            if cse_task_count > 512:
+                raise ValueError("CSE task timings exceed the 512-interval limit")
+            item = json.loads(line)
+            task = item.get("task") if isinstance(item, dict) else None
+            if not isinstance(task, str) or not task.startswith("AKS.CSE.") or len(task) > 256:
+                raise ValueError("Invalid CSE task name")
+            start, end = number(item["start"]), number(item["end"])
+            if end < start:
+                raise ValueError("Invalid CSE task timing interval")
+            if start < 0:
+                diagnostics.append(f"CSE task {task} mapped before the boot origin and was omitted.")
+                continue
             if ready is None or start <= ready:
                 services.append({
-                    "kind": "task", "name": item["task"], "start": start, "end": end,
-                    "source": f"init-aks-cloud.sh /proc/uptime (10 ms resolution; "
-                              f"exit status {item['exit_status']}; assumes no suspend)",
+                    "kind": "cse_task", "name": task, "start": start, "end": end,
+                    "source": "Custom Script event Timestamp/OperationId mapped to monotonic "
+                              "(node-local timestamps, 1 ms resolution; assumes no suspend)",
                 })
+                cse_task_names.add(task)
+        if not cse_task_names:
+            diagnostics.append(
+                "No CSE event task timings were collected; task bars are limited to "
+                "targeted cloud instrumentation."
+            )
+    else:
+        diagnostics.append(
+            "No CSE event task timings were collected; task bars are limited to "
+            "targeted cloud instrumentation."
+        )
+    for item in targeted.get("cloud_timings", []):
+        if item["task"] not in cse_task_names and (ready is None or item["start"] <= ready):
+            services.append({
+                "kind": "task", "name": item["task"], "start": item["start"], "end": item["end"],
+                "source": f"init-aks-cloud.sh /proc/uptime (10 ms resolution; "
+                          f"exit status {item['exit_status']}; assumes no suspend)",
+            })
     if not targeted.get("cloud_timings"):
         diagnostics.append(
             "No targeted cloud certificate timings were collected; "

@@ -19,6 +19,7 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
+	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/samber/lo"
 	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +32,86 @@ const bootTraceMaxBytes int64 = 1024 * 1024 * 1024
 
 var bootTraceBootID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var bootTraceImageVersion = regexp.MustCompile(`(?i)/versions/[0-9]+\.[0-9]+\.[0-9]+$`)
+
+const bootTraceCommandMarker = `(umask 077 &&
+read -r boot_trace_boot < /proc/sys/kernel/random/boot_id &&
+read -r boot_trace_start _ < /proc/uptime &&
+install -d -m 0700 /var/log/aks-node-boot-trace "/var/log/aks-node-boot-trace/$boot_trace_boot" &&
+printf '{"boot_id":"%s","start":%s}\n' "$boot_trace_boot" "$boot_trace_start" > "/var/log/aks-node-boot-trace/$boot_trace_boot/cse-command-start.json") ||
+echo "WARNING: boot-trace could not record CSE command start" >&2;
+`
+
+var cachedCompileAndUploadBootTraceANC = toolkit.Memoize(compileAndUploadBootTraceANC)
+
+func compileAndUploadBootTraceANC(ctx context.Context, arch string) (string, error) {
+	root, err := findRepoRoot()
+	if err != nil {
+		return "", err
+	}
+	directory, err := os.MkdirTemp("", "aks-node-controller-boot-trace-*")
+	if err != nil {
+		return "", fmt.Errorf("create isolated boot-trace ANC build directory: %w", err)
+	}
+	defer os.RemoveAll(directory)
+	if err := os.CopyFS(directory, os.DirFS(filepath.Join(root, "aks-node-controller"))); err != nil {
+		return "", fmt.Errorf("copy ANC for boot-trace instrumentation: %w", err)
+	}
+	if err := instrumentBootTraceANC(directory); err != nil {
+		return "", err
+	}
+	binary, err := compileAKSNodeControllerInDir(ctx, arch, directory)
+	if err != nil {
+		return "", err
+	}
+	defer binary.Close()
+	return uploadAKSNodeController(ctx, binary)
+}
+
+func instrumentBootTraceANC(directory string) error {
+	templatePath := filepath.Join(directory, "parser", "templates", "cse_cmd.sh.gtpl")
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("read boot-trace ANC command template: %w", err)
+	}
+	appPath := filepath.Join(directory, "app.go")
+	app, err := os.ReadFile(appPath)
+	if err != nil {
+		return fmt.Errorf("read boot-trace ANC command runner: %w", err)
+	}
+	const runner = `exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)`
+	if !strings.HasPrefix(string(template), "echo $(date),$(hostname)") ||
+		strings.Contains(string(template), "cse-command-start.json") || strings.Count(string(app), runner) != 1 {
+		return errors.New("unexpected ANC command entry points; refusing boot-trace instrumentation")
+	}
+	// Prefix only this isolated test binary; production templates and binaries stay unchanged.
+	if err := os.WriteFile(templatePath, []byte(bootTraceCommandMarker+string(template)), 0o600); err != nil {
+		return fmt.Errorf("instrument boot-trace ANC template: %w", err)
+	}
+	replacement := fmt.Sprintf(`exec.CommandContext(ctx, "/bin/bash", "-c", %q, "boot-trace-cse", scriptPath)`,
+		bootTraceCommandMarker+`exec /bin/bash -- "$1"`)
+	if err := os.WriteFile(appPath, []byte(strings.Replace(string(app), runner, replacement, 1)), 0o600); err != nil {
+		return fmt.Errorf("instrument boot-trace NBC command runner: %w", err)
+	}
+	return nil
+}
+
+func validateBootTraceCommandStart(bundle, bootID string) error {
+	data, err := os.ReadFile(filepath.Join(bundle, "cse-command-start.json"))
+	if err != nil {
+		return fmt.Errorf("required boot-trace CSE command start marker: %w", err)
+	}
+	var marker struct {
+		BootID string   `json:"boot_id"`
+		Start  *float64 `json:"start"`
+	}
+	if err := json.Unmarshal(data, &marker); err != nil {
+		return fmt.Errorf("parse boot-trace CSE command start marker: %w", err)
+	}
+	if marker.BootID != bootID || marker.Start == nil || *marker.Start < 0 {
+		return errors.New("invalid boot-trace CSE command start marker: boot identity or uptime")
+	}
+	return nil
+}
 
 type bootTraceReady struct {
 	node       *corev1.Node
@@ -201,12 +282,13 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 		"vm_size": s.Runtime.VMSize, "image_name": s.VHD.Name, "image_resource_id": imageID,
 		"node_image_version": imageID,
 		"os_sku":             "Ubuntu", "kubernetes_version": node.Status.NodeInfo.KubeletVersion,
-		"network_plugin":      string(lo.FromPtr(profile.NetworkPlugin)),
-		"network_policy":      string(lo.FromPtr(profile.NetworkPolicy)),
-		"network_dataplane":   string(lo.FromPtr(profile.NetworkDataplane)),
-		"cluster_resource_id": lo.FromPtr(s.Runtime.Cluster.Model.ID),
-		"provisioning":        "AgentBaker E2E VMSS",
-		"ca_update_mode":      "enabled",
+		"network_plugin":              string(lo.FromPtr(profile.NetworkPlugin)),
+		"network_policy":              string(lo.FromPtr(profile.NetworkPolicy)),
+		"network_dataplane":           string(lo.FromPtr(profile.NetworkDataplane)),
+		"cluster_resource_id":         lo.FromPtr(s.Runtime.Cluster.Model.ID),
+		"provisioning":                "AgentBaker E2E VMSS",
+		"ca_update_mode":              "enabled",
+		"cse_command_instrumentation": "test-only ANC build downloaded before command entry",
 	}
 	if s.BootTraceSkipCAUpdate {
 		configuration["ca_update_mode"] = "skip-update-ca-certificates"
@@ -249,6 +331,9 @@ func collectBootTrace(ctx context.Context, s *Scenario, vm *ScenarioVM, imageID 
 		return fmt.Errorf("transfer boot trace: %w", err)
 	}
 	if err := extractBootTraceArchive(archivePath, bundle, bootID, bootTraceMaxBytes); err != nil {
+		return err
+	}
+	if err := validateBootTraceCommandStart(bundle, bootID); err != nil {
 		return err
 	}
 	data, err := os.ReadFile(filepath.Join(bundle, "metadata.json"))
@@ -484,6 +569,7 @@ func extractBootTraceArchive(archivePath, destination, bootID string, maximum in
 		allowed := name == "metadata.json" || name == "services.json" || name == "ftrace.txt" ||
 			name == "trace.dat" || name == "trace-cmd.log" ||
 			name == "containerd-waits.json" || name == "cloud-timings.jsonl" ||
+			name == "cse-task-timings.jsonl" || name == "cse-command-start.json" ||
 			name == "ftrace-stats.json" || name == "journal.jsonl"
 		if !allowed || header.Typeflag != tar.TypeReg ||
 			header.Size < 0 || header.Size > maximum-total {

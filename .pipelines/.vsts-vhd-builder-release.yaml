@@ -43,15 +43,11 @@ parameters:
     type: string
     default: "3.20261105.01"
   - name: buildAzureLinuxV3gen2BootTraceFtrace
-    displayName: Build Azure Linux 3 Gen2 Boot Trace ftrace (image only)
+    displayName: Build Azure Linux 3 Gen2 Boot Trace ftrace
     type: boolean
     default: false
   - name: runBootTraceE2E
     displayName: Run boot trace E2E and comparison report
-    type: boolean
-    default: false
-  - name: bootTraceCAExperiment
-    displayName: "EXPERIMENT: skip update-ca-certificates only on ftrace trial 3 (two controls)"
     type: boolean
     default: false
   - name: buildAzureLinuxV3gen1
@@ -219,12 +215,12 @@ stages:
         - job: validateBootTraceE2E
           steps:
             - bash: |
-                echo "Boot trace E2E requires the ftrace image build and SKIP_E2E_TESTS=false" >&2
+                echo "Boot trace E2E runs the full 21-test matrix and requires SKIP_E2E_TESTS=false" >&2
                 exit 1
-              condition: or(ne('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', 'True'), eq(variables.SKIP_E2E_TESTS, 'true'))
+              condition: eq(variables.SKIP_E2E_TESTS, 'true')
               displayName: Validate boot trace E2E selection
       - job: build2604minimalgen2containerd_ftrace
-        condition: and(succeeded(), eq('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', true))
+        condition: and(succeeded(), or(eq('${{ parameters.build2604minimalgen2containerdBootTraceFtrace }}', true), eq('${{ parameters.runBootTraceE2E }}', true)))
         ${{ if parameters.runBootTraceE2E }}:
           dependsOn: validateBootTraceE2E
         ${{ else }}:
@@ -263,8 +259,11 @@ stages:
             parameters:
               artifactName: 2604-minimal-gen2-boot-trace-ftrace
       - job: buildAzureLinuxV3gen2_ftrace
-        condition: and(succeeded(), eq('${{ parameters.buildAzureLinuxV3gen2BootTraceFtrace }}', true))
-        dependsOn: []
+        condition: and(succeeded(), or(eq('${{ parameters.buildAzureLinuxV3gen2BootTraceFtrace }}', true), eq('${{ parameters.runBootTraceE2E }}', true)))
+        ${{ if parameters.runBootTraceE2E }}:
+          dependsOn: validateBootTraceE2E
+        ${{ else }}:
+          dependsOn: []
         timeoutInMinutes: 360
         variables:
           OS_SKU: AzureLinux
@@ -1285,9 +1284,7 @@ stages:
       variables:
         VHD_BUILD_ID: $(Build.BuildId)
         E2E_BOOT_TRACE: "true"
-        E2E_BOOT_TRACE_CA_EXPERIMENT: ${{ parameters.bootTraceCAExperiment }}
-        E2E_PARALLEL: 4
-        TAGS_TO_RUN: Name=Ubuntu2604Minimal_BootTrace_ftrace,Name=Ubuntu2604Minimal_BootTrace_ftrace_2,Name=Ubuntu2604Minimal_BootTrace_ftrace_3
+        E2E_PARALLEL: 7
         TAGS_TO_SKIP: ""
         DISABLE_SCRIPTLESS_COMPILATION: true
       jobs:
@@ -1296,16 +1293,23 @@ stages:
             IgnoreScenariosWithMissingVhd: false
             useVhdMetadataArtifacts: true
             failedTestsRetryCount: 0
+            bootTraceMatrix: true
+            jobTimeoutInMinutes: 210
 
     - stage: bootTraceReport
       dependsOn: bootTraceE2E
+      condition: and(not(canceled()), in(dependencies.bootTraceE2E.result, 'Succeeded', 'SucceededWithIssues', 'Failed'))
       jobs:
         - job: compare
           steps:
             - task: DownloadPipelineArtifact@2
               inputs:
                 buildType: current
-                patterns: "**/boot-trace/**"
+                patterns: |
+                  **/boot-trace/**
+                  boot-trace-matrix-inputs/fixture.json
+                  boot-trace-matrix-inputs/init-*.sh
+                  boot-trace-matrix-inputs/junit.xml
                 targetPath: $(Pipeline.Workspace)/boot-trace-inputs
             - bash: |
                 set -euo pipefail
@@ -1321,13 +1325,16 @@ stages:
                     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
                       python3 trace-cmd=3.3.3-1ubuntu2
                     status=0
-                    python3 -B /tool/render_e2e.py /inputs \
+                    python3 -B /tool/render_matrix.py /inputs \
+                      --fixtures /inputs/boot-trace-matrix-inputs \
+                      --run-id "$(Build.BuildId)" \
                       --output /outputs/boot-trace-report || status=$?
                     if [ -d /outputs/boot-trace-report ]; then
                       chown -R "$REPORT_UID:$REPORT_GID" /outputs/boot-trace-report
                     fi
                     exit "$status"
                   '
-              displayName: Render boot trace trial comparison
+              displayName: Render complete 21-capture boot trace report
             - publish: $(Build.ArtifactStagingDirectory)/boot-trace-report
               artifact: boot-trace-report
+              condition: succeededOrFailed()

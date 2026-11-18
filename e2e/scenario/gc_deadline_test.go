@@ -209,7 +209,8 @@ func TestCachedADOResourceGroupSetupRenewsBothDeadlines(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		cfg := &config.Configuration{InADO: true, SuiteTimeout: 47 * time.Minute}
 		expired := "1999-12-31T00:00:00Z"
-		tags := map[string]string{"abe2e-westus3": expired, "unused-node-rg": expired}
+		parentResourceGroup := config.ResourceGroupName("westus3")
+		tags := map[string]string{parentResourceGroup: expired, "unused-node-rg": expired}
 		reads := map[string]int{}
 		writes := map[string]int{}
 		azure := gcTestAzure(t, func(req *http.Request) *http.Response {
@@ -245,9 +246,9 @@ func TestCachedADOResourceGroupSetupRenewsBothDeadlines(t *testing.T) {
 			require.NoError(t, err)
 			_, err = prepareCluster(ctx, "actual-node-rg")
 			require.NoError(t, err)
-			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, reads)
-			require.Equal(t, map[string]int{"abe2e-westus3": 1, "actual-node-rg": 1}, writes)
-			require.Equal(t, map[string]string{"abe2e-westus3": due, "actual-node-rg": due, "unused-node-rg": expired}, tags)
+			require.Equal(t, map[string]int{parentResourceGroup: 1, "actual-node-rg": 1}, reads)
+			require.Equal(t, map[string]int{parentResourceGroup: 1, "actual-node-rg": 1}, writes)
+			require.Equal(t, map[string]string{parentResourceGroup: due, "actual-node-rg": due, "unused-node-rg": expired}, tags)
 			time.Sleep(time.Hour)
 		}
 	})

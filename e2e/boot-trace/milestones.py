@@ -6,9 +6,9 @@ import re
 
 NAMES = {
     "KernelStartTime": "Kernel start (CSE-reported)",
-    "GuestAgentStartTime": "Azure Guest Agent start",
-    "CSEStartTime": "AKS CSE start",
-    "KubeletStartTime": "Kubelet start",
+    "GuestAgentStartTime": "walinuxagent.service process start (Azure Guest Agent)",
+    "CSEStartTime": "cse_start.sh entry (not first AKS.CSE task)",
+    "KubeletStartTime": "kubelet.service process start",
 }
 
 

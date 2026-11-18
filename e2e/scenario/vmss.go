@@ -544,7 +544,20 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 
 	cse = nodeBootstrapping.CSE
 	customData = nodeBootstrapping.CustomData
-	if s.Config.ANCHotfixFlowFixture {
+	if s.BootTraceBackend != "" {
+		if !scriptlessProvisioningEnabled || s.Config.ANCHotfixFlowFixture || s.Config.ScriptHotfixFixture != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("boot-trace command instrumentation requires scriptless provisioning without ANC hotfix fixtures")
+		}
+		logging.Logf(ctx, "boot tracing builds a test-only ANC with CSE command entry timing (including when normal scriptless compilation is disabled)")
+		binaryURL, err := cachedCompileAndUploadBootTraceANC(ctx, s.VHD.Arch)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("compile instrumented boot-trace ANC: %w", err)
+		}
+		customData, err = CustomDataWithNBCCmdHack(customData, binaryURL)
+		if err != nil {
+			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject instrumented boot-trace ANC: %w", err)
+		}
+	} else if s.Config.ANCHotfixFlowFixture {
 		if !enableScriptlessCompilation(s) {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf(
 				"ANC hotfix flow fixture requires scriptless ANC compilation",
@@ -593,7 +606,14 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		}
 	}
 	if len(s.Config.CustomDataWriteFiles) > 0 {
-		customData, err = injectWriteFilesEntriesToCustomData(customData, s.Config.CustomDataWriteFiles)
+		entries := s.Config.CustomDataWriteFiles
+		if s.BootTraceExperiment != nil {
+			entries, err = bootTraceMatrixWriteFiles(ctx, s)
+			if err != nil {
+				return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("prepare boot-trace matrix fixtures: %w", err)
+			}
+		}
+		customData, err = injectWriteFilesEntriesToCustomData(customData, entries)
 		if err != nil {
 			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("inject customData write_files entries: %w", err)
 		}

@@ -1,7 +1,16 @@
 """Bounded boot diagnostics; never read workload file contents."""
 
 import argparse
+import datetime
+import json
+import math
 from pathlib import Path
+
+
+CSE_EVENTS = Path("/var/log/azure/Microsoft.Azure.Extensions.CustomScript/events")
+MAX_CSE_EVENT_FILES = 2048
+MAX_CSE_EVENT_FILE_BYTES = 16 * 1024
+MAX_CSE_TASKS = 512
 
 
 def instrument_cloud(path):
@@ -74,6 +83,96 @@ function install_certs_to_trust_store {""", 1)
     esac
 """ + end)
     path.write_text(text)
+
+
+class CseTaskSampler:
+    """Retain bounded CSE task names and intervals, never event messages."""
+
+    def __init__(self, warnings, realtime_origin, directory=CSE_EVENTS):
+        self.warnings = warnings
+        self.realtime_origin = realtime_origin
+        self.directory = directory
+        self.processed = set()
+        self.read_failures = {}
+        self.tasks = []
+        self.reported = set()
+
+    def warn(self, message):
+        if message not in self.reported:
+            self.reported.add(message)
+            self.warnings.append(message)
+
+    def timestamp(self, value):
+        if not isinstance(value, str):
+            raise ValueError("CSE event timestamp is not a string")
+        try:
+            return datetime.datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+        except ValueError as error:
+            raise ValueError("CSE event timestamp is invalid") from error
+
+    def sample(self):
+        try:
+            paths = sorted(self.directory.glob("*.json"))
+        except OSError:
+            self.warn("CSE event files are not readable.")
+            return
+        pending = [path for path in paths if path.name not in self.processed]
+        if len(self.processed) >= MAX_CSE_EVENT_FILES:
+            if pending:
+                self.warn(f"CSE event sampling was limited to {MAX_CSE_EVENT_FILES} files.")
+            return
+        if len(pending) + len(self.processed) > MAX_CSE_EVENT_FILES:
+            pending = pending[:MAX_CSE_EVENT_FILES - len(self.processed)]
+            self.warn(f"CSE event sampling was limited to {MAX_CSE_EVENT_FILES} files.")
+        for path in pending:
+            try:
+                size = path.stat().st_size
+                if size > MAX_CSE_EVENT_FILE_BYTES:
+                    self.processed.add(path.name)
+                    self.warn(
+                        f"CSE event file {path.name} exceeded the "
+                        f"{MAX_CSE_EVENT_FILE_BYTES}-byte limit."
+                    )
+                    continue
+                event = json.loads(path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                self.read_failures[path.name] = self.read_failures.get(path.name, 0) + 1
+                if self.read_failures[path.name] >= 3:
+                    self.processed.add(path.name)
+                    self.warn(f"CSE event file {path.name} could not be parsed.")
+                continue
+            except (OSError, UnicodeDecodeError):
+                self.read_failures[path.name] = self.read_failures.get(path.name, 0) + 1
+                if self.read_failures[path.name] >= 3:
+                    self.processed.add(path.name)
+                    self.warn(f"CSE event file {path.name} could not be read.")
+                continue
+
+            self.processed.add(path.name)
+            if not isinstance(event, dict):
+                continue
+            task = event.get("TaskName")
+            if not isinstance(task, str) or not task.startswith("AKS.CSE."):
+                continue
+            if len(task) > 256:
+                self.warn(f"CSE task name in {path.name} exceeded the 256-character limit.")
+                continue
+            if len(self.tasks) >= MAX_CSE_TASKS:
+                self.warn(f"CSE task sampling was limited to {MAX_CSE_TASKS} intervals.")
+                return
+            try:
+                start = self.timestamp(event.get("Timestamp")) - self.realtime_origin
+                end = self.timestamp(event.get("OperationId")) - self.realtime_origin
+            except (OverflowError, OSError, ValueError):
+                self.warn(f"CSE task timestamps in {path.name} are invalid.")
+                continue
+            if not math.isfinite(start) or not math.isfinite(end) or end < start:
+                self.warn(f"CSE task interval in {path.name} is invalid.")
+                continue
+            self.tasks.append({"task": task, "start": start, "end": end})
+
+    def result(self):
+        return sorted(self.tasks, key=lambda task: (task["start"], task["task"]))
 
 
 class ContainerdWaitSampler:

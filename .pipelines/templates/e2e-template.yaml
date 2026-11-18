@@ -30,6 +30,10 @@ parameters:
     type: boolean
     displayName: Resolve VHDs from metadata artifacts produced by this pipeline
     default: false
+  - name: bootTraceMatrix
+    type: boolean
+    displayName: Run all 21 boot-trace CA matrix scenarios in three balanced waves
+    default: false
   - name: rcv1pTagsAutoInjected
     type: boolean
     displayName: |
@@ -109,6 +113,31 @@ jobs:
             echo "##vso[task.setvariable variable=E2E_VHD_METADATA_FILE]$metadata_file"
           displayName: Merge E2E VHD metadata
 
+      - ${{ if parameters.bootTraceMatrix }}:
+        - bash: |
+            set -euo pipefail
+            target="$(Pipeline.Workspace)/boot-trace-rust"
+            mkdir -p "$target"
+            docker run --rm --user "$(id -u):$(id -g)" \
+              -e CARGO_HOME=/tmp/cargo -e CARGO_TARGET_DIR=/target \
+              -e 'RUSTFLAGS=-C target-feature=+crt-static --remap-path-prefix=/src=.' \
+              -v "$(Build.SourcesDirectory)/e2e/boot-trace/update-ca-certificates-rs:/src:ro" \
+              -v "$target:/target" rust:1.85.1-bookworm@sha256:e51d0265072d2d9d5d320f6a44dde6b9ef13653b035098febd68cce8fa7c0bc4 \
+              cargo build --manifest-path /src/Cargo.toml --release --frozen --offline \
+                --target x86_64-unknown-linux-gnu
+            python3 -B e2e/boot-trace/prepare_matrix.py \
+              --binary "$target/x86_64-unknown-linux-gnu/release/update-ca-certificates-rs" \
+              --metadata "$(E2E_VHD_METADATA_FILE)" \
+              --output "$(Pipeline.Workspace)/boot-trace-matrix"
+            python3 - <<'PY'
+            import json
+            from pathlib import Path
+            manifest = json.loads(Path("$(Pipeline.Workspace)/boot-trace-matrix/fixture.json").read_text())
+            print("##vso[task.setvariable variable=BOOT_TRACE_MATRIX_TAGS]" +
+                  ",".join("Name=" + name for name in manifest["scenario_names"]))
+            PY
+          displayName: Build and verify versioned inputs for all 21 boot-trace tests
+
       - template: ./.acl-base-image-signed-vars.yaml
         parameters:
           ACL_BASE_IMAGE_SOURCE: ${{ parameters.ACL_BASE_IMAGE_SOURCE }}
@@ -138,6 +167,32 @@ jobs:
             E2E_VHD_METADATA_FILE: $(E2E_VHD_METADATA_FILE)
           COSI_ARTIFACTS_DIR: $(COSI_ARTIFACTS_DIR)
           ACL_BASE_IMAGE_SIGNED: $(ACL_BASE_IMAGE_SIGNED)
+          ${{ if parameters.bootTraceMatrix }}:
+            E2E_BOOT_TRACE: "true"
+            E2E_BOOT_TRACE_MATRIX_DIR: $(Pipeline.Workspace)/boot-trace-matrix
+            E2E_BOOT_TRACE_WAVES: "true"
+            E2E_PARALLEL: "7"
+            E2E_GO_TEST_TIMEOUT: "180m"
+            E2E_RESOURCE_GROUP_PREFIX: abe2e-ca-$(Build.BuildId)-$(System.JobAttempt)
+            BLOB_STORAGE_ACCOUNT_PREFIX: bt$(Build.BuildId)$(System.JobAttempt)
+            DEFAULT_VM_SKU: Standard_D2ds_v5
+            TAGS_TO_RUN: $(BOOT_TRACE_MATRIX_TAGS)
+            TAGS_TO_SKIP: ""
+
+      - ${{ if parameters.bootTraceMatrix }}:
+        - bash: |
+            set -euo pipefail
+            if [ -f "$(Build.SourcesDirectory)/e2e/report.xml" ]; then
+              cp "$(Build.SourcesDirectory)/e2e/report.xml" "$(Pipeline.Workspace)/boot-trace-matrix/junit.xml"
+            else
+              echo "##vso[task.logissue type=warning]No JUnit results: the boot-trace runner did not complete"
+            fi
+          displayName: Retain matrix inputs and test outcomes
+          condition: succeededOrFailed()
+        - publish: $(Pipeline.Workspace)/boot-trace-matrix
+          artifact: boot-trace-matrix-inputs
+          displayName: Publish reproducible matrix inputs
+          condition: succeededOrFailed()
 
       - task: PublishTestResults@2
         displayName: Upload test results

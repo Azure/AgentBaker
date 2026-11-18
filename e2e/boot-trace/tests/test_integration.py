@@ -232,7 +232,7 @@ class E2EReportTests(unittest.TestCase):
             render(self.root, output)
         result = json.loads((output / "ftrace/report.json").read_text())
         self.assertEqual(result["milestones"][0]["t"], 1.5)
-        self.assertIn("Kubelet", result["milestones"][0]["name"])
+        self.assertEqual("kubelet.service process start", result["milestones"][0]["name"])
         self.assertEqual(len(result["milestones"]), 1)
         self.assertTrue(any("before boot and was excluded" in item for item in result["warnings"]))
         self.assertTrue((output / "comparison.html").is_file())

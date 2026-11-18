@@ -1,6 +1,7 @@
 """Synthetic, offline tests. No Azure, SSH, tracing, installs or image builds."""
 
 import argparse
+import datetime
 import io
 import json
 from pathlib import Path
@@ -73,6 +74,45 @@ class AnalysisTests(unittest.TestCase):
         self.assertAlmostEqual(thread["runnable_seconds"], 0.1)
         self.assertEqual(result["ready_seconds"], 2)
 
+    def test_command_start_is_a_distinct_rendered_milestone(self):
+        self.write("cse-command-start.json", {"boot_id": BOOT, "start": 0.75})
+        self.write("milestones.json", [
+            {"name": "cse_start.sh entry", "boot_seconds": 1.5, "source": "synthetic"},
+        ])
+        result = analyze(self.bundle)
+        milestone = next(item for item in result["milestones"]
+                         if item["name"] == "CSE command start (cse_cmd.sh)")
+        self.assertEqual(milestone["t"], 0.75)
+        self.assertIn("10 ms", milestone["source"])
+        self.assertTrue(any(item["name"] == "cse_start.sh entry"
+                            for item in result["milestones"]))
+        output = self.root / "command-start.html"
+        write_html(output, [result], ["command start"])
+        self.assertIn("CSE command start (cse_cmd.sh)", output.read_text())
+
+    def test_command_start_rejects_wrong_boot_and_invalid_time(self):
+        for marker in [
+            {"boot_id": "other", "start": 0.75},
+            {"boot_id": BOOT, "start": -1},
+            {"boot_id": BOOT, "start": float("nan")},
+        ]:
+            with self.subTest(marker=marker):
+                self.write("cse-command-start.json", marker)
+                with self.assertRaises(ValueError):
+                    analyze(self.bundle)
+
+    def test_command_start_omits_after_ready_and_does_not_invent_older_marker(self):
+        result = analyze(self.bundle)
+        self.assertFalse(any(item["name"] == "CSE command start (cse_cmd.sh)"
+                             for item in result["milestones"]))
+        self.assertTrue(any("No measured CSE command entry" in item
+                            for item in result["warnings"]))
+        self.write("cse-command-start.json", {"boot_id": BOOT, "start": 2.1})
+        result = analyze(self.bundle)
+        self.assertFalse(any(item["name"] == "CSE command start (cse_cmd.sh)"
+                             for item in result["milestones"]))
+        self.assertTrue(any("after Ready" in item for item in result["warnings"]))
+
     def test_running_interval_is_clipped_to_ready_not_last_pre_ready_event(self):
         (self.bundle / "ftrace.txt").write_text(event(1, 0, 42) + event(2.2, 42, 0))
         thread = next(row for row in analyze(self.bundle)["threads"] if row["tid"] == 42)
@@ -117,6 +157,35 @@ class AnalysisTests(unittest.TestCase):
         output = self.root / "diagnostics.html"
         write_html(output, [result], ["targeted"])
         self.assertIn("io_schedule", output.read_text())
+
+    def test_cse_tasks_are_retained_and_do_not_duplicate_targeted_timings(self):
+        (self.bundle / "cloud-timings.jsonl").write_text(json.dumps({
+            "task": "AKS.CSE.setup", "start": 1.1, "end": 1.7, "exit_status": 0,
+        }) + "\n")
+        (self.bundle / "cse-task-timings.jsonl").write_text(
+            json.dumps({"task": "AKS.CSE.setup", "start": 1.05, "end": 1.8}) + "\n"
+            + json.dumps({"task": "AKS.CSE.network", "start": 0.8, "end": 1.0}) + "\n"
+        )
+        result = analyze(self.bundle)
+        tasks = [item for item in result["services"] if item["kind"] == "cse_task"]
+        self.assertEqual([task["name"] for task in tasks], ["AKS.CSE.network", "AKS.CSE.setup"])
+        self.assertEqual(
+            sum(item["name"] == "AKS.CSE.setup" for item in result["services"]), 1,
+        )
+        self.assertEqual(len(result["targeted_diagnostics"]["cloud_timings"]), 1)
+        output = self.root / "cse-tasks.html"
+        write_html(output, [result], ["CSE tasks"])
+        page = output.read_text()
+        self.assertIn("AKS.CSE.network", page)
+        self.assertIn("#f9e2af", page)
+        self.assertIn("CSE task visibility", page)
+
+    def test_invalid_cse_task_timing_is_rejected(self):
+        (self.bundle / "cse-task-timings.jsonl").write_text(
+            '{"task":"AKS.CSE.setup","start":2,"end":1}\n'
+        )
+        with self.assertRaisesRegex(ValueError, "Invalid CSE task timing"):
+            analyze(self.bundle)
 
     def test_invalid_cloud_timing_is_rejected(self):
         (self.bundle / "cloud-timings.jsonl").write_text(
@@ -343,8 +412,16 @@ class AnalysisTests(unittest.TestCase):
         write_html(output, [analyze(self.bundle)], ["Capture"])
         text = output.read_text()
         self.assertIn('id="service-filter-list"', text)
+        self.assertIn('id="filter" rows="2"', text)
+        self.assertIn("one regex per line, OR", text)
+        self.assertIn('id="process-filter-error"', text)
+        self.assertIn('id="show-network" type="checkbox" checked', text)
+        self.assertIn('id="show-block-io" type="checkbox" checked', text)
         self.assertIn('id="show-services"', text)
         self.assertIn('id="hide-services"', text)
+        self.assertIn('id="cse-task-filter-list"', text)
+        self.assertIn('id="show-cse-tasks"', text)
+        self.assertIn('id="hide-cse-tasks"', text)
         self.assertIn('id="timeline-service-labels"', text)
         self.assertIn('id="timeline-scroll"', text)
         self.assertIn('id="timeline-spacer"', text)
@@ -372,12 +449,165 @@ class AnalysisTests(unittest.TestCase):
         self.assertIn("user-select:text", text)
         self.assertIn("active interval", text)
 
+    @unittest.skipUnless(shutil.which("node"), "timeline layer visibility needs Node.js")
+    def test_timeline_layer_visibility_keeps_rows_contiguous(self):
+        output = self.root / "report.html"
+        write_html(output, [analyze(self.bundle)], ["Capture"])
+        subprocess.run(["node", "-e", r"""
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync(process.argv[1],"utf8");
+const start=page.indexOf("function timelineRowLayout");
+const end=page.indexOf("function compileThreadFilter",start);
+assert.ok(start>=0&&end>start);
+const context={};
+vm.createContext(context);
+vm.runInContext(page.slice(start,end),context);
+let layout=context.timelineRowLayout(3,true,true);
+assert.equal(layout.blockIOIndex,3);
+assert.equal(layout.networkStart,4);
+assert.equal(layout.threadStart,6);
+layout=context.timelineRowLayout(3,false,true);
+assert.equal(layout.blockIOIndex,3);
+assert.equal(layout.threadStart,4);
+layout=context.timelineRowLayout(3,true,false);
+assert.equal(layout.blockIOIndex,null);
+assert.equal(layout.networkStart,3);
+assert.equal(layout.threadStart,5);
+layout=context.timelineRowLayout(3,false,false);
+assert.equal(layout.threadStart,3);
+""", str(output)], check=True, capture_output=True, text=True)
+
+    @unittest.skipUnless(shutil.which("node"), "timeline thread ordering needs Node.js")
+    def test_timeline_thread_ordering_by_cpu_or_first_observation(self):
+        output = self.root / "report.html"
+        write_html(output, [analyze(self.bundle)], ["Capture"])
+        subprocess.run(["node", "-e", r"""
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync(process.argv[1],"utf8");
+assert.match(page, /<select id="thread-order">/);
+assert.match(page, /compareTimelineThreads\(a,b,\$\("thread-order"\)\.value\)/);
+assert.match(page, /\$\("thread-order"\)\.addEventListener\("change",draw\)/);
+const start=page.indexOf("function compareTimelineThreads");
+const end=page.indexOf("function renderServiceFilter",start);
+assert.ok(start>=0&&end>start);
+const context={};
+vm.createContext(context);
+vm.runInContext(page.slice(start,end),context);
+const threads=[
+ {comm:"late",first:8,cpu_seconds:4},
+ {comm:"early",first:0,cpu_seconds:1},
+ {comm:"unknown",first:null,cpu_seconds:null},
+ {comm:"middle",first:3,cpu_seconds:2},
+];
+const ordered=mode=>threads.slice().sort((a,b)=>context.compareTimelineThreads(a,b,mode)).map(t=>t.comm);
+assert.deepEqual(ordered("cpu"),["late","middle","early","unknown"]);
+assert.deepEqual(ordered("first"),["early","middle","late","unknown"]);
+""", str(output)], check=True, capture_output=True, text=True)
+
+    @unittest.skipUnless(shutil.which("node"), "process regex filtering needs Node.js")
+    def test_process_filter_ors_case_insensitive_regexes_and_reports_invalid_regex(self):
+        output = self.root / "report.html"
+        write_html(output, [analyze(self.bundle)], ["Capture"])
+        subprocess.run(["node", "-e", r"""
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync(process.argv[1],"utf8");
+const start=page.indexOf("function compileThreadFilter");
+const end=page.indexOf("function serviceUnits",start);
+assert.ok(start>=0&&end>start);
+const context={};
+vm.createContext(context);
+vm.runInContext(page.slice(start,end),context);
+const compiled=context.compileThreadFilter("aks-node-controller.*\nkubelet");
+assert.equal(compiled.error,"");
+assert.equal(compiled.regexes.length,2);
+assert.equal(context.threadMatchesFilter(
+ {comm:"AKS-NODE-CONTROLLER",tid:42,generation:1},compiled.regexes
+),true);
+assert.equal(context.threadMatchesFilter(
+ {comm:"kubelet",tid:43,generation:1},compiled.regexes
+),true);
+assert.equal(context.threadMatchesFilter(
+ {comm:"containerd",tid:44,generation:1},compiled.regexes
+),false);
+const empty=context.compileThreadFilter(" \n ");
+assert.equal(empty.error,"");
+assert.equal(empty.regexes.length,0);
+const invalid=context.compileThreadFilter("[");
+assert.equal(invalid.regexes,null);
+assert.match(invalid.error,/Invalid regex/);
+""", str(output)], check=True, capture_output=True, text=True)
+
+    @unittest.skipUnless(shutil.which("node"), "CSE task checkbox filtering needs Node.js")
+    def test_cse_task_visibility_filter_is_independent_from_services(self):
+        output = self.root / "report.html"
+        write_html(output, [analyze(self.bundle)], ["Capture"])
+        subprocess.run(["node", "-e", r"""
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync(process.argv[1],"utf8");
+const start=page.indexOf("function serviceUnits");
+const end=page.indexOf("function overlapsRange",start);
+assert.ok(start>=0&&end>start);
+const context={hiddenServices:new Set(),hiddenCseTasks:new Set()};
+vm.createContext(context);
+vm.runInContext(page.slice(start,end),context);
+const capture={services:[
+ {kind:"unit",name:"containerd.service"},
+ {kind:"cse_task",name:"AKS.CSE.setup"},
+ {kind:"task",name:"AKS.CSE.certs"},
+]};
+assert.equal(context.cseTasks(capture).length,2);
+context.hiddenCseTasks.add("AKS.CSE.setup");
+assert.deepEqual(
+ Array.from(context.visibleServices(capture),service=>service.name),
+ ["containerd.service","AKS.CSE.certs"]
+);
+context.hiddenServices.add("containerd.service");
+assert.deepEqual(
+ Array.from(context.visibleServices(capture),service=>service.name),
+ ["AKS.CSE.certs"]
+);
+""", str(output)], check=True, capture_output=True, text=True)
+
     def test_cli_writes_html_and_json(self):
         output = self.root / "report"
         with patch("sys.stdout", new_callable=io.StringIO):
             self.assertEqual(main(["report", str(self.bundle), "--output", str(output)]), 0)
         self.assertTrue((output / "report.html").is_file())
         self.assertEqual(json.loads((output / "report.json").read_text())["ready_seconds"], 2)
+
+    @unittest.skipUnless(shutil.which("node"), "timeline resize behavior needs Node.js")
+    def test_timeline_height_can_exceed_viewport_and_survives_viewport_resize(self):
+        output = self.root / "report.html"
+        write_html(output, [analyze(self.bundle)], ["Capture"])
+        subprocess.run(["node", "-e", r"""
+const assert=require("node:assert/strict"),fs=require("node:fs"),vm=require("node:vm");
+const page=fs.readFileSync(process.argv[1],"utf8");
+const script=page.slice(page.indexOf("const resizeHandle="),page.indexOf("if(data.show_comparison"));
+const listeners=new Map(),attributes=new Map();
+const scroll={style:{},get clientHeight(){return parseFloat(this.style.height||"680")-1;}};
+const handle={
+ setAttribute:(name,value)=>attributes.set(name,value),
+ addEventListener:(name,callback)=>listeners.set(name,callback)
+};
+const context={
+ $:id=>id==="timeline-scroll"?scroll:handle,
+ window:{innerHeight:900,addEventListener:(name,callback)=>listeners.set("window:"+name,callback)},
+ draw:()=>{}
+};
+vm.createContext(context);
+vm.runInContext(script,context);
+vm.runInContext("setTimelineHeight(2400)",context);
+assert.equal(scroll.style.height,"2400px");
+assert.ok(Number(attributes.get("aria-valuemax"))>=scroll.clientHeight);
+context.window.innerHeight=500;
+listeners.get("window:resize")();
+listeners.get("window:resize")();
+assert.equal(scroll.style.height,"2400px");
+listeners.get("keydown")({key:"ArrowDown",preventDefault(){}});
+assert.ok(parseFloat(scroll.style.height)>2400);
+vm.runInContext("setTimelineHeight(100)",context);
+assert.equal(scroll.style.height,"220px");
+""", str(output)], check=True, capture_output=True, text=True)
 
     @unittest.skipUnless(shutil.which("trace-cmd"), "binary import needs trace-cmd")
     def test_real_binary_trace_preserves_early_events_and_merges_cpus(self):
@@ -660,6 +890,8 @@ class RecorderTests(unittest.TestCase):
                     backend="ftrace", max_seconds=600, max_mib=16,
                     image_label="test", include_journal=False,
                 )
+                cse_sampler = Mock()
+                cse_sampler.result.return_value = []
                 with (
                     patch.object(capture, "ROOT", root / "captures"),
                     patch.object(capture, "TRACEFS", tracefs),
@@ -669,6 +901,7 @@ class RecorderTests(unittest.TestCase):
                     patch.dict(capture.os.environ, {}, clear=True),
                     patch.object(capture, "start_ftrace", return_value=process),
                     patch.object(capture, "wait_ftrace_ready"),
+                    patch.object(capture, "CseTaskSampler", return_value=cse_sampler),
                     patch.object(capture, "disk_size", return_value=16 * 1024 * 1024),
                     patch.object(capture, "stop_ftrace", side_effect=stop) as stopped,
                     patch.object(capture, "systemd_services", return_value=[]),
@@ -688,6 +921,7 @@ class RecorderTests(unittest.TestCase):
                 self.assertEqual(metadata["status"], "failed" if exited else "stopped")
                 self.assertIn("finalized_at", metadata)
                 self.assertEqual((destination / "cloud-timings.jsonl").read_text(), early_timing)
+                self.assertEqual((destination / "cse-task-timings.jsonl").read_text(), "")
                 self.assertFalse((destination / "ftrace.txt").exists())
 
     def test_native_recorder_preserves_boot_configuration_and_identifies_itself(self):
@@ -780,6 +1014,33 @@ class RecorderTests(unittest.TestCase):
 
 
 class TargetedDiagnosticsTests(unittest.TestCase):
+    def test_cse_sampler_exports_only_task_names_and_monotonic_intervals(self):
+        with tempfile.TemporaryDirectory() as directory:
+            events = Path(directory)
+            task_start = "1970-01-01 00:16:50.250"
+            (events / "123.json").write_text(json.dumps({
+                "Timestamp": task_start,
+                "OperationId": "1970-01-01 00:16:52.500",
+                "TaskName": "AKS.CSE.setup",
+                "Message": "PRIVATE_ARGUMENT_SENTINEL",
+            }))
+            (events / "456.json").write_text(json.dumps({
+                "Timestamp": task_start,
+                "OperationId": "1970-01-01 00:16:52.500",
+                "TaskName": "Microsoft.Azure.Extensions.CustomScript",
+                "Message": "not a CSE task",
+            }))
+            warnings = []
+            realtime_origin = datetime.datetime.fromisoformat(task_start).timestamp() - 10.25
+            sampler = diagnostics.CseTaskSampler(warnings, realtime_origin, events)
+            sampler.sample()
+            sampler.sample()
+            self.assertEqual(sampler.result(), [{
+                "task": "AKS.CSE.setup", "start": 10.25, "end": 12.5,
+            }])
+            self.assertEqual(warnings, [])
+            self.assertNotIn("PRIVATE_ARGUMENT_SENTINEL", json.dumps(sampler.result()))
+
     def test_ca_update_experiment_is_explicit_and_preserves_real_update_failure(self):
         original = Path(__file__).resolve().parents[3] / "parts/linux/cloud-init/artifacts/init-aks-cloud.sh"
         for mode, expected_status, expected_task in (

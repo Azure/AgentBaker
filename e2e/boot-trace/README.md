@@ -40,9 +40,12 @@ Keep `build2604minimalgen2containerdBootTraceFtrace` enabled and enable
 `runBootTraceE2E` for tracing E2E and the comparison report, and ensure
 `SKIP_E2E_TESTS` is not `true`.
 `useOverrides=false` does not require an aks-rp branch.
-This runs three fresh-node ftrace captures concurrently. Parallel captures
-are useful for spotting recurring patterns, but shared-cluster load can affect
-timings; they are not a statistical performance verdict.
+This automatically builds both tracing VHDs and runs the complete **21-capture
+Ubuntu/Azure Linux CA matrix**, in three successive waves of seven fresh nodes.
+The individual tracing-image checkboxes can stay disabled when this option is
+selected; both required images are selected automatically. Parallel captures
+help spot recurring patterns, but shared-cluster load can affect timings;
+they are not a statistical performance verdict.
 This selects the tracing E2E stage instead of the regular Linux E2E stage.
 Without that option, the regular E2E stage still follows its normal setting;
 set `SKIP_E2E_TESTS=true` if only building images.
@@ -94,14 +97,30 @@ therefore installs the three pinned Ubuntu 26.10 packages above from the officia
 Ubuntu archive after SHA-512 verification, with remaining dependencies resolved
 from Ubuntu 26.04. It does not add another APT repository or change the kernel.
 
-`runBootTraceE2E` defaults to **false**. If explicitly enabled in a pipeline run,
-the E2E stage selects `Ubuntu2604Minimal_BootTrace_ftrace`,
-`Ubuntu2604Minimal_BootTrace_ftrace_2`, and
-`Ubuntu2604Minimal_BootTrace_ftrace_3`. All selected captures run concurrently and
-scenario retries are disabled. Separate scenarios are necessary because each
-capture needs its own fresh VM. They are skipped in ordinary suites unless
+`runBootTraceE2E` defaults to **false**. Enabling **Run boot trace E2E and
+comparison report** runs five Ubuntu variants (original, skipped CA update,
+Rust, parallel retrieval, parallel retrieval plus Rust) and two Azure Linux
+variants (original and parallel retrieval), repeated three times.
+Concurrency is seven, waves are balanced, and scenario retries are disabled.
+Separate scenarios are necessary because each capture needs its own fresh VM.
+They are skipped in ordinary suites unless
 `E2E_BOOT_TRACE=true` and exact VHD metadata are provided; they are excluded
 from automatic NBC sampling and do not support PIS/VHD caching.
+
+Boot-trace E2E runs build an isolated, test-only ANC binary that records
+`CSE command start (cse_cmd.sh)` before certificate initialization. This also
+applies when `--disable-scriptless-compilation` disables ordinary ANC builds.
+Both AKSNodeConfig and NBC-command entry points are instrumented; normal
+production templates and binaries are unchanged. These captures require
+scriptless provisioning without ANC hotfix fixtures.
+Building happens before VM creation; downloading the test binary adds boot
+overhead before command entry and is recorded in the capture configuration.
+The marker is stored in the boot-specific bundle as `cse-command-start.json`
+using `/proc/uptime` (10 ms resolution, assuming no suspend).
+Older captures cannot provide this marker retroactively. A new E2E capture,
+not a VHD rebuild, is required; the later `cse_start.sh` entry remains distinct.
+New E2E captures fail collection if the marker is missing or invalid; offline
+analysis remains compatible with older bundles and reports its absence.
 
 The tracing scenarios pin the test node's kubelet/kubectl to **1.36.5**,
 matching the Ubuntu 26.04 VHD cache rather than downloading a newer version
@@ -146,12 +165,11 @@ the final VHD cleanup and is not started on the builder.
 For an **image-only** run, disable all standard image builds, enable only the
 Azure Linux tracing build, leave `runBootTraceE2E=false`, and set
 `SKIP_E2E_TESTS=true`. The existing VHD content checks still run.
-This option does not select Azure Linux tracing E2E scenarios: the pipeline's
-three-node E2E selection and automatic comparison renderer remain Ubuntu-only.
-The local CA matrix below separately supports Azure Linux captures. Preparing
-an image alone does not establish its first-boot timings.
+For the full matrix instead, enable `runBootTraceE2E`: it selects both required
+images and all Ubuntu/Azure Linux captures automatically.
+Preparing an image alone does not establish its first-boot timings.
 
-### Experimental Rust certificate updater (not activated)
+### Experimental Rust certificate updater (test-only)
 
 `update-ca-certificates-rs/` contains a standalone Linux Rust rewrite of the
 Debian/Ubuntu shell updater. It is **not installed or selected by the VHD build
@@ -204,7 +222,32 @@ and is licensed **GPL-2.0-or-later**, separately from AgentBaker's MIT-licensed
 code; its license is included in its own directory. No binary or benchmark
 result establishes a node boot improvement until a new paired VM run is made.
 
-### Local CA comparison matrix
+### CA comparison matrix (ADO and local)
+
+The ADO checkbox prepares all matrix inputs from this checkout. It compiles
+the dependency-free Rust tool offline in the official Rust 1.85.1 Bookworm
+container (pinned by digest), with static CRT linkage for both supported OSes.
+`prepare_matrix.py` derives the instrumented scripts from the current provisioning
+source and the checked-in historical serial control functions.
+No local session files, external source checkout, expiring SAS URL or old
+campaign resource is needed.
+
+The CI-built binary is hashed, uploaded once to the trial's isolated E2E blob
+storage and downloaded with the scenario VM's managed identity. Every variant
+uses the same binary and verifies its SHA-256. Missing image metadata, caches
+or fixtures fail explicitly. Resource-group and storage-account names include
+the build ID and job attempt; no shared test infrastructure is repurposed.
+
+The `boot-trace-matrix-inputs` artifact retains fixture inputs and JUnit results.
+The `boot-trace-report` artifact contains the complete standalone `index.html`,
+all individual reports and JSON summaries, and `ca-comparison-report.zip`.
+All 21 timelines, threads, services, AKS.CSE tasks and measured CSE command-start
+markers are embedded in `index.html`. Statistics and recurring CPU patterns
+stay grouped by identical OS and variant, with same-OS original baselines.
+Report generation also runs after E2E failures: missing/skipped/failed captures
+remain visible, the report is marked incomplete, and the report step fails.
+The previous `bootTraceCAExperiment` checkbox is superseded by this full matrix;
+the unsafe skip control is always included only in its dedicated Ubuntu cases.
 
 `E2E_BOOT_TRACE_MATRIX_DIR` opts into 21 fresh-node captures: three repetitions
 of Ubuntu original, skipped CA update, Rust, parallel retrieval, and parallel
@@ -270,12 +313,16 @@ themselves establish the file behind a block request or its backend latency.
 
 Only the experimental images' baked `init-aks-cloud.sh` copy is instrumented,
 after final VHD cleanup. The probe refuses an unexpected wrapper or a second
-application. `cloud-timings.jsonl` records only allowlisted certificate task names,
-start/end `/proc/uptime` values (10 ms resolution, assuming no suspend) and exit
-statuses. It preserves the wrapped command's return status and never exports its
-arguments, stdout, WireServer responses, certificate contents or keys. These
-intervals appear in the report alongside service activations. Timing-write
-failures warn on stderr; missing timings also produce a report warning.
+application. `cloud-timings.jsonl` retains the allowlisted certificate timings
+used to validate that experiment. During capture, the recorder also samples the
+Custom Script events directory and writes `cse-task-timings.jsonl` with bounded
+`AKS.CSE.*` task names and monotonic start/end times mapped from `Timestamp` and
+`OperationId`; timezone-free values are interpreted in the node's local timezone
+(up to 2,048 event files and 512 task intervals). Event messages,
+commands, arguments and other fields are never exported. The report displays
+these tasks in gold with an independent checkbox filter; when the sanitized
+events are unavailable, it falls back to the targeted certificate intervals and
+reports that full task coverage is unavailable.
 
 After tracing stops, the E2E collector makes a bounded, read-only CSR API request.
 `bootstrap-csr.json` includes only CSRs whose subject matches the new node:
@@ -588,6 +635,7 @@ capture/
   services.json        # loaded systemd units with boot lifecycle properties
   containerd-waits.json # bounded D-state stacks and descriptor snapshots
   cloud-timings.jsonl  # allowlisted certificate task timings, when run
+  cse-task-timings.jsonl # sanitized AKS.CSE task names and intervals
   bootstrap-csr.json   # sanitized post-Ready CSR snapshot from E2E
   trace.dat            # native binary ftrace capture
   trace-cmd.log        # native recorder diagnostics

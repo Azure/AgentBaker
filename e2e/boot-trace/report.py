@@ -17,8 +17,10 @@ main{padding:32px}h1{font-size:30px;margin:6px 0}h2{font-size:18px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:26px 0}
 .card,section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:18px}
 .card strong{display:block;font-size:28px;margin-top:8px}.toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
-input,select,button{background:var(--bg);color:var(--text);border:1px solid #49617e;border-radius:6px;padding:8px}
+input,select,button,textarea{background:var(--bg);color:var(--text);border:1px solid #49617e;border-radius:6px;padding:8px}
 input[type=range]{width:180px}button{cursor:pointer}canvas{width:100%;display:block;touch-action:pan-y}
+.timeline-layer{display:inline-flex;align-items:center;gap:6px}
+.timeline-layer input[type=checkbox]{padding:0;accent-color:var(--cyan)}
 .timeline-frame{position:relative;margin-top:16px}
 .timeline-scroll{height:min(70vh,680px);min-height:220px;overflow:auto;overflow-x:hidden;position:relative;border-top:1px solid var(--line)}
 .timeline-spacer{position:relative;min-width:0}.timeline-sticky{position:sticky;top:0;z-index:1}
@@ -35,6 +37,9 @@ input[type=range]{width:180px}button{cursor:pointer}canvas{width:100%;display:bl
 .service-filter{margin-top:12px}.service-filter summary{cursor:pointer}.service-filter-actions{display:flex;gap:8px;margin:8px 0}
 .service-filter-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:4px;max-height:300px;overflow:auto}
 .service-filter-option{display:flex;align-items:center;gap:8px;min-width:0}.service-filter-option span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.process-filter{display:grid;gap:6px;max-width:640px;margin-top:12px}
+.process-filter textarea{width:100%;min-height:52px;resize:vertical;font:inherit}
+.process-filter-error{min-height:1em;color:#efb668}
 .scroll{overflow:auto;max-height:520px}table{border-collapse:collapse;width:100%;white-space:nowrap}
 th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}
 th{position:sticky;top:0;background:var(--card);color:var(--muted);cursor:pointer}
@@ -54,14 +59,29 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}.legend{font-
 <div class="cards" id="cards"></div>
 <section><h2>Boot timeline</h2><div class="toolbar">
 <label>Capture <select id="capture"></select></label>
-<label>Thread filter <input id="filter" placeholder="thread name or ID..."></label>
 <label>From <input id="from" type="number" min="0" step="0.1" value="0" style="width:95px"> s</label>
 <label>To <input id="to" type="number" min="0" step="0.1" style="width:95px"> s</label>
+<label>Thread order <select id="thread-order">
+<option value="cpu">Total CPU usage (descending)</option>
+<option value="first">First observed (chronological)</option>
+</select></label>
+<label class="timeline-layer"><input id="show-network" type="checkbox" checked> Network</label>
+<label class="timeline-layer"><input id="show-block-io" type="checkbox" checked> Block I/O</label>
 <button id="reset">Reset view</button></div>
+<div class="process-filter">
+<label for="filter">Process/thread regex filter (case-insensitive; one regex per line, OR)</label>
+<textarea id="filter" rows="2" placeholder="aks-node-controller.*&#10;kubelet" aria-describedby="process-filter-help process-filter-error"></textarea>
+<span id="process-filter-help" class="muted">Matches process/thread name, TID, or generation. Leave empty to show all.</span>
+<span id="process-filter-error" class="process-filter-error" aria-live="polite"></span>
+</div>
 <details class="service-filter"><summary id="service-filter-summary">Systemd service visibility</summary>
 <label>Find service <input id="service-filter-search" placeholder="filter service names..."></label>
 <div class="service-filter-actions"><button id="show-services">Show all</button><button id="hide-services">Hide all</button></div>
 <div id="service-filter-list" class="service-filter-list"></div></details>
+<details class="service-filter"><summary id="cse-task-filter-summary">CSE task visibility</summary>
+<label>Find CSE task <input id="cse-task-filter-search" placeholder="filter CSE task names..."></label>
+<div class="service-filter-actions"><button id="show-cse-tasks">Show all</button><button id="hide-cse-tasks">Hide all</button></div>
+<div id="cse-task-filter-list" class="service-filter-list"></div></details>
 <div id="milestone-legend" class="legend milestone-legend" aria-label="Dashed milestone lines"></div>
 <div class="timeline-frame"><canvas id="timeline-axis" class="timeline-axis" aria-hidden="true"></canvas>
 <div id="timeline-scroll" class="timeline-scroll"><div id="timeline-spacer" class="timeline-spacer">
@@ -70,10 +90,15 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}.legend{font-
 <div id="timeline-selection" class="timeline-selection" aria-hidden="true"></div>
 </div></div></div><div id="timeline-resize" class="timeline-resize" role="separator" aria-orientation="horizontal"
  aria-label="Resize timeline height" aria-controls="timeline-scroll" aria-valuemin="220" tabindex="0"></div></div>
-<div class="legend">Turquoise bars: intervals when a systemd unit was active, plus instrumented init-aks-cloud task intervals. Gray ticks: process start; cyan ticks: unit activation; purple ticks: process exit; pink ticks: unit inactive. Purple bars: observed CPU occupancy per thread (100 ms bins).
+<div class="legend">Turquoise bars: intervals when a systemd unit was active. Gold bars: AKS.CSE task intervals. Gray ticks: process start; cyan ticks: unit activation; purple ticks: process exit; pink ticks: unit inactive. Purple bars: observed CPU occupancy per thread (100 ms bins).
 Orange: block I/O events. Green/blue: network TX/RX events (100 ms bins), not packet counts or latency.
-Dashed lines: imported milestones and Ready. All matching scheduler threads with activity in the selected time range are shown below the service and event rows, sorted by CPU; use the vertical scrollbar to inspect them.
+Dashed lines: imported milestones and Ready. All matching scheduler threads with activity in the selected time range are shown below the service and event rows; use the vertical scrollbar to inspect them.
+Thread order uses total CPU or first scheduler observation across the capture, not just the selected range. First observation is not necessarily the actual thread start.
 Empty space can mean no unit activation was recorded. Unit activity is not application readiness.</div>
+<p class="muted">Imported CSE boot milestones have whole-second source precision, even when displayed with decimals.
+The cse_start.sh entry marks that script only, not the beginning of node provisioning:
+AKS.CSE.* certificate-preparation tasks can run earlier. The Azure Guest Agent is walinuxagent.service,
+not aks-node-controller. Milestones in the same recorded second do not establish simultaneous or dependent starts.</p>
 <p class="muted">Service/task and scheduler-thread rows with no recorded activity in the selected time range are hidden automatically.</p>
 <p class="muted">Drag horizontally anywhere in the timeline graph, including empty space, to select a time range; use Reset view to restore the full capture. Drag the handle below the timeline to change its height, or focus it and use the arrow keys. Select any label in the timeline's left column. Hover over an activity or dashed line for details. Click to keep the popup open; click elsewhere or press Escape to close it.
 Milestone legend buttons also show details on hover, focus or click.</p>
@@ -82,9 +107,9 @@ Milestone legend buttons also show details on hover, focus or click.</p>
 <p class="muted">Sort by CPU or runnable wait to investigate costly work and contention. These are measurements, not automatic causal conclusions.
 Thread lifetimes, boot phases and multi-CPU execution must not be added together.</p>
 <p class="muted">Observed span is last minus first thread observation, not its complete lifetime. Orange shows block activity, not request latency.</p>
-<p class="muted">Timeline: all matching scheduler threads, sorted by CPU; scroll vertically to inspect them. Table: up to 2,000 matching threads. Full accounting is retained in report.json.</p>
+<p class="muted">Timeline: all matching scheduler threads, ordered using the Thread order control; scroll vertically to inspect them. Table: up to 2,000 matching threads. Full accounting is retained in report.json.</p>
 <div class="scroll"><table><thead><tr id="thread-head"></tr></thead><tbody id="threads"></tbody></table></div></section>
-<section><h2>Services and semantic milestones</h2><p class="muted">Rows are ordered by start time. A turquoise interval appears only while the unit is recorded active; oneshot starts and exits are markers, not activity bars.</p><div class="scroll"><table>
+<section><h2>Services, CSE tasks and semantic milestones</h2><p class="muted">Rows are ordered by start time. A turquoise interval appears only while the unit is recorded active; oneshot starts and exits are markers, not activity bars. Gold intervals show CSE task timings.</p><div class="scroll"><table>
 <thead><tr><th>Name</th><th>Kind / state</th><th>Process start (s)</th><th>Active (s)</th><th>Inactive / exit (s)</th><th>Evidence</th></tr></thead><tbody id="services"></tbody></table></div></section>
 <section id="comparison" hidden><h2>Capture comparison</h2>
 <p class="muted">Delta = candidate minus baseline. Negative means shorter, not necessarily a statistically established improvement.
@@ -94,10 +119,10 @@ Different tracing backends can have different overhead and coverage.</p>
 <div id="repeat-summary" hidden><p class="muted">Each capture remains individually selectable above. Parallel runs and shared infrastructure can affect timings. Experimental captures skipping CA updates are listed individually but excluded from repeated-trial summaries and recurring signals.</p>
 <div class="scroll"><table><thead><tr><th>Capture</th><th>Backend</th><th>Boot → Ready (s)</th></tr></thead><tbody id="trial-readiness"></tbody></table></div>
 <div class="scroll"><table><thead><tr><th>Backend</th><th>Trials</th><th>Minimum (s)</th><th>Median (s)</th><th>Maximum (s)</th></tr></thead><tbody id="trial-summary"></tbody></table></div>
-<h3>Signals recurring across ftrace captures</h3><p class="muted">Counts describe recorded events; systemd service values are active durations, while instrumented task values are elapsed intervals. A recurring signal is present in at least two captures, not proof of a shared cause.</p>
+<h3>Signals recurring across ftrace captures</h3><p class="muted">Counts describe recorded events; systemd service values are active durations, while task values are elapsed intervals. A recurring signal is present in at least two captures, not proof of a shared cause.</p>
 <div class="scroll"><table><thead><tr><th>Signal</th><th>Captures</th><th>Minimum</th><th>Median</th><th>Maximum</th></tr></thead><tbody id="repeat-patterns"></tbody></table></div></div></section>
 <section><h2>Coverage and interpretation</h2><ul class="warning" id="warnings"></ul>
-<details><summary>Certificate timings, bootstrap CSRs and sampled containerd disk waits</summary><pre id="diagnostics"></pre></details>
+<details><summary>CSE task and certificate timings, bootstrap CSRs and sampled containerd disk waits</summary><pre id="diagnostics"></pre></details>
 <details><summary>Capture metadata and event counts</summary><pre id="metadata"></pre></details></section>
 </main><div id="timeline-tooltip" class="timeline-tooltip" role="tooltip" hidden></div>
 <script id="payload" type="application/json">__PAYLOAD__</script>
@@ -105,15 +130,44 @@ Different tracing backends can have different overhead and coverage.</p>
 "use strict";
 const data=JSON.parse(document.getElementById("payload").textContent), $=id=>document.getElementById(id);
 let current=0, sortKey="cpu_seconds", ascending=false, hitboxes=[], popupPinned=false, rangeDrag=null, suppressTimelineClick=false;
-const hiddenServices=new Set();
+const hiddenServices=new Set(),hiddenCseTasks=new Set();
 const ROW_HEIGHT=25, AXIS_HEIGHT=28;
 const fmt=x=>Number.isFinite(x)?x.toFixed(3):"unknown";
 const cell=(row,text)=>{const td=document.createElement("td");td.textContent=text;row.append(td);};
 const row=(body,values)=>{const tr=document.createElement("tr");values.forEach(x=>cell(tr,x));$(body).append(tr);return tr;};
 const limit=r=>r.ready_seconds??Math.max(r.trace_last??1,...r.services.map(s=>s.end??s.active_end??s.start??0),1);
-function visibleThreads(r){const f=$("filter").value.toLowerCase();return r.threads.filter(t=>(t.comm+" "+t.tid).toLowerCase().includes(f));}
+function timelineRowLayout(serviceCount,showNetwork,showBlockIO){
+ const blockIOIndex=showBlockIO?serviceCount:null;
+ const networkStart=serviceCount+(showBlockIO?1:0);
+ const threadStart=networkStart+(showNetwork?2:0);
+ return {blockIOIndex,networkStart,threadStart};
+}
+function compileThreadFilter(value){
+ const expressions=value.split(/\r?\n/).map(expression=>expression.trim()).filter(Boolean),regexes=[];
+ for(const expression of expressions){
+  try{regexes.push(new RegExp(expression,"i"));}
+  catch(error){
+   if(error.name!=="SyntaxError")throw error;
+   return {regexes:null,error:`Invalid regex: ${expression}`};
+  }
+ }
+ return {regexes,error:""};
+}
+function threadMatchesFilter(t,regexes){
+ const identity=`${t.comm} ${t.tid}/${t.generation}`;
+ return regexes.length===0||regexes.some(regex=>regex.test(identity));
+}
+function visibleThreads(r){
+ const {regexes,error}=compileThreadFilter($("filter").value);
+ $("process-filter-error").textContent=error;
+ if(regexes===null)return [];
+ return r.threads.filter(t=>threadMatchesFilter(t,regexes));
+}
 function serviceUnits(r){return r.services.filter(s=>s.kind==="unit");}
-function visibleServices(r){return r.services.filter(s=>s.kind!=="unit"||!hiddenServices.has(s.name));}
+function isCseTask(s){return s.kind==="task"||s.kind==="cse_task";}
+function cseTasks(r){return r.services.filter(isCseTask);}
+function visibleServices(r){return r.services.filter(s=>s.kind==="unit"
+ ?!hiddenServices.has(s.name):!isCseTask(s)||!hiddenCseTasks.has(s.name));}
 function overlapsRange(start,end,from,to){return Number.isFinite(start)&&Number.isFinite(end)&&end>start&&end>=from&&start<=to;}
 function serviceHasDataInRange(s,from,to){
  if(s.kind==="unit")return overlapsRange(s.active_start,s.active_end,from,to)
@@ -122,6 +176,13 @@ function serviceHasDataInRange(s,from,to){
 }
 function threadHasDataInRange(t,from,to){
  return t.cpu_bins.some(([start,cpu])=>Number.isFinite(start)&&Number.isFinite(cpu)&&cpu>0&&start+0.1>=from&&start<=to);
+}
+function compareTimelineThreads(a,b,order){
+ if(order==="first"){
+  const first=t=>Number.isFinite(t.first)?t.first:Infinity;
+  return first(a)-first(b);
+ }
+ return (b.cpu_seconds??0)-(a.cpu_seconds??0);
 }
 function renderServiceFilter(){
  const r=data.captures[current],units=serviceUnits(r),filter=$("service-filter-search").value.toLowerCase();
@@ -135,6 +196,21 @@ function renderServiceFilter(){
   const label=document.createElement("label");label.className="service-filter-option";
   const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=!hiddenServices.has(name);
   checkbox.onchange=()=>{if(checkbox.checked)hiddenServices.delete(name);else hiddenServices.add(name);refresh();};
+  const text=document.createElement("span");text.textContent=name;label.append(checkbox,text);list.append(label);
+ }
+}
+function renderCseTaskFilter(){
+ const r=data.captures[current],tasks=cseTasks(r),filter=$("cse-task-filter-search").value.toLowerCase();
+ const names=[...new Set(tasks.map(s=>s.name))].sort((a,b)=>a.localeCompare(b));
+ const visible=names.filter(name=>!hiddenCseTasks.has(name)).length;
+ $("cse-task-filter-summary").textContent=`CSE task visibility · ${visible}/${names.length} shown`;
+ const list=$("cse-task-filter-list");list.replaceChildren();
+ const matching=names.filter(name=>name.toLowerCase().includes(filter));
+ if(!matching.length){const empty=document.createElement("span");empty.className="muted";empty.textContent="No matching CSE tasks in this capture.";list.append(empty);}
+ for(const name of matching){
+  const label=document.createElement("label");label.className="service-filter-option";
+  const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=!hiddenCseTasks.has(name);
+  checkbox.onchange=()=>{if(checkbox.checked)hiddenCseTasks.delete(name);else hiddenCseTasks.add(name);refresh();};
   const text=document.createElement("span");text.textContent=name;label.append(checkbox,text);list.append(label);
  }
 }
@@ -228,8 +304,11 @@ function draw(){
  const from=Number($("from").value),to=Number($("to").value);
  const validRange=Number.isFinite(from)&&Number.isFinite(to)&&to>from;
  const services=visibleServices(r).filter(s=>!validRange||serviceHasDataInRange(s,from,to));
- const threads=visibleThreads(r).filter(t=>!validRange||threadHasDataInRange(t,from,to)).slice().sort((a,b)=>(b.cpu_seconds??0)-(a.cpu_seconds??0));
- const rowCount=services.length+3+threads.length;
+ const threads=visibleThreads(r).filter(t=>!validRange||threadHasDataInRange(t,from,to)).slice()
+  .sort((a,b)=>compareTimelineThreads(a,b,$("thread-order").value));
+ const showNetwork=$("show-network").checked,showBlockIO=$("show-block-io").checked;
+ const rowLayout=timelineRowLayout(services.length,showNetwork,showBlockIO);
+ const rowCount=rowLayout.threadStart+threads.length;
  const width=Math.max(300,scroll.clientWidth),height=scroll.clientHeight;
  const contentHeight=Math.max(height,rowCount*ROW_HEIGHT);
  $("timeline-spacer").style.height=contentHeight+"px";$("timeline-sticky").style.height=height+"px";
@@ -285,14 +364,15 @@ function draw(){
     marker(s.exec_exit,"#b99cff",3,`${s.name}: process exit at ${fmt(s.exec_exit)}s; ${s.source}`);
     marker(s.inactive,"#f38ba8",7,`${s.name}: entered inactive state at ${fmt(s.inactive)}s; ${s.source}`);
    }else{
-    bar(s.name,s.start,s.end,"#59d9dc",0.85,
+    const color=isCseTask(s)?"#f9e2af":"#59d9dc";
+    bar(s.name,s.start,s.end,color,0.9,
      `${s.name}: task ${fmt(s.start)}–${fmt(s.end)}s; ${s.source}`);
    }
-  }else if(index===services.length){
+  }else if(index===rowLayout.blockIOIndex){
    addRowLabel("Block I/O events (not latency)",y);
    for(const [start,counts] of r.io_bins??[]){bar("I/O",start,start+0.1,"#efb668",0.8,`Block events at ${fmt(start)}s: ${JSON.stringify(counts)}; no thread attribution`);}
-  }else if(index===services.length+1||index===services.length+2){
-   const direction=index===services.length+1?"tx":"rx",color=direction==="tx"?"#a6e3a1":"#89b4fa";
+  }else if(showNetwork&&index>=rowLayout.networkStart&&index<rowLayout.networkStart+2){
+   const direction=index===rowLayout.networkStart?"tx":"rx",color=direction==="tx"?"#a6e3a1":"#89b4fa";
    const label=`Network ${direction.toUpperCase()}`,covered=r.network_coverage?.[direction];
    addRowLabel(label+(covered?" events":" (not captured)"),y);
    for(const [start,counts] of r.network_bins??[]){
@@ -300,7 +380,7 @@ function draw(){
     if(Object.keys(matching).length)bar(label,start,start+0.1,color,0.8,`${label} events at ${fmt(start)}s: ${JSON.stringify(matching)}; device activity, not packet counts, delivery or network wait`);
    }
   }else{
-   const t=threads[index-services.length-3];addRowLabel(`${t.comm} [${t.tid}/${t.generation}]`,y);
+   const t=threads[index-rowLayout.threadStart];addRowLabel(`${t.comm} [${t.tid}/${t.generation}]`,y);
    for(const [start,cpu] of t.cpu_bins)bar(t.comm,start,start+0.1,"#b99cff",Math.max(0.25,Math.min(1,cpu/0.1)),`${t.comm} [${t.tid}]: ${fmt(cpu)} CPU seconds in bin ${fmt(start)}s`);
   }
  }
@@ -339,7 +419,7 @@ function refresh(){
    row("services",[s.name,`${s.active_state??"unknown"}${s.sub_state?"/"+s.sub_state:""}`,
     fmt(s.start),active,`inactive ${inactive} · exit ${exit}`,s.source]);
   }else{
-   row("services",[s.name,"init-aks-cloud task",fmt(s.start),"—",fmt(s.end),s.source]);
+   row("services",[s.name,s.kind==="cse_task"?"CSE task":"init-aks-cloud task",fmt(s.start),"—",fmt(s.end),s.source]);
   }
  }
  r.milestones.forEach(m=>row("services",[m.name,"milestone",fmt(m.t),"—","—",m.source]));
@@ -348,6 +428,7 @@ function refresh(){
  $("diagnostics").textContent=JSON.stringify(r.targeted_diagnostics??{},null,2);
  $("metadata").textContent=JSON.stringify({metadata:r.metadata,event_counts:r.event_counts,trace_first:r.trace_first,trace_last:r.trace_last,clock_sample_uncertainty_seconds:r.clock_sample_uncertainty_seconds},null,2);
  renderServiceFilter();
+ renderCseTaskFilter();
  draw();
 }
 for(const [label,key] of [["Thread","comm"],["TID/generation","tid"],["Observed span (s)","observed_span_seconds"],["CPU (s)","cpu_seconds"],["Runnable wait (s)","runnable_seconds"],["Switch-outs","switches"]]){
@@ -357,9 +438,15 @@ data.captures.forEach((r,i)=>{const option=document.createElement("option");opti
 function reset(){const r=data.captures[current];rangeDrag=null;$("timeline-selection").style.display="none";$("from").value=0;$("to").value=(Math.ceil(limit(r)*1000)/1000).toFixed(3);$("timeline-scroll").scrollTop=0;refresh();}
 $("capture").onchange=()=>{current=Number($("capture").value);cards();reset();};
 ["filter","from","to"].forEach(id=>$(id).addEventListener("input",refresh));$("reset").onclick=reset;
+$("thread-order").addEventListener("change",draw);
 $("service-filter-search").addEventListener("input",renderServiceFilter);
+$("cse-task-filter-search").addEventListener("input",renderCseTaskFilter);
+$("show-network").addEventListener("change",()=>{$("timeline-scroll").scrollTop=0;draw();});
+$("show-block-io").addEventListener("change",()=>{$("timeline-scroll").scrollTop=0;draw();});
 $("show-services").onclick=()=>{hiddenServices.clear();refresh();};
 $("hide-services").onclick=()=>{for(const capture of data.captures)for(const s of serviceUnits(capture))hiddenServices.add(s.name);refresh();};
+$("show-cse-tasks").onclick=()=>{hiddenCseTasks.clear();refresh();};
+$("hide-cse-tasks").onclick=()=>{for(const capture of data.captures)for(const s of cseTasks(capture))hiddenCseTasks.add(s.name);refresh();};
 for(const element of [$("timeline-axis"),$("timeline")]){
  element.addEventListener("pointerdown",beginRangeSelection);
  element.addEventListener("pointerup",finishRangeSelection);
@@ -382,13 +469,13 @@ document.addEventListener("keydown",event=>{if(event.key==="Escape")hidePopup();
 window.addEventListener("scroll",event=>{if(!$("timeline-tooltip").contains(event.target))hidePopup();},true);
 const resizeHandle=$("timeline-resize"),timelineScroll=$("timeline-scroll"),MIN_TIMELINE_HEIGHT=220;
 let resizeDrag=null;
-function maxTimelineHeight(){return Math.max(MIN_TIMELINE_HEIGHT,window.innerHeight-100);}
+function maxTimelineHeight(){return Math.max(MIN_TIMELINE_HEIGHT,window.innerHeight-100,timelineScroll.clientHeight);}
 function updateResizeAria(){
  resizeHandle.setAttribute("aria-valuemax",String(Math.round(maxTimelineHeight())));
  resizeHandle.setAttribute("aria-valuenow",String(Math.round(timelineScroll.clientHeight)));
 }
 function setTimelineHeight(height){
- const next=Math.max(MIN_TIMELINE_HEIGHT,Math.min(maxTimelineHeight(),height));
+ const next=Math.max(MIN_TIMELINE_HEIGHT,height);
  timelineScroll.style.height=next+"px";updateResizeAria();draw();
 }
 resizeHandle.addEventListener("pointerdown",event=>{
@@ -412,7 +499,7 @@ resizeHandle.addEventListener("keydown",event=>{
  event.preventDefault();setTimelineHeight(height);
 });
 updateResizeAria();
-window.addEventListener("resize",()=>{if(timelineScroll.style.height)setTimelineHeight(timelineScroll.clientHeight);else{updateResizeAria();draw();}});
+window.addEventListener("resize",()=>{updateResizeAria();draw();});
 if(data.show_comparison!==false&&data.captures.length>=2){
  $("comparison").hidden=false;
  if(data.captures.length!==2){
@@ -486,6 +573,13 @@ if(data.show_comparison!==false&&data.captures.length>=2){
  }
 }
 cards();reset();
+if(window.parent!==window){
+ const reportHeight=()=>window.parent.postMessage({
+  type:"aks-boot-report-height",height:Math.ceil(document.body.getBoundingClientRect().height)
+ },"*");
+ new ResizeObserver(()=>requestAnimationFrame(reportHeight)).observe(document.body);
+ reportHeight();
+}
 </script></body></html>
 """
 

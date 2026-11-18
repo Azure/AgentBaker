@@ -172,6 +172,8 @@ func TestExecutorCancellationDoesNotStartLaterWaves(t *testing.T) {
 }
 
 func TestAppRejectsInvalidWaveOptionsBeforeAzureInitialization(t *testing.T) {
+	t.Setenv("TAGS_TO_RUN", "Name=unrelated-pipeline-selection")
+	t.Setenv("TAGS_TO_SKIP", "Name=Ubuntu2204_CustomLinuxOSConfig_Taints_ANC")
 	for _, flags := range [][]string{
 		{"--parallel", "3"},
 		{"--parallel", "7", "--retries", "1"},
@@ -182,7 +184,7 @@ func TestAppRejectsInvalidWaveOptionsBeforeAzureInitialization(t *testing.T) {
 			restoreRunnerConfig(t)
 			var stderr bytes.Buffer
 			app := NewApp(&bytes.Buffer{}, &stderr)
-			args := append([]string{"e2e", "run", "--boot-trace-waves"}, flags...)
+			args := append([]string{"e2e", "run", "--boot-trace-waves", "--tags", "", "--skip-tags", ""}, flags...)
 			args = append(args, "Ubuntu2204_CustomLinuxOSConfig_Taints_ANC")
 			assert.Equal(t, exitUsage, app.Run(t.Context(), args), stderr.String())
 			assert.Contains(t, stderr.String(), "--boot-trace-waves")
