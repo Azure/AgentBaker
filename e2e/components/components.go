@@ -133,6 +133,9 @@ func getWindowsContainerImageTagsFromFS(fsys fs.FS, containerName, windowsVersio
 }
 
 func getWindowsSKU(vhd *config.Image) string {
+	if vhd.WindowsSKU != "" {
+		return vhd.WindowsSKU
+	}
 	return strings.TrimPrefix(string(vhd.Distro), "aks-windows-")
 }
 

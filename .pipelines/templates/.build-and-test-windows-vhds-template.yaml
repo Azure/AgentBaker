@@ -205,8 +205,6 @@ stages:
       architecture: X86_64
       buildVmSize: ${{ parameters.buildVmSize }}
       build: ${{ parameters.build2028gen2 }}
-      # Provisioning E2E scenarios need separate WS2028 onboarding; cache tests still run.
-      runE2E: False
       vhddebug: ${{ parameters.vhddebug }}
       dryrun: ${{ parameters.dryrun }}
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
