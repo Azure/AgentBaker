@@ -7,7 +7,7 @@ Describe 'wait_for_dev_runs'
   Include './.pipelines/scripts/wait_for_dev_runs.sh'
 
   setup_wait() {
-    SYSTEM_COLLECTIONURI='https://dev.azure.com/example/'
+    SYSTEM_COLLECTIONURI='https://pipelines.example.test/example/'
     SYSTEM_TEAMPROJECTID='project-id'
     SYSTEM_ACCESSTOKEN='test-token'
     DEV_PIPELINE_DEFINITION_IDS='443878,474207'
@@ -36,7 +36,7 @@ Describe 'wait_for_dev_runs'
       'definitions=443878,474207' \
       'branchName=refs/heads/dev' \
       "\$top=1" 'api-version=7.1' \
-      'https://dev.azure.com/example/project-id/_apis/build/builds'; do
+      'https://pipelines.example.test/example/project-id/_apis/build/builds'; do
       if ! grep -Fxq -- "${expected}" <<< "${arguments}"; then
         echo "Unexpected build-list request." >&2
         return 2
@@ -86,7 +86,7 @@ Describe 'wait_for_dev_runs'
   End
 
   It 'accepts a collection URI without a trailing slash'
-    SYSTEM_COLLECTIONURI='https://dev.azure.com/example'
+    SYSTEM_COLLECTIONURI='https://pipelines.example.test/example'
     When call wait_for_dev_runs
     The status should be success
     The output should include 'No active dev GPU runs remain.'
