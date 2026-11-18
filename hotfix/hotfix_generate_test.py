@@ -65,7 +65,7 @@ class HotfixGenerateTests(unittest.TestCase):
         cases = [
             ("custom cloud only", hotfix_generate.build_hotfix_template(
                 {"initAKSCloud"}, lines[outer_else + 1:end]
-            ), set()),
+            ), {"ubuntu", "mariner"}),
             ("missing", "#cloud-config\n", set()),
             ("null", "write_files:\n", set()),
             ("empty list", "write_files: []\n", set()),
