@@ -41,11 +41,11 @@ pr:
       - e2e/**
       - '**/*.go'
 jobs:
-  # Keep the scheduled run at 09:00 UTC, but give existing dev GPU runs time
+  # Keep the scheduled run at 09:00 UTC, but give existing non-main GPU runs time
   # to finish before starting tests. Other run reasons do not use this gate.
   - ${{ if and(eq(variables['Build.Reason'], 'Schedule'), eq(variables['Build.SourceBranch'], 'refs/heads/main')) }}:
-    - job: wait_for_dev_gpu_runs
-      displayName: Wait for active dev GPU runs
+    - job: wait_for_non_main_gpu_runs
+      displayName: Wait for active non-main GPU runs
       condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
       variables:
         - group: ab-e2e
@@ -56,18 +56,18 @@ jobs:
         - checkout: self
           fetchTags: false
           fetchDepth: 1
-        - bash: bash .pipelines/scripts/wait_for_dev_runs.sh
-          displayName: Wait for dev GPU runs to finish
+        - bash: bash .pipelines/scripts/wait_for_non_main_runs.sh
+          displayName: Wait for non-main GPU runs to finish
           env:
             SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-            # Agentbaker GPU E2E and Agentbaker Azure Linux GPU E2E share quota.
-            DEV_PIPELINE_DEFINITION_IDS: "443878,474207"
-            DEV_RUN_WAIT_TIMEOUT_SECONDS: "10800"
+            # Only Agentbaker GPU E2E participates in this wait.
+            GPU_PIPELINE_DEFINITION_IDS: "443878"
+            NON_MAIN_RUN_WAIT_TIMEOUT_SECONDS: "10800"
 
   - template: ./templates/e2e-template.yaml
     parameters:
       ${{ if and(eq(variables['Build.Reason'], 'Schedule'), eq(variables['Build.SourceBranch'], 'refs/heads/main')) }}:
-        dependsOn: [wait_for_dev_gpu_runs]
+        dependsOn: [wait_for_non_main_gpu_runs]
       name: Ubuntu GPU Tests
       IgnoreScenariosWithMissingVhd: false
       jobTimeoutInMinutes: 180
