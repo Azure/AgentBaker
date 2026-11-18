@@ -3457,7 +3457,7 @@ var _ = Register(&Scenario{
 })
 
 var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_H100", "Standard_ND96isr_H100_v5", "uaenorth", ""))
-var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_A100", "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_A100", "Standard_ND96asr_v4", "southcentralus", ""))
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinux3_PMC_Install",
