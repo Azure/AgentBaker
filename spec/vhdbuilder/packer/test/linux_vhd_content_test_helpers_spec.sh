@@ -314,6 +314,33 @@ Describe 'Inspektor Gadget version helper functions'
   End
 End
 
+Describe 'custom kernel content validation'
+  BeforeAll "eval \"\$(sed -n '/^testLtsKernel()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
+
+  err() { echo "$1: $2" >&2; }
+  uname() { echo 7.0.0-1017-azure; }
+
+  It 'validates the explicitly requested test kernel instead of requiring the stock LTS'
+    When call testLtsKernel 22.04 Ubuntu false 7.0.0-1017-azure
+    The status should be success
+    The output should include 'validated exact custom kernel'
+    The error should equal ''
+  End
+
+  It 'reports a test image that boots another kernel'
+    When call testLtsKernel 22.04 Ubuntu false 7.0.0-1018-azure
+    The status should be failure
+    The error should include 'Expected test kernel 7.0.0-1018-azure, found 7.0.0-1017-azure'
+    The output should include 'testLtsKernel:Start'
+  End
+
+  It 'retains the stock LTS requirement when no custom kernel was recorded'
+    When call testLtsKernel 22.04 Ubuntu false
+    The error should include 'Expected 5.15, found 7.0.0-1017-azure'
+    The output should include 'check LTS kernel version'
+  End
+End
+
 Describe 'testCronPermissions invocation'
   BeforeAll "eval \"\$(sed -n '/^testCronPermissions()/,/^}/p' './vhdbuilder/packer/test/linux-vhd-content-test.sh')\""
 
