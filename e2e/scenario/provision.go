@@ -1352,6 +1352,7 @@ func runScenarioUbuntu2404GPUNPD(name, vmSize, location, k8sSystemPoolSKU string
 				// First, ensure nvidia-modprobe install does not restart kubelet and temporarily cause node to be unschedulable
 				if err := errors.Join(
 					ValidateNvidiaModProbeInstalled(ctx, s),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 					ValidateKubeletHasNotStopped(ctx, s),
 					ValidateServicesDoNotRestartKubelet(ctx, s),
 				); err != nil {

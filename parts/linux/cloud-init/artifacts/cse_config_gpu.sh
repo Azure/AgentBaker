@@ -462,6 +462,56 @@ configureManagedGPUExperience() {
     fi
 }
 
+# Adds kubernetes.azure.com/gpu-<index>-uuid=<GPU UUID> kubelet node labels, one per physical GPU, so
+# node-level GPU health signals (NPD conditions) can be tied to physical GPUs and tracked across VMs.
+# One label per GPU because a label value is at most 63 characters and a GPU UUID is 40.
+# gpu-uuid-node-labels.sh reads and validates the GPU inventory; it skips vGPUs and never loads drivers.
+# Best effort: never fails provisioning.
+addGPUUUIDNodeLabels() {
+    local labels_script="${GPU_UUID_NODE_LABELS_SCRIPT:-/opt/azure/containers/gpu-uuid-node-labels.sh}"
+    local labels=""
+    local label=""
+    local label_count=0
+    local status=0
+
+    if [ ! -f "${labels_script}" ]; then
+        echo "${labels_script} not found, skipping GPU UUID node labels"
+        return 0
+    fi
+    labels=$(/bin/bash "${labels_script}" labels) || status=$?
+    if [ "${status}" -eq 2 ]; then
+        echo "nvidia-smi is not on the host, skipping GPU UUID node labels"
+        return 0
+    fi
+    if [ "${status}" -ne 0 ]; then
+        echo "warning: could not read the complete GPU inventory, skipping GPU UUID node labels"
+        return 0
+    fi
+
+    while read -r label; do
+        [ -n "${label}" ] || continue
+        addKubeletNodeLabel "${label}"
+        label_count=$((label_count + 1))
+    done <<EOF
+${labels}
+EOF
+
+    echo "added ${label_count} GPU UUID node label(s)"
+    return 0
+}
+
+# kubelet only applies --node-labels when it creates the Node object, so a per-boot reconciler keeps the
+# GPU UUID labels correct after the VM moves to different GPUs (service healing, deallocate and start).
+# Started now as well, which also covers a Node object that already existed before this provisioning run.
+enableGPUUUIDNodeLabelsReconciler() {
+    if ! systemctl cat gpu-uuid-node-labels.service >/dev/null 2>&1; then
+        echo "gpu-uuid-node-labels.service not found on this VHD, skipping"
+        return 0
+    fi
+    systemctlEnableAndStartNoBlock gpu-uuid-node-labels 30 || echo "warning: could not start gpu-uuid-node-labels.service"
+    return 0
+}
+
 startNvidiaManagedExpServices() {
     # 1. Start the nvidia-device-plugin service or dra-driver-nvidia-gpu service.
     if [ "${ENABLE_MANAGED_GPU_EXPERIENCE}" = "true" ]; then

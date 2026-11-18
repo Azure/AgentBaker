@@ -730,6 +730,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/gpu-uuid-node-labels.sh",
+      "destination": "/home/packer/gpu-uuid-node-labels.sh"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/gpu-uuid-node-labels.service",
+      "destination": "/home/packer/gpu-uuid-node-labels.service"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/containerd.service",
       "destination": "/home/packer/containerd.service"
     },

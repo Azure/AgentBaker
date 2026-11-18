@@ -392,6 +392,7 @@ func newUbuntuNvidiaDevicePluginScenario(name, description string, cluster func(
 				if err := errors.Join(
 					validateDCGMPackageVersions(ctx, s, os, osVersion),
 					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 				); err != nil {
 					return err
 				}
@@ -490,6 +491,7 @@ var _ = Register(&Scenario{
 			if err := errors.Join(
 				validateDCGMPackageVersions(ctx, s, os, osVersion),
 				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				ValidateGPUUUIDNodeLabels(ctx, s),
 			); err != nil {
 				return err
 			}
@@ -583,6 +585,7 @@ var _ = Register(&Scenario{
 			if err := errors.Join(
 				validateDCGMPackageVersions(ctx, s, os, osVersion),
 				validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+				ValidateGPUUUIDNodeLabels(ctx, s),
 			); err != nil {
 				return err
 			}
@@ -671,6 +674,7 @@ nvidia-smi`
 				return errors.Join(
 					validateDCGMPackageVersions(ctx, s, "ubuntu", "r2404"),
 					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_UTIL"),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 				)
 			},
 		},
@@ -769,6 +773,7 @@ func newUbuntu2404NvidiaDevicePluginMIGSingleScenario(name, description, gpuInst
 				if err := errors.Join(
 					validateDCGMPackageVersions(ctx, s, os, osVersion),
 					validateDCGMExporterRunning(ctx, s, "DCGM_FI_DEV_GPU_TEMP"),
+					ValidateGPUUUIDNodeLabels(ctx, s),
 				); err != nil {
 					return err
 				}
