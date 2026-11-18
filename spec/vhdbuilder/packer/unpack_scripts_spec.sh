@@ -110,17 +110,20 @@ End
     End
   End
 
-Describe 'hotfix kernel normalization'
+Describe 'VHD build kernel normalization'
   setup() {
     TEST_ROOT=$(mktemp -d)
     cp ./parts/root/common/etc/modprobe.d/CIS.conf "$TEST_ROOT/CIS.conf"
     printf 'blacklist algif_aead\n' > "$TEST_ROOT/customer.conf"
     chmod 0600 "$TEST_ROOT/CIS.conf"
-    eval "$(sed "s|/etc/modprobe.d|$TEST_ROOT|g" ./parts/root/common/opt/azure/image-build/image_config.sh)"
+    sed -n '/^VULNERABLE_KERNEL_MODULE_DENY_PATTERN=/,/^# doing this at vhd/p' \
+      ./parts/root/common/opt/azure/image-build/install-dependencies.sh |
+      sed "s|/etc/modprobe.d|$TEST_ROOT|g" > "$TEST_ROOT/helpers.sh"
+    . "$TEST_ROOT/helpers.sh"
     export OS=UBUNTU OS_VERSION=22.04
   }
   cleanup() {
-    rm -f "$TEST_ROOT/CIS.conf" "$TEST_ROOT/customer.conf"
+    rm -f "$TEST_ROOT/CIS.conf" "$TEST_ROOT/customer.conf" "$TEST_ROOT/helpers.sh"
     rmdir "$TEST_ROOT"
   }
   uname() { echo 5.15.0-1126-azure; }
@@ -130,21 +133,13 @@ Describe 'hotfix kernel normalization'
   BeforeEach 'setup'
   AfterEach 'cleanup'
 
-  It 'restores baked CIS bytes without changing customer files or permissions'
-    When call configureVulnerableKernelModuleDenyRules "$TEST_ROOT/CIS.conf"
+  It 'removes the selected rules across the build and preserves other CIS settings and permissions'
+    When call configureVulnerableKernelModuleDenyRules
     The status should be success
     The output should include 'Removing algif_aead'
     The contents of file "$TEST_ROOT/CIS.conf" should not include 'algif_aead'
     The contents of file "$TEST_ROOT/CIS.conf" should not include '# CVE-2026-31431'
     The contents of file "$TEST_ROOT/CIS.conf" should include 'install dccp /bin/true'
-    The contents of file "$TEST_ROOT/customer.conf" should equal 'blacklist algif_aead'
-    The result of function mode should equal 600
-  End
-
-  It 'retains the build-wide cleanup when no file list is supplied'
-    When call configureVulnerableKernelModuleDenyRules
-    The status should be success
-    The output should include 'Removing algif_aead'
     The contents of file "$TEST_ROOT/customer.conf" should equal ''
     The result of function mode should equal 600
   End

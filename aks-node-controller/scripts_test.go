@@ -17,7 +17,6 @@ func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks th
 	t.Setenv("ENABLE_FIPS", "false")
 	t.Setenv("FEATURE_FLAGS", "")
 	for _, release := range []string{
-		"ID=ubuntu\nVERSION_ID=18.04\n",
 		"ID=ubuntu\nVERSION_ID=22.04\n",
 		"ID=ubuntu\nVERSION_ID=20.04\n",
 		"ID=azurelinux\nVERSION_ID=3.0\n",
@@ -62,10 +61,22 @@ func TestUnpackImage(t *testing.T) { //nolint:gocognit // Shared setup checks th
 				require.NoFileExists(t, filepath.Join(root, "etc/node-exporter.d/web-config.yml"))
 			}
 			if strings.Contains(release, "ID=azurelinux\nVERSION_ID=3.0") {
+				require.FileExists(t, filepath.Join(root, "etc/systemd/system/aks-networkd-recovery.timer"))
 				rules, err := os.ReadFile(filepath.Join(root, "etc/modprobe.d/CIS.conf"))
 				require.NoError(t, err)
 				require.NotContains(t, string(rules), "algif_aead")
 				require.Contains(t, string(rules), "blacklist cramfs")
+			}
+			if strings.Contains(release, "ID=ubuntu\n") {
+				source := "root/ubuntu/etc/pam.d/common-auth"
+				if strings.Contains(release, "VERSION_ID=20.04") {
+					source = "root/shared/etc/pam.d/common-auth"
+				}
+				want, err := parts.Root.ReadFile(source)
+				require.NoError(t, err)
+				got, err := os.ReadFile(filepath.Join(root, "etc/pam.d/common-auth"))
+				require.NoError(t, err)
+				require.Equal(t, want, got)
 			}
 			if strings.Contains(release, "ID=azurelinux\nVERSION_ID=4.0") {
 				rules, err := os.ReadFile(filepath.Join(root, "etc/modprobe.d/CIS.conf"))
@@ -102,12 +113,11 @@ func TestRsyslogConfigUsesOriginalSource(t *testing.T) {
 	original, err := parts.Root.ReadFile("root/shared/etc/rsyslog.d/60-CIS.conf")
 	require.NoError(t, err)
 	for root, rule := range map[string]string{
-		"ubuntu":         "*.*;mail.none;news.none            -/var/log/messages",
-		"acl":            "*.*;mail.none;news.none            -/var/log/messages",
-		"mariner":        "news.none                          -/var/log/messages",
-		"azurelinux":     "news.none                          -/var/log/messages",
-		"azurelinux-3.0": "news.none                          -/var/log/messages",
-		"osguard":        "news.none                          -/var/log/messages",
+		"ubuntu":     "*.*;mail.none;news.none            -/var/log/messages",
+		"acl":        "*.*;mail.none;news.none            -/var/log/messages",
+		"mariner":    "news.none                          -/var/log/messages",
+		"azurelinux": "news.none                          -/var/log/messages",
+		"osguard":    "news.none                          -/var/log/messages",
 	} {
 		t.Run(root, func(t *testing.T) {
 			files, err := resolveImageFiles(parts.Root, []string{"common", root})
@@ -241,8 +251,8 @@ func TestUnpackLogrotatePreservesOtherDropIns(t *testing.T) {
 
 func TestUnpackPreservesPreparedSSHConfig(t *testing.T) {
 	source := fstest.MapFS{
-		"root/common/etc/ssh/sshd_config": {Data: []byte("#PubkeyAuthentication yes\n")},
-		"root/common/opt/helper.sh":       {Data: []byte("updated script\n")},
+		"root/common/etc/ssh/sshd_config":             {Data: []byte("#PubkeyAuthentication yes\n")},
+		"root/common/opt/azure/containers/kubelet.sh": {Data: []byte("updated script\n")},
 	}
 	for _, prepared := range []bool{false, true} {
 		root := t.TempDir()
@@ -265,7 +275,7 @@ func TestUnpackPreservesPreparedSSHConfig(t *testing.T) {
 		info, err := os.Stat(sshConfig)
 		require.NoError(t, err)
 		require.Equal(t, fs.FileMode(0o600), info.Mode().Perm())
-		content, err = os.ReadFile(filepath.Join(root, "opt/helper.sh"))
+		content, err = os.ReadFile(filepath.Join(root, "opt/azure/containers/kubelet.sh"))
 		require.NoError(t, err)
 		require.Equal(t, "updated script\n", string(content))
 	}
@@ -273,27 +283,27 @@ func TestUnpackPreservesPreparedSSHConfig(t *testing.T) {
 
 func TestImageReferencesAndPrecedence(t *testing.T) {
 	source := fstest.MapFS{
-		"root/common/etc/config":             {Data: []byte("common")},
-		"root/ubuntu/etc/config.link":        {Data: []byte("shared/config\n")},
-		"root/ubuntu/opt/bin/helper.sh.link": {Data: []byte("shared/helper")},
-		"root/shared/config":                 {Data: []byte("ubuntu")},
-		"root/shared/helper":                 {Data: []byte("#!/bin/sh\nexit 0\n")},
-		"root/overlays/example/etc/config":   {Data: []byte("variant")},
+		"root/common/etc/crictl.yaml":                   {Data: []byte("common")},
+		"root/ubuntu/etc/crictl.yaml.link":              {Data: []byte("shared/config\n")},
+		"root/ubuntu/opt/bin/ci-syslog-watcher.sh.link": {Data: []byte("shared/helper")},
+		"root/shared/config":                            {Data: []byte("ubuntu")},
+		"root/shared/helper":                            {Data: []byte("#!/bin/sh\nexit 0\n")},
+		"root/overlays/example/etc/crictl.yaml":         {Data: []byte("variant")},
 	}
 	root := t.TempDir()
 	require.NoError(t, unpackRoot(source, []string{"common", "ubuntu"}, root))
-	data, err := os.ReadFile(filepath.Join(root, "etc/config"))
+	data, err := os.ReadFile(filepath.Join(root, "etc/crictl.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, "ubuntu", string(data))
-	info, err := os.Stat(filepath.Join(root, "opt/bin/helper.sh"))
+	info, err := os.Stat(filepath.Join(root, "opt/bin/ci-syslog-watcher.sh"))
 	require.NoError(t, err)
 	require.True(t, info.Mode().IsRegular())
 	require.Equal(t, fs.FileMode(0o755), info.Mode().Perm())
-	require.NoFileExists(t, filepath.Join(root, "opt/bin/helper.sh.link"))
+	require.NoFileExists(t, filepath.Join(root, "opt/bin/ci-syslog-watcher.sh.link"))
 	require.NoDirExists(t, filepath.Join(root, "shared"))
 
 	require.NoError(t, unpackRoot(source, []string{"common", "ubuntu", "overlays/example"}, root))
-	data, err = os.ReadFile(filepath.Join(root, "etc/config"))
+	data, err = os.ReadFile(filepath.Join(root, "etc/crictl.yaml"))
 	require.NoError(t, err)
 	require.Equal(t, "variant", string(data))
 }
@@ -343,6 +353,7 @@ func TestInvalidImagePlansWriteNothing(t *testing.T) {
 		want  string
 	}{
 		{"missing target", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("shared/missing")}}, []string{"ubuntu"}, "resolve shared/missing"},
+		{"missing permissions", fstest.MapFS{"root/ubuntu/unknown": {Data: []byte("data")}}, []string{"ubuntu"}, "missing permissions"},
 		{"missing common notice", fstest.MapFS{"root/ubuntu/NOTICE_FLATCAR.txt": {Data: []byte("license")}}, []string{"ubuntu"}, "require the common NOTICE.txt"},
 		{"traversal", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("shared/../secret")}}, []string{"ubuntu"}, "invalid shared reference"},
 		{"outside shared", fstest.MapFS{"root/ubuntu/z.link": {Data: []byte("common/a")}}, []string{"ubuntu"}, "invalid shared reference"},
@@ -377,6 +388,30 @@ func TestInvalidImagePlansWriteNothing(t *testing.T) {
 			entries, err := os.ReadDir(root)
 			require.NoError(t, err)
 			require.Empty(t, entries)
+		})
+	}
+}
+
+func TestParseImageFileModes(t *testing.T) {
+	modes, err := parseImageFileModes("# modes\n\n0544 opt/helper.sh 0755 # OSGuard\n0600 etc/config\n")
+	require.NoError(t, err)
+	require.Equal(t, imageFilePermissions{standard: 0o544, osguard: 0o755}, modes["opt/helper.sh"])
+	require.Equal(t, imageFilePermissions{standard: 0o600, osguard: 0o600}, modes["etc/config"])
+	for _, tc := range []struct {
+		name, input, want string
+	}{
+		{"empty", "# comment\n", "no file permissions"},
+		{"fields", "0644\n", ":1: expected"},
+		{"absolute", "0644 /etc/config\n", "invalid destination"},
+		{"traversal", "0644 etc/../config\n", "invalid destination"},
+		{"non-octal", "0688 etc/config\n", "invalid octal"},
+		{"special bits", "4755 opt/helper.sh\n", "invalid octal"},
+		{"override", "0644 etc/config bad\n", "invalid octal"},
+		{"duplicate", "0644 etc/config\n0600 etc/config\n", ":2: duplicate"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseImageFileModes(tc.input)
+			require.ErrorContains(t, err, tc.want)
 		})
 	}
 }
@@ -517,7 +552,7 @@ func TestInferLegacyAzureLinuxARM64Variant(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
 			require.NoError(t, os.WriteFile(target, nil, 0o644))
 		}
-		actual, err := inferImageOverlays("azurelinux-3.0", map[string]string{"ID": "azurelinux", "VERSION_ID": "3.0"}, root, "arm64")
+		actual, err := inferImageOverlays("azurelinux", map[string]string{"ID": "azurelinux", "VERSION_ID": "3.0"}, root, "arm64")
 		require.NoError(t, err)
 		if hasGrub {
 			require.Equal(t, []string{"nvidia-grub"}, actual)
@@ -576,7 +611,7 @@ func TestUnpackPreservesFinalImageBuildResults(t *testing.T) {
 	}
 }
 
-func TestUnpackHotfixPreservesKernelModuleConfiguration(t *testing.T) {
+func TestUnpackInstallsKernelModuleConfiguration(t *testing.T) {
 	t.Setenv("ENABLE_FIPS", "false")
 	t.Setenv("FEATURE_FLAGS", "NVIDIA_GB")
 	for _, release := range []string{
@@ -587,35 +622,13 @@ func TestUnpackHotfixPreservesKernelModuleConfiguration(t *testing.T) {
 			root := t.TempDir()
 			osRelease := filepath.Join(t.TempDir(), "os-release")
 			require.NoError(t, os.WriteFile(osRelease, []byte(release), 0o600))
-			cis := filepath.Join(root, "etc/modprobe.d/CIS.conf")
-			target := filepath.Join(root, "existing-cis.conf")
-			require.NoError(t, os.MkdirAll(filepath.Dir(cis), 0o755))
-			require.NoError(t, os.WriteFile(target, []byte("# existing kernel policy\n"), 0o640))
-			require.NoError(t, os.Symlink("../../existing-cis.conf", cis))
-
-			require.NoError(t, unpackScripts(osRelease, root, "etc/modprobe.d", "etc/modules-load.d"))
-
-			content, err := os.ReadFile(cis)
-			require.NoError(t, err)
-			require.Equal(t, "# existing kernel policy\n", string(content))
-			link, err := os.Readlink(cis)
-			require.NoError(t, err)
-			require.Equal(t, "../../existing-cis.conf", link)
-			info, err := os.Stat(target)
-			require.NoError(t, err)
-			require.Equal(t, fs.FileMode(0o640), info.Mode().Perm())
-			require.NoFileExists(t, filepath.Join(root, "etc/modprobe.d/nvidia.conf"))
-			require.NoDirExists(t, filepath.Join(root, "etc/modules-load.d"))
-			require.FileExists(t, filepath.Join(root, "opt/azure/containers/provision.sh"))
-
-			buildRoot := t.TempDir()
-			require.NoError(t, unpackScripts(osRelease, buildRoot))
+			require.NoError(t, unpackScripts(osRelease, root))
 			for _, name := range []string{
 				"etc/modprobe.d/CIS.conf",
 				"etc/modprobe.d/nvidia.conf",
 				"etc/modules-load.d/nvidia-peermem.conf",
 			} {
-				require.FileExists(t, filepath.Join(buildRoot, name))
+				require.FileExists(t, filepath.Join(root, name))
 			}
 		})
 	}

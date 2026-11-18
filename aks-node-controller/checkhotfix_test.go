@@ -182,7 +182,12 @@ func TestCheckHotfix_EmptyServedConfigIsBenignAndPreservesFile(t *testing.T) {
 	}
 }
 
-func TestCheckHotfix_PreservesLegacyVersionOnWrite(t *testing.T) {
+// TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite guards the "sharper half": even for
+// a NON-empty served hotfixes map (a real hotfix rollout), the write must be a read-modify-write
+// that preserves the cloud-init-written version/scripts_version and replaces only the hotfixes
+// map. The LPS payload is hotfixes-only by design, so rewriting the whole file naively would
+// drop scripts_version and silently disable the CSE-scripts hotfix.
+func TestCheckHotfix_PreservesVersionAndScriptsVersionOnWrite(t *testing.T) {
 	origVersion := Version
 	Version = "202604.01.0"
 	defer func() { Version = origVersion }()
@@ -205,11 +210,9 @@ func TestCheckHotfix_PreservesLegacyVersionOnWrite(t *testing.T) {
 	cfg := readStagedConfig(t, path)
 	// hotfixes map replaced by the LPS-served one...
 	assert.Equal(t, map[string]string{"202604.01": "202604.01.9"}, cfg.Hotfixes)
-	// The legacy binary pointer remains; separate script versions are obsolete.
+	// ...but version/scripts_version preserved from the cloud-init file.
 	assert.Equal(t, "202604.01.5", cfg.Version)
-	raw, err := os.ReadFile(path)
-	require.NoError(t, err)
-	assert.NotContains(t, string(raw), "scripts_version")
+	assert.Equal(t, "202604.01.7", cfg.ScriptsVersion)
 }
 
 func TestCheckHotfix_LPSUnavailableIsBenign(t *testing.T) {
@@ -831,7 +834,7 @@ func TestWriteHotfixConfig_PreservesVersionsAndDropsArtifacts(t *testing.T) {
 
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"version":"202604.01.5","hotfixes":{"202604.01":"202604.01.9"}}`, string(raw))
+	assert.JSONEq(t, `{"version":"202604.01.5","scripts_version":"202604.01.7","hotfixes":{"202604.01":"202604.01.9"}}`, string(raw))
 }
 
 func TestWriteHotfixConfig_FileMode(t *testing.T) {

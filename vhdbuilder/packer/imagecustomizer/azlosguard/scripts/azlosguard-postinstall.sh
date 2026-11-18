@@ -71,8 +71,6 @@ export IMAGE_FETCH_ONLY=true
 /opt/azure/image-build/list-images.sh
 rm -f /opt/azure/containers/image-fetcher
 
-# Build tools are part of the versioned payload and can be refreshed by a hotfix.
-
 chage -I -1 -M -1 root
 
 # Create release-notes.txt

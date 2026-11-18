@@ -511,11 +511,8 @@ func TestApp_Run(t *testing.T) {
 }
 
 func TestApp_ApplyHotfix(t *testing.T) {
-	osRelease := filepath.Join(t.TempDir(), "os-release")
-	require.NoError(t, os.WriteFile(osRelease, []byte("ID=ubuntu\n"), 0o600))
 	t.Run("apply embedded hotfix payload", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
-		tt.App.osReleasePath = osRelease
 		applied := false
 		tt.App.applyEmbeddedHotfix = func(string) error {
 			applied = true
@@ -537,7 +534,6 @@ func TestApp_ApplyHotfix(t *testing.T) {
 				return nil
 			},
 		})
-		tt.App.osReleasePath = osRelease
 		tt.App.applyEmbeddedHotfix = func(string) error {
 			return errors.New("rendered nodecustomdata application failed")
 		}
@@ -552,39 +548,6 @@ func TestApp_ApplyHotfix(t *testing.T) {
 			Attrs:   map[string]string{"error": "rendered nodecustomdata application failed"},
 		})
 	})
-}
-
-func TestApp_ApplyHotfixPreservesOSSupport(t *testing.T) {
-	for _, tc := range []struct {
-		release string
-		wantErr bool
-	}{
-		{"ID=azurelinux\nVARIANT_ID=azurecontainerlinux\n", false},
-		{"ID=azurecontainerlinux\n", false},
-		{"ID=azurelinux\nVARIANT_ID=osguard\n", false},
-		{"ID=flatcar\n", false},
-		{"ID=mariner\n", true},
-		{"ID=unknown\n", true},
-	} {
-		t.Run(tc.release, func(t *testing.T) {
-			tt := NewTestApp(t, TestAppConfig{RunFunc: func(*exec.Cmd) error {
-				t.Fatal("unsupported images must not run normalization")
-				return nil
-			}})
-			tt.App.osReleasePath = filepath.Join(t.TempDir(), "os-release")
-			require.NoError(t, os.WriteFile(tt.App.osReleasePath, []byte(tc.release), 0o600))
-			tt.App.applyEmbeddedHotfix = func(string) error {
-				t.Fatal("unsupported images must not unpack hotfix files")
-				return nil
-			}
-			err := tt.App.runApplyHotfixCommand(t.Context())
-			if tc.wantErr {
-				require.ErrorContains(t, err, "unsupported OS ID")
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
 }
 
 func TestApp_Provision(t *testing.T) {

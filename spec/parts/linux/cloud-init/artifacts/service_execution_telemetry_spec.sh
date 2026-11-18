@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Describe 'service execution telemetry'
-    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./parts/root/common/opt/azure/image-build/image_config.sh)"
+    eval "$(sed -n '/^configureServiceExecutionTelemetryForSystemdVersion()/,/^}/p' ./parts/root/common/opt/azure/image-build/install-dependencies.sh)"
 
     setup_service_execution_telemetry_test() {
         TEST_ROOT=$(mktemp -d)

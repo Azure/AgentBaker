@@ -10,7 +10,7 @@ configureImageFiles() {
     chmod 0600 /etc/security/faillock.conf || exit 1
   fi
   chmod 0444 /NOTICE.txt || exit 1
-  # Public driver repositories are build inputs, not part of the node's hotfix tree.
+  # Public driver repositories are separate build inputs.
   if grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
     install -D -m 0644 /opt/azure/image-build/gb/nvidia.list /etc/apt/sources.list.d/nvidia.list || exit 1
     install -D -m 0644 /opt/azure/image-build/gb/nvidia.pub /etc/apt/keyrings/nvidia.pub || exit 1

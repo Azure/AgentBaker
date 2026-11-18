@@ -1,0 +1,187 @@
+# MODE PATH [OSGUARD_MODE]
+# Paths are relative to the installed root, not source paths or .link names.
+# Every installed file needs an entry. Modes are octal; the optional third column overrides OSGuard.
+# Existing destination permissions are preserved during unpacking.
+0444 NOTICE.txt
+0644 etc/apt/preferences
+0644 etc/cloud/cloud.cfg.d/10-users-ssh-enable.cfg
+0644 etc/containerd/config.toml
+0644 etc/crictl.yaml
+0644 etc/default/grub.d/51-azure-nvidia.cfg
+0644 etc/extensions/lg-redirect-sysext/usr/lib/extension-release.d/extension-release.lg-redirect-sysext
+0755 etc/grub.d/10_azure_nvidia
+0644 etc/issue
+0644 etc/issue.net
+0644 etc/logrotate.d/rsyslog
+0644 etc/logrotate.d/rsyslog-cis.conf
+0644 etc/modprobe.d/CIS.conf
+0644 etc/modprobe.d/nvidia.conf
+0644 etc/modules-load.d/nvidia-peermem.conf
+0644 etc/node-exporter.d/web-config.yml
+0644 etc/pam.d/common-account
+0644 etc/pam.d/common-auth
+0644 etc/pam.d/common-password
+0644 etc/pam.d/su
+0644 etc/pam.d/system-auth
+0644 etc/pam.d/system-password
+0755 etc/profile.d/CIS.sh
+0755 etc/profile.d/path.sh
+0644 etc/rsyslog.d/60-CIS.conf
+0600 etc/security/faillock.conf
+0600 etc/security/pwquality.conf
+0600 etc/ssh/sshd_config
+0644 etc/sysctl.d/60-CIS.conf
+0644 etc/systemd/system/aks-check-network.service 0600
+0644 etc/systemd/system/aks-localdns-hosts-setup.service 0600
+0644 etc/systemd/system/aks-localdns-hosts-setup.timer 0600
+0644 etc/systemd/system/aks-log-collector.service 0600
+0644 etc/systemd/system/aks-log-collector.slice 0600
+0644 etc/systemd/system/aks-log-collector.timer 0600
+0644 etc/systemd/system/aks-networkd-recovery.service 0600
+0644 etc/systemd/system/aks-networkd-recovery.timer 0600
+0644 etc/systemd/system/aks-node-controller.service 0600
+0600 etc/systemd/system/bind-mount.service
+0644 etc/systemd/system/cgroup-cpu-telemetry.service 0600
+0644 etc/systemd/system/cgroup-cpu-telemetry.timer 0600
+0644 etc/systemd/system/cgroup-memory-telemetry.service 0600
+0644 etc/systemd/system/cgroup-memory-telemetry.timer 0600
+0644 etc/systemd/system/cgroup-pressure-telemetry.service 0600
+0644 etc/systemd/system/cgroup-pressure-telemetry.timer 0600
+0644 etc/systemd/system/ci-syslog-watcher.path 0600
+0644 etc/systemd/system/ci-syslog-watcher.service 0600
+0644 etc/systemd/system/containerd.service 0600
+0644 etc/systemd/system/containerd.service.d/exec_start.conf
+0600 etc/systemd/system/dhcpv6.service
+0644 etc/systemd/system/disk_queue.service
+0644 etc/systemd/system/docker.service.d/clear_mount_propagation_flags.conf
+0644 etc/systemd/system/emit-kubelet-active-flags.service 0600
+0600 etc/systemd/system/ensure-no-dup.service
+0600 etc/systemd/system/format-mount-nvme-root.service
+0644 etc/systemd/system/ipv6_nftables
+0644 etc/systemd/system/ipv6_nftables.service 0600
+0644 etc/systemd/system/kms.service 0600
+0600 etc/systemd/system/kubelet.service
+0600 etc/systemd/system/kubelet.service.d/11-fmtmount.conf
+0644 etc/systemd/system/localdns-exporter.socket
+0644 etc/systemd/system/localdns-exporter@.service
+0644 etc/systemd/system/localdns-fallback.service 0600
+0644 etc/systemd/system/localdns.service 0600
+0644 etc/systemd/system/localdns.service.d/delegate.conf
+0644 etc/systemd/system/logrotate.service 0600
+0644 etc/systemd/system/logrotate.timer 0600
+0644 etc/systemd/system/logrotate.timer.d/override.conf
+0644 etc/systemd/system/measure-tls-bootstrapping-latency.service 0600
+0600 etc/systemd/system/mig-partition.service
+0644 etc/systemd/system/node-exporter-restart.path 0600
+0644 etc/systemd/system/node-exporter-restart.service 0600
+0644 etc/systemd/system/node-exporter.service 0600
+0644 etc/systemd/system/nvidia-modprobe.service 0600
+0600 etc/systemd/system/reconcile-private-hosts.service
+0644 etc/systemd/system/resolv-uplink-override.service 0600
+0600 etc/systemd/system/secure-tls-bootstrap.service
+0644 etc/systemd/system/service-execution-telemetry@.service 0600
+0644 etc/systemd/system/snapshot-update.service 0600
+0644 etc/systemd/system/snapshot-update.timer 0600
+0600 etc/systemd/system/sync-container-logs.service
+0600 etc/systemd/system/trident-acl-agent.path
+0600 etc/systemd/system/trident-acl-agent.service.d/10-aks.conf
+0644 etc/systemd/system/update_certs.path 0600
+0644 etc/systemd/system/update_certs.service 0600
+0644 etc/tmpfiles.d/aks-mglru.conf
+0644 etc/udev/rules.d/99-azure-network.rules
+0644 etc/yum.repos.d/azurelinux-cloud-native-preview.repo
+0644 etc/yum.repos.d/azurelinux-cloud-native.repo
+0644 etc/yum.repos.d/azurelinux-ms-oss.repo
+0755 opt/azure-network/configure-azure-network.sh
+0755 opt/azure/containers/aks-check-network.sh
+0755 opt/azure/containers/aks-diagnostic.py
+0755 opt/azure/containers/aks-localdns-hosts-setup.sh
+0755 opt/azure/containers/aks-log-collector-send.py
+0755 opt/azure/containers/aks-log-collector.sh
+0755 opt/azure/containers/aks-networkd-recovery.sh
+0755 opt/azure/containers/aks-node-controller-hotfix.sh
+0755 opt/azure/containers/aks-node-controller-launcher.sh
+0544 opt/azure/containers/bind-mount.sh
+0644 opt/azure/containers/cleanup-vhd.sh
+0744 opt/azure/containers/cloud-init-status-check.sh 0755
+0755 opt/azure/containers/disk_queue.sh
+0755 opt/azure/containers/emit-kubelet-active-flags.sh
+0544 opt/azure/containers/enable-dhcpv6.sh
+0755 opt/azure/containers/ensure-no-dup.sh
+0755 opt/azure/containers/ensure_imds_restriction.sh
+0744 opt/azure/containers/fetch_provision_config.py
+0544 opt/azure/containers/format-mount-nvme-root.sh
+0644 opt/azure/containers/gb-mai-bom.json
+0744 opt/azure/containers/init-aks-cloud.sh
+0644 opt/azure/containers/install_walinuxagent.py
+0755 opt/azure/containers/kubelet.sh
+0755 opt/azure/containers/localdns/localdns-fallback.sh
+0755 opt/azure/containers/localdns/localdns.sh
+0755 opt/azure/containers/localdns/localdns_exporter.sh
+0544 opt/azure/containers/mariner-package-update.sh
+0755 opt/azure/containers/measure-tls-bootstrapping-latency.sh
+0544 opt/azure/containers/mig-partition.sh
+0544 opt/azure/containers/npd-update.sh
+0755 opt/azure/containers/post-deprovision-walinuxagent.sh
+0744 opt/azure/containers/provision.sh
+0744 opt/azure/containers/provision_cis.sh
+0744 opt/azure/containers/provision_configs.sh
+0744 opt/azure/containers/provision_configs_chrony.sh
+0744 opt/azure/containers/provision_configs_gpu.sh
+0744 opt/azure/containers/provision_configs_kubelet.sh
+0744 opt/azure/containers/provision_configs_localdns.sh
+0744 opt/azure/containers/provision_configs_network.sh
+0744 opt/azure/containers/provision_installs.sh
+0744 opt/azure/containers/provision_installs_distro.sh
+0744 opt/azure/containers/provision_preload.sh
+0744 opt/azure/containers/provision_redact_cloud_config.py
+0744 opt/azure/containers/provision_send_logs.py
+0744 opt/azure/containers/provision_source.sh
+0744 opt/azure/containers/provision_source_distro.sh
+0744 opt/azure/containers/provision_start.sh
+0744 opt/azure/containers/reconcilePrivateHosts.sh
+0755 opt/azure/containers/remove-bootstrap-kubeconfig.sh
+0544 opt/azure/containers/security-update.sh
+0744 opt/azure/containers/setup-custom-search-domains.sh 0755
+0544 opt/azure/containers/sync-container-logs.sh
+0544 opt/azure/containers/ubuntu-snapshot-update.sh
+0755 opt/azure/containers/validate-kubelet-credentials.sh
+0644 opt/azure/image-build/2604-minimal-cvm-final-forbidden-packages.txt
+0644 opt/azure/image-build/2604-minimal-cvm-final-required-packages.txt
+0644 opt/azure/image-build/2604-minimal-cvm-marked-for-removal-packages.txt
+0644 opt/azure/image-build/2604-minimal-cvm-required-packages.txt
+0755 opt/azure/image-build/cis.sh
+0644 opt/azure/image-build/gb/doca-net.list
+0644 opt/azure/image-build/gb/doca-net.pub
+0644 opt/azure/image-build/gb/nvidia.list
+0644 opt/azure/image-build/gb/nvidia.pub
+0755 opt/azure/image-build/generate-disk-usage.sh
+0755 opt/azure/image-build/install-dependencies.sh
+0755 opt/azure/image-build/install-ig.sh
+0755 opt/azure/image-build/install-kmpp.sh
+0755 opt/azure/image-build/install-node-exporter.sh
+0755 opt/azure/image-build/install-npd.sh
+0755 opt/azure/image-build/list-images.sh
+0644 opt/azure/image-build/nvidia-docker-daemon.json
+0755 opt/azure/image-build/packer_source.sh
+0755 opt/azure/image-build/post-install-dependencies.sh
+0755 opt/azure/image-build/pre-install-dependencies.sh
+0755 opt/azure/image-build/provision_source_benchmarks.sh
+0755 opt/azure/image-build/tool_installs.sh
+0755 opt/azure/image-build/tool_installs_distro.sh
+0755 opt/azure/image-build/trim-2604-cvm-packages.sh
+0755 opt/azure/image-build/validate-kata-uvm-version.sh
+0755 opt/azure/image-build/write-kata-release-notes.sh
+0755 opt/bin/ci-syslog-watcher.sh
+0544 opt/bin/logrotate.sh
+0755 opt/bin/node-exporter-startup.sh
+0755 opt/scripts/cgroup-cpu-telemetry.sh
+0755 opt/scripts/cgroup-memory-telemetry.sh
+0755 opt/scripts/cgroup-pressure-telemetry.sh
+0644 opt/scripts/cgroup-telemetry-events.sh
+0755 opt/scripts/ipv6_nftables.sh 0744
+0755 opt/scripts/service-execution-telemetry.sh
+0755 opt/scripts/update_certs.sh
+0644 usr/lib/systemd/system/ig-import-gadgets.service
+0755 usr/share/inspektor-gadget/import_gadgets.sh
+0755 usr/share/inspektor-gadget/remove_gadgets.sh

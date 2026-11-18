@@ -477,13 +477,12 @@ sequenceDiagram
 
 Eligible scriptless runs build ANC with the current filesystem from `parts/root`
 and unpack it before preload and provisioning. Scripts, units and static
-configuration therefore do not require a VHD rebuild. There is no generated
-hotfix payload or separate static-file upload.
+configuration therefore do not require a VHD rebuild or a separate static-file upload.
 
 `DISABLE_SCRIPTLESS_COMPILATION=true`, network-isolated scenarios, and Flatcar
-retain the VHD's ANC and scripts. The embedded-hotfix scenario replaces a file
-in an isolated copy of the full root and verifies that the downloaded ANC
-applies it. Package changes and build-time operations still require a matching
+retain the VHD's ANC and scripts. The embedded-hotfix scenario instead builds an
+ANC with selected scripts in a rendered hotfix payload and verifies that the
+launcher applies it without a full unpack. Package changes and build-time operations still require a matching
 VHD: unpacking a build tool does not run it. `DISABLE_SCRIPTLESS=true` remains
 available when explicitly testing legacy CSE/CustomData delivery.
 

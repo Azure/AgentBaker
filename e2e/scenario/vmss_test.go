@@ -153,7 +153,7 @@ func TestCustomDataWithScriptBundle(t *testing.T) {
 	require.NoError(t, err)
 	decoded, err = base64.StdEncoding.DecodeString(encoded)
 	require.NoError(t, err)
-	require.NotContains(t, string(decoded), "unpack-scripts", "hotfix fixtures must let the launcher apply the embedded tree")
+	require.NotContains(t, string(decoded), "unpack-scripts", "hotfix fixtures must let the launcher apply the selected scripts")
 	_, err = CustomDataWithScriptBundle("not base64", "unused")
 	require.ErrorContains(t, err, "decode custom data")
 	_, err = CustomDataWithScriptBundle(base64.StdEncoding.EncodeToString([]byte("no marker")), "unused")
@@ -503,16 +503,38 @@ func (tt *vmssCreationTestCase) respond(t *testing.T, req *http.Request) *http.R
 }
 
 func TestWriteScriptHotfixFixture(t *testing.T) {
-	root := t.TempDir()
-	target := filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh")
-	require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
-	require.NoError(t, os.WriteFile(target+".link", []byte("shared/provision_configs.sh\n"), 0o644))
-	fixture := ScriptHotfixFixture{Platform: "ubuntu", Files: []ScriptHotfixFile{{Destination: "/opt/azure/containers/provision_configs.sh", Payload: []byte("#!/bin/bash\necho e2e\n")}}}
-	require.NoError(t, writeScriptHotfixFixture(root, fixture))
-	require.NoFileExists(t, target+".link")
-	data, err := os.ReadFile(filepath.Join(root, "parts/root/ubuntu/opt/azure/containers/provision_configs.sh"))
+	buildDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
+	fixture := ScriptHotfixFixture{
+		Platform: "ubuntu",
+		Files: []ScriptHotfixFile{{
+			Destination: "/opt/azure/containers/provision_configs.sh",
+			Mode:        "0744",
+			Payload:     []byte("#!/bin/bash\necho e2e\n"),
+		}},
+	}
+
+	require.NoError(t, writeScriptHotfixFixture(buildDir, fixture))
+	entries, err := os.ReadDir(filepath.Join(buildDir, "generated"))
 	require.NoError(t, err)
-	require.Equal(t, fixture.Files[0].Payload, data)
+	require.Len(t, entries, 1)
+	require.Equal(t, "rendered_nodecustomdata_ubuntu.yml", entries[0].Name())
+
+	renderedData, err := os.ReadFile(filepath.Join(
+		buildDir,
+		"generated",
+		"rendered_nodecustomdata_ubuntu.yml",
+	))
+	require.NoError(t, err)
+	var rendered scriptHotfixFixtureNodeCustomData
+	require.NoError(t, yaml.Unmarshal(renderedData, &rendered))
+	require.Len(t, rendered.WriteFiles, 1)
+	require.Equal(t, fixture.Files[0].Destination, rendered.WriteFiles[0].Path)
+	require.Equal(t, fixture.Files[0].Mode, rendered.WriteFiles[0].Permissions)
+	require.Equal(t, "base64", rendered.WriteFiles[0].Encoding)
+	payload, err := base64.StdEncoding.DecodeString(rendered.WriteFiles[0].Content)
+	require.NoError(t, err)
+	require.Equal(t, fixture.Files[0].Payload, payload)
 }
 
 func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
@@ -521,6 +543,7 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			Platform: "ubuntu",
 			Files: []ScriptHotfixFile{{
 				Destination: "/opt/azure/containers/provision_configs.sh",
+				Mode:        "0744",
 				Payload:     []byte("#!/bin/bash\n"),
 			}},
 		}
@@ -535,7 +558,12 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 				fixture.Files[0].Destination = "opt/provision_configs.sh"
 			},
 		},
-
+		{
+			name: "invalid mode",
+			mutate: func(fixture *ScriptHotfixFixture) {
+				fixture.Files[0].Mode = "0999"
+			},
+		},
 		{
 			name: "unsupported platform",
 			mutate: func(fixture *ScriptHotfixFixture) {
@@ -554,13 +582,14 @@ func TestWriteScriptHotfixFixtureRejectsInvalidData(t *testing.T) {
 			fixture := validFixture()
 			test.mutate(&fixture)
 			buildDir := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(buildDir, "generated"), 0o755))
 			require.Error(t, writeScriptHotfixFixture(buildDir, fixture))
 		})
 	}
 }
 
 // TestCSEExitCodeOutboundConnFail pins the exit code constant to the value emitted by
-// ERR_OUTBOUND_CONN_FAIL in parts/root/common/opt/azure/containers/provision_source.sh. If the
+// ERR_OUTBOUND_CONN_FAIL in parts/linux/cloud-init/artifacts/cse_helpers.sh. If the
 // product error code changes, this test forces the harness mitigation to be updated.
 func TestGetBaseVMSSModelUsesScenarioVMSize(t *testing.T) {
 	s := &Scenario{

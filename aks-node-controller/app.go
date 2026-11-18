@@ -74,6 +74,8 @@ type App struct {
 	verifyRPMPackageSignature func(ctx context.Context, packagePath string) error
 	// extractRepositoryPackage overrides package extraction for deterministic unit tests.
 	extractRepositoryPackage func(ctx context.Context, format, packagePath, destination string) error
+	// nodeCustomDataPath overrides the default nodecustomdata path for testing.
+	nodeCustomDataPath string
 	// nodeConfigPath overrides the default AKSNodeConfig path for testing. It is the
 	// source for check-hotfix's LPS endpoint (apiserver FQDN + cluster CA) and the
 	// cold-start fallback pointer.
@@ -207,7 +209,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 			},
 			{
 				Name:  "apply-embedded-hotfix",
-				Usage: "Unpack the complete embedded image (compatibility alias for older launchers)",
+				Usage: "Apply embedded hotfix scripts",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					if len(cmd.Args().Slice()) > 0 {
 						return fmt.Errorf("unexpected apply-embedded-hotfix arguments: %s", strings.Join(cmd.Args().Slice(), " "))
@@ -284,43 +286,17 @@ func (a *App) runDownloadHotfixCommand(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) runApplyHotfixCommand(ctx context.Context) error {
+func (a *App) runApplyHotfixCommand(context.Context) error {
 	slog.Info("aks-node-controller hotfix apply started")
-	info, err := a.parseLinuxPlatformInfo()
-	if err != nil {
-		return err
-	}
-	if isImageBasedOSVariant(info.VariantID) || info.ID == osReleaseIDAzureContainerLinux || info.ID == osReleaseIDFlatcar {
-		slog.Info("embedded script hotfix is not supported on this OS, skipping", "osReleasePath", a.osReleasePath)
-		return nil
-	}
-	if info.ID != osReleaseIDUbuntu && info.ID != osReleaseIDAzureLinux {
-		return fmt.Errorf("unsupported OS ID %q in %s", info.ID, a.osReleasePath)
-	}
 	applyHotfix := a.applyEmbeddedHotfix
 	if applyHotfix == nil {
 		applyHotfix = func(osReleasePath string) error {
-			// Kernel module policy belongs to the image and normal provisioning, not hotfix delivery.
-			return unpackScripts(osReleasePath, "/", "etc/modprobe.d", "etc/modules-load.d")
+			return applyEmbeddedNodeCustomData(embeddedGeneratedNodeCustomData, osReleasePath, embeddedNodeCustomDataPath)
 		}
 	}
 	if err := applyHotfix(a.osReleasePath); err != nil {
 		slog.Error("aks-node-controller failed to apply embedded hotfix payload", "error", err)
 		return err
-	}
-	if _, statErr := os.Stat("/run/systemd/system"); statErr == nil {
-		// Restore the same systemd adjustments made by the image build.
-		normalize := `source /opt/azure/containers/provision_source.sh &&
-source /opt/azure/image-build/image_config.sh &&
-configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')"`
-		if err := a.cmdRun(exec.CommandContext(ctx, "/bin/bash", "-c", normalize)); err != nil {
-			return fmt.Errorf("configure hotfixed systemd units: %w", err)
-		}
-		if err := a.cmdRun(exec.CommandContext(ctx, "systemctl", "daemon-reload")); err != nil {
-			return fmt.Errorf("reload hotfixed systemd units: %w", err)
-		}
-	} else if !errors.Is(statErr, os.ErrNotExist) {
-		return fmt.Errorf("inspect systemd runtime: %w", statErr)
 	}
 
 	slog.Info("aks-node-controller apply embedded hotfix payload finished")
@@ -392,6 +368,13 @@ func buildCmdFromNBCCmd(ctx context.Context, path string) (*exec.Cmd, error) {
 	cmd := exec.CommandContext(ctx, "/bin/bash", "--", scriptPath)
 	cmd.Env = os.Environ()
 	return cmd, nil
+}
+
+func (a *App) getNodeCustomDataPath() string {
+	if a.nodeCustomDataPath != "" {
+		return a.nodeCustomDataPath
+	}
+	return defaultNodeCustomDataPath
 }
 
 func (a *App) getGPUComponentsFilePath() string {

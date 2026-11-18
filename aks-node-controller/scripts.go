@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
-	"maps"
 	"os"
 	"path"
 	"path/filepath"
@@ -24,7 +23,7 @@ const (
 	logrotateDropInPath = "etc/systemd/system/logrotate.timer.d/override.conf"
 )
 
-func unpackScripts(osReleasePath, destination string, preserveDirs ...string) error {
+func unpackScripts(osReleasePath, destination string) error {
 	if !filepath.IsAbs(destination) {
 		return fmt.Errorf("destination must be absolute: %q", destination)
 	}
@@ -41,6 +40,13 @@ func unpackScripts(osReleasePath, destination string, preserveDirs ...string) er
 		return err
 	}
 	roots := []string{"common", osRoot}
+	version := osRelease["VERSION_ID"]
+	switch {
+	case osRoot == osReleaseIDUbuntu && version == "20.04":
+		roots = append(roots, "ubuntu-20.04")
+	case osRoot == osReleaseIDAzureLinux && version == "3.0":
+		roots = append(roots, "azurelinux-3.0")
+	}
 	selection := filepath.Join(destination, imageOverlaysPath)
 	data, err := os.ReadFile(selection)
 	selectionMissing := errors.Is(err, fs.ErrNotExist)
@@ -62,10 +68,10 @@ func unpackScripts(osReleasePath, destination string, preserveDirs ...string) er
 		}
 		roots = append(roots, "overlays/"+overlay)
 	}
-	if err := unpackRoot(parts.Root, roots, destination, preserveDirs...); err != nil {
+	if err := unpackRoot(parts.Root, roots, destination); err != nil {
 		return err
 	}
-	// Hotfixes must use the image's feature selections, not the build host's environment.
+	// Repeated unpacking must use the image's original feature selections.
 	if selectionMissing {
 		if err := writeRootFile(selection, []byte(strings.Join(overlays, "\n")+"\n"), 0o644); err != nil {
 			return fmt.Errorf("record image overlays: %w", err)
@@ -111,8 +117,8 @@ func inferImageOverlays(osRoot string, release map[string]string, root, arch str
 		overlays = append(overlays, "ubuntu2204-fips")
 	}
 	ubuntuNvidia := osRoot == osReleaseIDUbuntu && release["VERSION_ID"] == "24.04"
-	azureLinuxNvidia := osRoot == "azurelinux-3.0" && strings.EqualFold(release["ID"], "azurelinux") &&
-		release["VARIANT_ID"] == "" && !fips
+	azureLinuxNvidia := strings.EqualFold(release["ID"], osReleaseIDAzureLinux) &&
+		release["VERSION_ID"] == "3.0" && release["VARIANT_ID"] == "" && !fips
 	if azureLinuxNvidia && !fipsSpecified {
 		// Older ARM64 FIPS images need not have the amd64 FIPS marker.
 		azureLinuxNvidia, err = imageHasFile(root, "etc/grub.d/10_azure_nvidia")
@@ -153,14 +159,8 @@ func imageRoot(release map[string]string) (string, error) {
 	case id == osReleaseIDAzureContainerLinux || variant == osReleaseIDAzureContainerLinux:
 		return "acl", nil
 	case id == osReleaseIDUbuntu:
-		if release["VERSION_ID"] == "18.04" || release["VERSION_ID"] == "20.04" {
-			return "ubuntu-" + release["VERSION_ID"], nil
-		}
 		return "ubuntu", nil
 	case id == osReleaseIDAzureLinux || id == "azurelinuxkata":
-		if release["VERSION_ID"] == "3.0" {
-			return "azurelinux-3.0", nil
-		}
 		return "azurelinux", nil
 	case id == "mariner" || id == "marinerkata":
 		return "mariner", nil
@@ -174,6 +174,7 @@ func imageRoot(release map[string]string) (string, error) {
 type imageFile struct {
 	source  string
 	content []byte
+	mode    fs.FileMode
 }
 
 func readImageFile(source fs.FS, root, name string) (string, imageFile, error) {
@@ -268,15 +269,14 @@ func resolveImageFiles(source fs.FS, roots []string) (map[string]imageFile, erro
 			}
 		}
 	}
-	return files, nil
+	return files, applyImageFileModes(files, slices.Contains(roots, "osguard"))
 }
 
 func normalizeImageConfigs(files map[string]imageFile, roots []string) {
 	// Keep the original sources; materialize the distro-specific build edits.
 	if file, ok := files["etc/rsyslog.d/60-CIS.conf"]; ok {
 		rule := "\n*.*;mail.none;news.none            -/var/log/messages\n"
-		if slices.Contains(roots, "mariner") || slices.Contains(roots, "azurelinux") ||
-			slices.Contains(roots, "azurelinux-3.0") || slices.Contains(roots, "osguard") {
+		if slices.Contains(roots, "mariner") || slices.Contains(roots, "azurelinux") || slices.Contains(roots, "osguard") {
 			rule = "\nnews.none                          -/var/log/messages\n"
 		}
 		file.content = append(file.content, rule...)
@@ -314,58 +314,6 @@ func azureLinux3CISContent(content []byte) []byte {
 	return []byte(result.String())
 }
 
-// Keep the installed permissions from Packer and ImageCustomizer. Git modes and
-// embedded filesystems cannot represent the original 0444/0544/0600/0744 distinctions.
-func imageFileMode(name string, osguard bool) fs.FileMode {
-	if osguard {
-		if path.Dir(name) == "etc/systemd/system" &&
-			(strings.HasSuffix(name, ".service") || strings.HasSuffix(name, ".timer") ||
-				strings.HasSuffix(name, ".path") || strings.HasSuffix(name, ".slice")) &&
-			name != "etc/systemd/system/disk_queue.service" &&
-			name != "etc/systemd/system/localdns-exporter@.service" {
-			return 0o600
-		}
-		switch name {
-		case "opt/azure/containers/cloud-init-status-check.sh", "opt/azure/containers/setup-custom-search-domains.sh":
-			return 0o755
-		case "opt/scripts/ipv6_nftables.sh":
-			return 0o744
-		}
-	}
-	switch name {
-	case "NOTICE.txt":
-		return 0o444
-	case "etc/ssh/sshd_config", "etc/security/pwquality.conf", "etc/security/faillock.conf",
-		"etc/systemd/system/bind-mount.service", "etc/systemd/system/dhcpv6.service",
-		"etc/systemd/system/ensure-no-dup.service", "etc/systemd/system/kubelet.service",
-		"etc/systemd/system/mig-partition.service", "etc/systemd/system/reconcile-private-hosts.service",
-		"etc/systemd/system/secure-tls-bootstrap.service", "etc/systemd/system/sync-container-logs.service",
-		"etc/systemd/system/format-mount-nvme-root.service", "etc/systemd/system/kubelet.service.d/11-fmtmount.conf",
-		"etc/systemd/system/trident-acl-agent.path", "etc/systemd/system/trident-acl-agent.service.d/10-aks.conf":
-		return 0o600
-	case "opt/azure/containers/bind-mount.sh", "opt/azure/containers/enable-dhcpv6.sh",
-		"opt/azure/containers/sync-container-logs.sh", "opt/azure/containers/mig-partition.sh",
-		"opt/azure/containers/security-update.sh", "opt/azure/containers/npd-update.sh",
-		"opt/azure/containers/ubuntu-snapshot-update.sh", "opt/azure/containers/mariner-package-update.sh",
-		"opt/azure/containers/format-mount-nvme-root.sh", "opt/bin/logrotate.sh":
-		return 0o544
-	case "opt/azure/containers/cleanup-vhd.sh", "opt/azure/containers/install_walinuxagent.py",
-		"opt/scripts/cgroup-telemetry-events.sh":
-		return 0o644
-	case "opt/azure/containers/cloud-init-status-check.sh", "opt/azure/containers/fetch_provision_config.py",
-		"opt/azure/containers/init-aks-cloud.sh", "opt/azure/containers/reconcilePrivateHosts.sh",
-		"opt/azure/containers/setup-custom-search-domains.sh":
-		return 0o744
-	}
-	if strings.HasPrefix(name, "opt/azure/containers/provision") {
-		return 0o744
-	}
-	if strings.HasSuffix(name, ".sh") || strings.HasSuffix(name, ".py") || strings.HasPrefix(name, "etc/grub.d/") {
-		return 0o755
-	}
-	return 0o644
-}
-
 func imageOutputPath(destination, relative string) (string, error) {
 	output := filepath.Join(destination, filepath.FromSlash(relative))
 	info, err := os.Lstat(output)
@@ -397,16 +345,11 @@ func imageOutputPath(destination, relative string) (string, error) {
 	return target, nil
 }
 
-func unpackRoot(source fs.FS, roots []string, destination string, preserveDirs ...string) error {
+func unpackRoot(source fs.FS, roots []string, destination string) error {
 	files, err := resolveImageFiles(source, roots)
 	if err != nil {
 		return err
 	}
-	maps.DeleteFunc(files, func(name string, _ imageFile) bool {
-		return slices.ContainsFunc(preserveDirs, func(directory string) bool {
-			return strings.HasPrefix(name, directory+"/")
-		})
-	})
 	imageBuilt, err := imageHasFile(destination, "opt/azure/vhd-install.complete")
 	if err != nil {
 		return err
@@ -437,7 +380,7 @@ func unpackRoot(source fs.FS, roots []string, destination string, preserveDirs .
 		if err != nil {
 			return err
 		}
-		mode := imageFileMode(relative, slices.Contains(roots, "osguard"))
+		mode := files[relative].mode
 		if info, err := os.Stat(output); err == nil {
 			// basePrep owns the SSH policy and will not run again on a prepared image.
 			if basePrepared && relative == "etc/ssh/sshd_config" {
@@ -459,7 +402,7 @@ func writeRootFile(destination string, content []byte, mode fs.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return err
 	}
-	// Atomic replacement lets a hotfix replace scripts without truncating running readers.
+	// Atomic replacement avoids truncating files in use.
 	file, err := os.CreateTemp(filepath.Dir(destination), ".anc-file-*")
 	if err != nil {
 		return err

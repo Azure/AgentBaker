@@ -49,8 +49,7 @@ MIME delivery and AgentBaker's oversized CSE fallback are unchanged.
 
 ### Embedded image files
 
-ANC embeds `parts/root` as the final filesystem. The same command is used by
-image builders, E2E and hotfixes:
+ANC embeds `parts/root` for VHD builds and scriptless E2E:
 
 ```sh
 aks-node-controller unpack-scripts
@@ -62,10 +61,10 @@ step. Build tools live in `/opt/azure/image-build`, except the CIS helper, which
 retains `/opt/azure/containers/provision_cis.sh` on Packer images. Generated
 payloads and compiled binaries remain separate image-builder inputs.
 
-Unpacking applies `common/`, then **one** OS tree selected from `/etc/os-release`.
-The OS tree overrides common files. Ubuntu 18.04/20.04 and Azure Linux 3.0 have
-their own complete trees because their contents differ; they do not inherit
-another OS tree.
+Unpacking applies `common/`, the OS tree selected from `/etc/os-release`, any
+version-specific files, then the feature overlays. Ubuntu 20.04 adds a PAM
+override on top of `ubuntu/`. Azure Linux 3.0 adds its network recovery
+script and units on top of `azurelinux/`.
 
 Files reused by several systems are stored once in `shared/`. An OS tree can
 contain a plain-text reference such as:
@@ -82,18 +81,20 @@ paths are relative to `root/` and must point directly to regular files under
 `shared/` itself is never unpacked.
 Rsyslog and CIS configuration keep one original source each. Unpacking applies
 the existing distro-specific build edits instead of storing edited copies.
-The shared build/hotfix normalization functions live in `image_config.sh`;
-`tool_installs.sh` remains an unchanged source move.
+
+File permissions are defined in [`image-file-modes.txt`](image-file-modes.txt),
+which ANC embeds at build time. Each line is `MODE PATH [OSGUARD_MODE]`, with octal
+modes and an installed path relative to `/`. The optional third column overrides
+the mode on OSGuard. Add an entry when adding an installed file; missing entries,
+duplicates and invalid modes fail before unpacking writes any files. Existing
+destination permissions are still preserved.
 
 The complete file set is resolved before any writes. A file and a `.link` with
 the same destination in one tree, file/directory conflicts, missing references,
-and two image overlays writing the same destination are errors. Common-to-OS
-and OS-to-image-overlay replacements are intentional.
+and two feature overlays writing the same destination are errors. Later layers
+can override files from the common, OS, or version layers.
 
-Known files retain their original Packer/ImageCustomizer installation permissions,
-including OSGuard's different unit modes. Other new scripts get `0755` and data
-files get `0644`; existing permissions are preserved on replacement. ACL and
-Flatcar license text is combined into `/NOTICE.txt`, as in the original images.
+ACL and Flatcar license text is combined into `/NOTICE.txt`, as in the original images.
 The bundled logrotate timer does not receive the distro timer's drop-in.
 Existing file symlinks are retained and their targets are updated, matching the
 old image-copy behavior. Targets must remain inside the selected destination root.
@@ -103,7 +104,7 @@ unpack. On older VHDs, ANC detects FIPS and GB from their installed image files,
 and detects the bundled logrotate timer from its script. NVIDIA GRUB selection
 uses the OS, architecture and FIPS state. On older Azure Linux ARM64 images,
 ANC retains the installed NVIDIA GRUB selection.
-The selection is recorded in `/etc/aks/image-overlays`, so subsequent hotfixes
+The selection is recorded in `/etc/aks/image-overlays`, so subsequent unpacks
 apply the same variants without build-time environment variables.
 `--destination` selects an alternate root for inspection or tests; variant
 markers are read from that root, while OS and architecture describe the running
@@ -112,18 +113,10 @@ system.
 Unpacking intentionally replaces all files in the selected tree, including custom
 copies of provisioning scripts and static configuration. It is not a selective
 patch and does not remove unrelated files. Runtime node configuration and secrets
-are not part of this embedded tree. The hotfix command preserves all files under
-`/etc/modprobe.d` and `/etc/modules-load.d`, including their absence, and does not
-run kernel-module rule cleanup. Kernel-module policy remains owned by the image
-build and normal provisioning. The hotfix command still reapplies the image
-build's systemd adjustments. Direct `unpack-scripts` calls used for image building
-continue to install the kernel-module configuration.
+are not part of this embedded tree. Production hotfixes do not call `unpack-scripts`.
 On an existing VHD (`vhd-install.complete`), unpacking preserves the final
 package-managed banners and does not restore the two WALinuxAgent installer
 scripts removed during image deprovisioning.
-The compatibility hotfix command retains its original OS support: Ubuntu and
-Azure Linux. ACL, OSGuard and Flatcar remain skipped; their build trees are still
-available through `unpack-scripts`.
 When `base_prep.complete` exists, the existing SSH configuration is preserved
 because it contains policy that `basePrep` will not apply again. The timer variant
 is selected before the first write, so the bundled logrotate timer never receives
@@ -328,20 +321,56 @@ Key components:
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
-### Full-bundle hotfixes
+### Provisioning script hotfix payloads
 
-A hotfix is one ANC release containing both the binary and the complete filesystem.
-`hotfix/hotfix_generate.py` only updates the base-to-version pointer when ANC code
-or `parts/root` changes. It does not generate script YAML or maintain a second
-script version. Each release already contains all prior file changes.
+Patched ANC binaries can embed selected Linux provisioning scripts generated from
+`parts/root/`. Before provisioning, the launcher calls `apply-embedded-hotfix`.
+ANC writes the
+rendered nodecustomdata matching the local platform to
+`/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
+and calls the existing `applyNodeCustomData` function before constructing the
+normal CSE command. This file is retained for debugging, separate from the legacy
+`nodecustomdata.yml`. It contains the most recently written payload, including
+when application fails; the `applied embedded hotfix payload` log confirms
+successful application. If no payload is selected, any previously retained file
+is left untouched. Application errors are logged and provisioning continues.
 
-The launcher retains version targeting and verified binary acquisition, then calls
-`apply-embedded-hotfix`, a compatibility alias that unpacks the same full tree.
-The alias allows existing launchers to use the new payload. Launchers preserve
-the existing fail-open policy: an apply failure is logged and provisioning
-continues with the selected binary. The command reloads systemd unit definitions
-after a successful unpack.
-Individual files are replaced atomically; the complete tree is not transactional.
+The embedded nodecustomdata coordinator distinguishes these script hotfixes from
+updates to the ANC binary itself. The generated files live under
+`aks-node-controller/generated/` as
+`rendered_nodecustomdata_<platform>.yml`. The generator selects only changed
+hotfixable entries from `nodecustomdata.yml`, then renders only Ubuntu and
+standard Azure Linux variants through AgentBaker's production Go-template
+functions. Azure Linux retains the `mariner` payload filename; the legacy
+`ID=mariner` OS is no longer supported. OS Guard, ACL, and Flatcar are explicitly skipped during embedded
+application, including variants that share the `azurelinux` OS ID. Their
+distro-specific source changes do not trigger payload generation.
 
-Legacy non-scriptless CustomData rendering remains supported independently. The
-separate `scripts_version`/rendered-nodecustomdata hotfix path is removed.
+The repository keeps a README placeholder so `go:embed` builds without any
+script hotfix payloads. Generation omits any rendered YAML with no `write_files`
+entries (including missing, null, or empty lists) and logs the skipped platform.
+If all platforms are empty, it writes a README placeholder to keep `go:embed` valid.
+This does not add support for non-distro template conditions.
+ANC skips application when the local platform's YAML is absent; no separate
+activation flag is needed. Other payload read errors are logged.
+
+When a PR has no new script hotfix, generation leaves the existing rendered
+payload unchanged. The active ANC version pointer is likewise retained until it
+is retired explicitly.
+
+The existing applier writes entries sequentially and creates missing destination
+files and parent directories. There is no transactional rollback: if an entry
+fails, earlier writes remain. Generation selects by distro only; hotfix authors
+must separately account for non-distro template conditions such as custom-image
+exclusions.
+
+`provision_start.sh` (formerly `cse_start.sh`) is excluded from embedded
+hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
+script differs from the VHD baseline, even when other scripts also changed.
+Wrapper fixes require a new node image until runtime eligibility is available.
+
+For package delivery, the existing base-to-version hotfix map
+selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
+contains its corresponding rendered scripts. If the package cannot be installed,
+provisioning fails open to the original VHD scripts. The operational fallback is
+to upgrade the node image.

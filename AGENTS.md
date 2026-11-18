@@ -52,7 +52,7 @@ When opening a pull request against this repository, the PR's head branch must l
 
 - Keep behavior consistent across supported OS versions and test affected variants.
 - Avoid regressions in functionality, VHD build time, and node provisioning time.
-- Do not mutate files installed by ANC after unpacking; a later hotfix can overwrite those changes. Implement all required file transformations in ANC's unpack path, not in later build or provisioning scripts. Keep the unpack rules consistent between VHD builds and hotfixes.
+- Avoid mutating files after ANC unpacks them. Implement required transformations in the unpack path so VHD builds and scriptless E2E install the same content. Do not use full image unpacking to apply a production hotfix.
 - Check whether changed code runs during VHD build, provisioning, or both. For example, [windows-vhd-configuration.ps1](./vhdbuilder/packer/windows/windows-vhd-configuration.ps1) defines cached images; [configure-windows-vhd.ps1](./vhdbuilder/packer/windows/configure-windows-vhd.ps1) runs during provisioning.
 - Use build flags only for system calls, not for OS-specific logic.
 
