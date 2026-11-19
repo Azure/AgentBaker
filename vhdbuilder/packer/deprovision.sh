@@ -9,9 +9,16 @@ deprovisionWALinuxAgent() {
     local lib_dir="${2:-/var/lib/waagent}"
     local unit output status=0
 
+    # Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service runs
+    # outside the extension slices and its workers write to /var/lib/waagent/events. The unit uses
+    # KillMode=process, so a stop leaves the workers alive: kill the whole unit while it is active,
+    # then stop it before Restart= fires. Disable it, because deprovision deletes its ExecStart.
+    sudo systemctl disable gcd.service >/dev/null 2>&1 || true
+    sudo systemctl kill --signal=SIGKILL gcd.service >/dev/null 2>&1 || true
+
     # waagent stops only its own service. Its log collector and extensions run in
     # separate units and can write under /var/lib/waagent while waagent deletes it.
-    for unit in walinuxagent.service waagent.service \
+    for unit in gcd.service walinuxagent.service waagent.service \
         azure-walinuxagent-logcollector.slice azure-vmextensions.slice; do
         sudo systemctl stop "${unit}" >/dev/null 2>&1 || true
     done

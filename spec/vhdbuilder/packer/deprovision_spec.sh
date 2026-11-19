@@ -164,14 +164,17 @@ Describe 'VHD deprovision'
       touch "${TEST_ROOT}/lib/ovf-env.xml"
     }
 
-    It 'stops agent units before deprovision and succeeds when the lib dir is empty'
+    It 'kills Guest Configuration and stops agent units before deprovision'
       seed_lib_dir
       WAAGENT_OUTPUT='WARNING! The waagent service will be stopped.'
 
       When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
       The status should be success
       The output should equal 'WARNING! The waagent service will be stopped.'
-      The contents of file "${TEST_ROOT}/calls" should equal "systemctl stop walinuxagent.service
+      The contents of file "${TEST_ROOT}/calls" should equal "systemctl disable gcd.service
+systemctl kill --signal=SIGKILL gcd.service
+systemctl stop gcd.service
+systemctl stop walinuxagent.service
 systemctl stop waagent.service
 systemctl stop azure-walinuxagent-logcollector.slice
 systemctl stop azure-vmextensions.slice
@@ -184,14 +187,14 @@ fake-waagent -force -deprovision+user"
       The output should equal ''
     End
 
-    It 'continues when agent units do not exist'
+    It 'continues when gcd.service and agent units do not exist'
       seed_lib_dir
       SYSTEMCTL_STATUS=5
 
       When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
       The status should be success
       The output should equal ''
-      The lines of contents of file "${TEST_ROOT}/calls" should equal 5
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 8
     End
 
     It 'propagates a nonzero waagent exit code'
@@ -213,7 +216,7 @@ fake-waagent -force -deprovision+user"
       The output should include "Failed to run 'deprovision+user'"
       The stderr should equal 'waagent deprovision failed'
       The contents of file "${TEST_ROOT}/calls" should include 'fake-waagent -force -deprovision+user'
-      The lines of contents of file "${TEST_ROOT}/calls" should equal 5
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 8
     End
 
     It 'fails when the lib dir is not empty after a silent deprovision'
