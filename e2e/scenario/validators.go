@@ -4070,10 +4070,21 @@ sudo "$anc_path" check-hotfix`,
 	}
 
 	output := result.stdout + "\n" + result.stderr
-	return errors.Join(
+	errs := []error{
 		assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
-		assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
-	)
+		assert.NotContains(output, "check-hotfix panicked"),
+	}
+	if strings.Contains(output, "verified provisioning input cleanup") {
+		errs = append(errs,
+			assert.Contains(output, "check-hotfix completed (fail-open)"),
+			assert.Contains(output, `"outcome":"noColdStartPointer"`),
+			assert.Contains(output, "reading nbc-cmd "+ancNBCCmdPath+": open "+ancNBCCmdPath+": no such file or directory"),
+			assert.NotContains(output, "loaded LPS target from nbc-cmd.sh fallback"),
+		)
+	} else {
+		errs = append(errs, assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"))
+	}
+	return errors.Join(errs...)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
