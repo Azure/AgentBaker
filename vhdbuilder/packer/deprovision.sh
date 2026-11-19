@@ -2,6 +2,36 @@
 # Shared Packer cleanup helpers and AIB's final deprovision hook.
 # Do not enable tracing: the agent installer uses SAS URLs.
 
+# waagent stops at its first failed cleanup action but still exits 0, which can
+# leave bake-time agent state, logs and the build user in the image.
+deprovisionWALinuxAgent() {
+    local waagent_bin="$1"
+    local lib_dir="${2:-/var/lib/waagent}"
+    local unit output status=0
+
+    # waagent stops only its own service. Its log collector and extensions run in
+    # separate units and can write under /var/lib/waagent while waagent deletes it.
+    for unit in walinuxagent.service waagent.service \
+        azure-walinuxagent-logcollector.slice azure-vmextensions.slice; do
+        sudo systemctl stop "${unit}" >/dev/null 2>&1 || true
+    done
+
+    output=$(sudo "${waagent_bin}" -force -deprovision+user 2>&1) || status=$?
+    printf '%s\n' "${output}"
+    if [ "${status}" -ne 0 ]; then
+        return "${status}"
+    fi
+    # Do not retry: a partial run can delete ovf-env.xml, and waagent then skips build-user deletion.
+    if printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision"; then
+        echo "waagent deprovision failed" >&2
+        return 1
+    fi
+    if [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
+        echo "waagent deprovision left files in ${lib_dir}" >&2
+        return 1
+    fi
+}
+
 installPinnedWALinuxAgent() {
     local root_dir="${1%/}"
     local ID
@@ -58,7 +88,7 @@ main() {
     esac
 
     # Keep AIB's default generalization, then reapply the same agent pin as Packer.
-    sudo waagent -force -deprovision+user || return $?
+    deprovisionWALinuxAgent waagent || return $?
     export HISTSIZE=0
     installPinnedWALinuxAgent / || return $?
     cleanupNvPCRCredentials "${is_cvm}" / || return $?
