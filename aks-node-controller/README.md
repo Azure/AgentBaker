@@ -59,8 +59,16 @@ command when present, otherwise AKSNodeConfig, and records successful initializa
 in `/run/aks/init-aks-cloud.done` so provisioning does not repeat it. Older NBC
 commands that do not support this marker retain the previous hotfix ordering. On
 failure, the launcher skips acquisition and provisioning retries initialization.
-The marker is not script-version-aware, so a hotfix replacing the initializer does
-not rerun it after successful early initialization.
+
+For scriptless nodes using early initialization, `init-aks-cloud.sh` is not
+hotfixable for that initial run: it runs before hotfix acquisition, and the marker
+is not script-version-aware. Fixes to early initialization require rebuilding the
+VHD and provisioning from the rebuilt image; replacing the script in a hotfix does
+not rerun it after a successful early initialization.
+
+The plan is to move the initialization logic into ANC in Go to make it hotfixable
+again. That future design must safely apply updated initialization logic after
+hotfix acquisition while preserving legacy shell-based provisioning.
 
 ### Validating and normalizing AKSNodeConfig
 
