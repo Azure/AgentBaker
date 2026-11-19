@@ -324,31 +324,33 @@ function init_ubuntu_main_repo_depot {
 
     # Initialize directories for keys and apt sources. mkdir -p is a no-op when the
     # default paths already exist; it makes the *_DIR overrides used by tests robust.
-    mkdir -p "$keyrings_dir" "$sources_list_d"
+    mkdir -p "$keyrings_dir" "$sources_list_d" || return $?
 
     # This copies the updated bundle to the location used by OpenSSL which is commonly used.
     echo "Copying updated bundle to OpenSSL .pem file..."
-    cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target"
+    if [ ! "${ssl_certs_dir}/ca-certificates.crt" -ef "$ssl_cert_target" ]; then
+        cp "${ssl_certs_dir}/ca-certificates.crt" "$ssl_cert_target" || return $?
+    fi
     echo "Updated bundle copied."
 
     # Back up sources.list and sources.list.d contents
-    mkdir -p "$backup_dir"
+    mkdir -p "$backup_dir" || return $?
     if [ -f "$sources_list" ]; then
-        mv "$sources_list" "$backup_dir/"
+        mv "$sources_list" "$backup_dir/" || return $?
     fi
     for sources_file in "${sources_list_d}"/*; do
         if [ -f "$sources_file" ]; then
-            mv "$sources_file" "$backup_dir/"
+            mv "$sources_file" "$backup_dir/" || return $?
         fi
     done
 
     # Set location of sources file
     # shellcheck disable=SC1090
-    . "$os_release_file"
+    . "$os_release_file" || return $?
     local aptSourceFile="${sources_list_d}/ubuntu.sources"
 
     # Create main sources file
-    cat <<EOF > "$aptSourceFile"
+    cat <<EOF > "$aptSourceFile" || return $?
 
 Types: deb
 URIs: ${repodepot_endpoint}/ubuntu
@@ -361,7 +363,7 @@ EOF
     # all urls with the RepoDepot Ubuntu url
     local ubuntuUrl="${repodepot_endpoint}/ubuntu"
     echo "Converting URLs in $aptSourceFile to RepoDepot URLs..."
-    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" "$aptSourceFile"
+    sed -i "s,https\?://.[^ ]*,$ubuntuUrl,g" "$aptSourceFile" || return $?
     echo "apt source URLs converted, see new file below:"
     echo ""
     echo "-----"
@@ -391,7 +393,7 @@ function write_to_sources_file {
     shift 2
     local key_paths=("$@")
     local sources_list_d="${APT_SOURCES_LIST_D_DIR:-/etc/apt/sources.list.d}"
-    mkdir -p "$sources_list_d"
+    mkdir -p "$sources_list_d" || return $?
 
     local sources_file_path="${sources_list_d}/${sources_list_d_file}.sources"
     local ubuntuDist
@@ -416,10 +418,10 @@ function add_key_ubuntu {
     check_url "$key_url"
     echo "Adding $key_name key to keyring..."
     local key_data
-    key_data=$(wget -O - "$key_url")
+    key_data=$(wget -O - "$key_url") || return $?
     local key_path
     key_path=$(derive_key_paths "$key_name")
-    echo "$key_data" | gpg --dearmor | tee "$key_path" > /dev/null
+    (set -o pipefail; echo "$key_data" | gpg --dearmor | tee "$key_path" > /dev/null) || return $?
     echo "$key_name key added to keyring."
 }
 
@@ -440,8 +442,8 @@ function add_ms_keys {
     # Add the Microsoft package server keys to keyring.
     echo "Adding Microsoft keys to keyring..."
 
-    add_key_ubuntu microsoft.asc "$endpoint"
-    add_key_ubuntu msopentech.asc "$endpoint"
+    add_key_ubuntu microsoft.asc "$endpoint" || return $?
+    add_key_ubuntu msopentech.asc "$endpoint" || return $?
 }
 
 function aptget_update {
@@ -473,36 +475,36 @@ function init_ubuntu_pmc_repo_depot {
 
     local microsoftPackageSource="$repodepot_endpoint/microsoft/ubuntu/$ubuntuRel/prod"
     check_url "$microsoftPackageSource"
-    write_to_sources_file microsoft-prod "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
-    write_to_sources_file microsoft-prod-testing "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc)
+    write_to_sources_file microsoft-prod "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc) || return $?
+    write_to_sources_file microsoft-prod-testing "$microsoftPackageSource" $(derive_key_paths microsoft.asc msopentech.asc) || return $?
     echo "Ubuntu ($ubuntuRel) repo added."
     echo "Adding packages.microsoft.com keys"
-    add_ms_keys "$repodepot_endpoint"
+    add_ms_keys "$repodepot_endpoint" || return $?
 }
 
 function init_mariner_repo_depot {
     local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
-    mkdir -p "$yum_repos_dir"
+    mkdir -p "$yum_repos_dir" || return $?
 
     echo "Adding [extended] repo"
-    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-extended.repo"
-    sed -i -e "s|extras|extended|" "${yum_repos_dir}/mariner-extended.repo"
-    sed -i -e "s|Extras|Extended|" "${yum_repos_dir}/mariner-extended.repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-extended.repo" || return $?
+    sed -i -e "s|extras|extended|" "${yum_repos_dir}/mariner-extended.repo" || return $?
+    sed -i -e "s|Extras|Extended|" "${yum_repos_dir}/mariner-extended.repo" || return $?
 
     echo "Adding [nvidia] repo"
-    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-nvidia.repo"
-    sed -i -e "s|extras|nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
-    sed -i -e "s|Extras|Nvidia|" "${yum_repos_dir}/mariner-nvidia.repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-nvidia.repo" || return $?
+    sed -i -e "s|extras|nvidia|" "${yum_repos_dir}/mariner-nvidia.repo" || return $?
+    sed -i -e "s|Extras|Nvidia|" "${yum_repos_dir}/mariner-nvidia.repo" || return $?
 
     echo "Adding [cloud-native] repo"
-    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-cloud-native.repo"
-    sed -i -e "s|extras|cloud-native|" "${yum_repos_dir}/mariner-cloud-native.repo"
-    sed -i -e "s|Extras|Cloud-Native|" "${yum_repos_dir}/mariner-cloud-native.repo"
+    cp "${yum_repos_dir}/mariner-extras.repo" "${yum_repos_dir}/mariner-cloud-native.repo" || return $?
+    sed -i -e "s|extras|cloud-native|" "${yum_repos_dir}/mariner-cloud-native.repo" || return $?
+    sed -i -e "s|Extras|Cloud-Native|" "${yum_repos_dir}/mariner-cloud-native.repo" || return $?
 
     echo "Pointing Mariner repos at RepoDepot..."
     for f in "${yum_repos_dir}"/*.repo; do
-        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" "$f"
+        sed -i -e "s|https://packages.microsoft.com|${repodepot_endpoint}/mariner/packages.microsoft.com|" "$f" || return $?
         echo "$f modified."
     done
     echo "Mariner repo setup complete."
@@ -512,9 +514,9 @@ function init_azurelinux_repo_depot {
     local repodepot_endpoint="$1"
     local yum_repos_dir="${YUM_REPOS_DIR:-/etc/yum.repos.d}"
     local repos=("amd" "base" "cloud-native" "extended" "ms-non-oss" "ms-oss" "nvidia")
-    mkdir -p "$yum_repos_dir"
+    mkdir -p "$yum_repos_dir" || return $?
 
-    rm -f "${yum_repos_dir}"/azurelinux*
+    rm -f "${yum_repos_dir}"/azurelinux* || return $?
 
     for repo in "${repos[@]}"; do
         local output_file="${yum_repos_dir}/azurelinux-${repo}.repo"
@@ -530,10 +532,10 @@ function init_azurelinux_repo_depot {
             "sslverify=1"
         )
 
-        rm -f "$output_file"
+        rm -f "$output_file" || return $?
 
         for line in "${repo_content[@]}"; do
-            echo "$line" >> "$output_file"
+            echo "$line" >> "$output_file" || return 1
         done
 
         echo "File '$output_file' has been created."
@@ -564,6 +566,15 @@ function dnf_makecache {
     return 1
 }
 
+cloud_init_already_done() {
+    local action="$1"
+    local script_path="$2"
+    local hash
+    [ "$action" = "init" ] && [ -n "${AKS_CLOUD_INIT_SHA256:-}" ] || return 1
+    hash=$(sha256sum < "$script_path") || return 1
+    [ "${hash%% *}" = "$AKS_CLOUD_INIT_SHA256" ]
+}
+
 # Determines the certificate endpoint mode based on location.
 # Returns "legacy" for ussec/usnat regions, "rcv1p" for all others.
 # Usage: cert_endpoint_mode=$(determine_cert_endpoint_mode "$location")
@@ -581,6 +592,12 @@ function determine_cert_endpoint_mode {
 
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
+
+# A hotfix may replace this script after early initialization. Only skip the
+# exact version that succeeded in this launcher's process tree.
+if cloud_init_already_done "${1:-init}" "$0"; then
+    exit 0
+fi
 
 # shellcheck disable=SC3010
 if [[ -f /etc/os-release ]]; then
@@ -625,12 +642,12 @@ cert_endpoint_mode=$(determine_cert_endpoint_mode "$refresh_location")
 echo "Using custom cloud certificate endpoint mode: ${cert_endpoint_mode}"
 emit_event "AKS.CSE.rcv1p.certEndpointMode" "mode=${cert_endpoint_mode}, location=${location_normalized}"
 install_ca_refresh_schedule=0
-mkdir -p /root/AzureCACertificates
-rm -f /root/AzureCACertificates/*
+mkdir -p /root/AzureCACertificates || exit $?
+rm -f /root/AzureCACertificates/* || exit $?
 if [ "$cert_endpoint_mode" = "legacy" ]; then
     install_ca_refresh_schedule=1
     if logs_to_events "AKS.CSE.rcv1p.retrieveLegacyCerts" retrieve_legacy_certs; then
-        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store
+        logs_to_events "AKS.CSE.rcv1p.installCertsToTrustStore" install_certs_to_trust_store || exit $?
     else
         echo "ERROR: failed to retrieve legacy certificates from wireserver after retries"
         exit 1
@@ -681,17 +698,17 @@ if [ "$action" = "init" ]; then
         if [ "$IS_UBUNTU" -eq 1 ]; then
             ubuntuRel=$(lsb_release --release | awk '{print $2}')
             ubuntuDist=$(lsb_release -c | awk '{print $2}')
-            init_ubuntu_main_repo_depot ${rootRepoDepotEndpoint}
-            init_ubuntu_pmc_repo_depot ${rootRepoDepotEndpoint}
+            init_ubuntu_main_repo_depot "${rootRepoDepotEndpoint}" || exit $?
+            init_ubuntu_pmc_repo_depot "${rootRepoDepotEndpoint}" || exit $?
             echo "Running apt-get update"
             aptget_update
         elif [ "$IS_MARINER" -eq 1 ] || [ "$IS_AZURELINUX" -eq 1 ]; then
             if [ "$IS_MARINER" -eq 1 ]; then
                 echo "Initializing Mariner repo depot settings..."
-                init_mariner_repo_depot ${rootRepoDepotEndpoint}
+                init_mariner_repo_depot "${rootRepoDepotEndpoint}" || exit $?
             else
                 echo "Initializing Azure Linux repo depot settings..."
-                init_azurelinux_repo_depot ${rootRepoDepotEndpoint}
+                init_azurelinux_repo_depot "${rootRepoDepotEndpoint}" || exit $?
             fi
             echo "Running dnf_makecache"
             dnf_makecache

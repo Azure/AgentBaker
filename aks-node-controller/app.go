@@ -149,6 +149,15 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		},
 		Commands: []*cli.Command{
 			{
+				Name:  "init-cloud",
+				Usage: "Initialize cloud trust and repositories before hotfix acquisition",
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: "provision-config", Usage: "path to the provision config file"},
+					&cli.StringFlag{Name: "nbc-cmd", Usage: "path to the NBC command file"},
+				},
+				Action: a.runInitializeCloudCommand,
+			},
+			{
 				Name:  "provision",
 				Usage: "Run node provisioning",
 				Flags: []cli.Flag{
