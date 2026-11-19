@@ -10,7 +10,6 @@
     "build_id": "{{env `BUILD_ID`}}",
     "commit": "{{env `GIT_VERSION`}}",
     "feature_flags": "{{env `FEATURE_FLAGS`}}",
-    "run_prefetch_optimization": "{{env `RUN_PREFETCH_OPTIMIZATION`}}",
     "kata_uvm_version": "{{env `KATA_UVM_VERSION`}}",
     "kata_uvm_kernel_version": "{{env `KATA_UVM_KERNEL_VERSION`}}",
     "system_collection_uri": "{{env `SYSTEM_COLLECTIONURI`}}",
@@ -124,26 +123,6 @@
       "type": "file",
       "source": "vhdbuilder/packer/prefetch.sh",
       "destination": "/home/packer/prefetch.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/cleanup-vhd.sh",
-      "destination": "/home/packer/cleanup-vhd.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/deprovision.sh",
-      "destination": "/home/packer/deprovision.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/post-deprovision-walinuxagent.sh",
-      "destination": "/home/packer/post-deprovision-walinuxagent.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/install_walinuxagent.py",
-      "destination": "/home/packer/install_walinuxagent.py"
     },
     {
       "type": "file",
@@ -992,8 +971,7 @@
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c '. /opt/azure/containers/deprovision.sh && deprovisionWALinuxAgent && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125"
+        "sudo /opt/azure/containers/aks-node-controller generalize || exit 125"
       ]
     }
   ],

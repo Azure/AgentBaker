@@ -438,6 +438,12 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
+	t.Run("generalize rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", generalizeCommand, "--keep-agent", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
 	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		origVersion := Version
@@ -796,17 +802,17 @@ func TestRunProvisionReportsInputCleanupFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile(flags.NBCCmd, []byte("/bin/true"), 0o600))
 	require.NoError(t, os.Mkdir(flags.ProvisionConfig, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(flags.ProvisionConfig, "child"), nil, 0o600))
-	oldPath := osCfg.provisionJSONFilePath
-	t.Cleanup(func() { osCfg.provisionJSONFilePath = oldPath })
-	osCfg.provisionJSONFilePath = filepath.Join(dir, "provision.json")
-	require.NoError(t, os.WriteFile(osCfg.provisionJSONFilePath, []byte(`{"ExitCode":"0"}`), 0o600))
+	oldPath := osCfg.ProvisionJSONFilePath
+	t.Cleanup(func() { osCfg.ProvisionJSONFilePath = oldPath })
+	osCfg.ProvisionJSONFilePath = filepath.Join(dir, "provision.json")
+	require.NoError(t, os.WriteFile(osCfg.ProvisionJSONFilePath, []byte(`{"ExitCode":"0"}`), 0o600))
 	tt := NewTestApp(t, TestAppConfig{RunFunc: cmdRunner})
 
 	result, err := tt.App.runProvision(t.Context(), flags, false)
 	require.ErrorContains(t, err, "clean up provisioning inputs")
 	require.Equal(t, "240", result.ExitCode)
 	require.NoFileExists(t, flags.NBCCmd)
-	data, err := os.ReadFile(osCfg.provisionJSONFilePath)
+	data, err := os.ReadFile(osCfg.ProvisionJSONFilePath)
 	require.NoError(t, err)
 	var persisted ProvisionResult
 	require.NoError(t, json.Unmarshal(data, &persisted))

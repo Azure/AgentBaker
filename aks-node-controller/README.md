@@ -262,6 +262,33 @@ Key components:
         This indicates the controller exited before emitting `provision.json`. Most commonly the rendered AKSNodeConfig was missing, had the wrong `Version` (expected `v1`), or was written to the wrong path (`/opt/azure/containers/aks-node-controller-config.json`). Fix the config generation, redeploy, and the bootstrap scripts will then populate `provision.json`.
 - **provision-wait**: waits for `provision.complete` to be present and reads `provision.json` which contains the provision output of type `CSEStatus` and is returned by CSE through capturing stdout.
 
+### Generalizing a VM for image capture
+
+`aks-node-controller generalize` is the single Linux generalization step for every
+image capture path. Windows is not supported. The command reads `/etc/os-release`, runs
+the steps below in order, and stops at the first failed step.
+
+| Step | Image mode | `--keep-agent` |
+| --- | --- | --- |
+| Disable and stop containerd | yes | no |
+| Remove VHD build leftovers (SSH keys, cloud-init logs, stunnel4 logs, image-fetcher, IMDS cache, CustomScript logs) | yes | no |
+| Empty `/etc/machine-id` in place | yes | yes |
+| Remove per-node outputs (`provision.complete`, `provision.json`, AKSNodeConfig, `nbc-cmd.sh`, boothook scripts) | yes | yes |
+| ACL only: restore the UKI `firstboot.addon.efi` and create `/boot/flatcar/first_boot`, so clones run Ignition | yes | yes |
+| `waagent -force -deprovision+user` | yes | no |
+| Install the WALinuxAgent version pinned in `components.json` (skipped on Flatcar, ACL, and OSGuard) | yes | no |
+| Remove systemd NvPCR anchors | yes | no |
+| `sync` | yes | yes |
+
+- **Image mode** (no flag) is for Packer and Azure Image Builder builds.
+- **`--keep-agent`** is for capture through RunCommand (VHD caching/PIS). RunCommand
+  reports its status through WALinuxAgent, so the command does not stop or deprovision
+  the agent. It keeps `/var/lib/waagent/provisioned`: on a clone, the agent detects the
+  changed VM ID and cleans its own state.
+
+Both modes keep basePrep outputs, so clones skip basePrep. The command writes logs only
+to stderr, so no log file goes into the image.
+
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from

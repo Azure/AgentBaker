@@ -120,11 +120,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/cleanup-vhd.sh",
-      "destination": "/home/packer/cleanup-vhd.sh"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/packer/packer_source.sh",
       "destination": "/home/packer/packer_source.sh"
     },
@@ -357,11 +352,6 @@
       "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cis.sh",
       "destination": "/home/packer/cis.sh"
-    },
-    {
-      "type": "file",
-      "source": "vhdbuilder/packer/deprovision.sh",
-      "destination": "/home/packer/deprovision.sh"
     },
     {
       "type": "file",
@@ -915,9 +905,7 @@
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
-        "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo touch /boot/flatcar/first_boot",
-        "sudo /bin/bash -c '. /home/packer/deprovision.sh && deprovisionWALinuxAgent' && export HISTSIZE=0 && sync || exit 125"
+        "sudo /opt/azure/containers/aks-node-controller generalize || exit 125"
       ]
     }
   ],

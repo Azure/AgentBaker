@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
+
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
 func TestClassifyNodeCustomDataPlatform(t *testing.T) {
@@ -66,7 +68,7 @@ func TestApplyEmbeddedNodeCustomData(t *testing.T) {
 			}})
 			require.NoError(t, err)
 			platform := id
-			if id == osReleaseIDAzureLinux {
+			if id == config.OSReleaseIDAzureLinux {
 				platform = string(nodeCustomDataPlatformMariner)
 			}
 			files := fstest.MapFS{

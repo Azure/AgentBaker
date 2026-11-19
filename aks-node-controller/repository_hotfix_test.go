@@ -26,6 +26,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
 func TestDownloadBinaryHotfixGatesRepositoryWork(t *testing.T) {
@@ -532,8 +534,8 @@ func TestTryRepositoryDownloadRejectsImageBasedAzureLinuxRPMPlatforms(t *testing
 		name      string
 		variantID string
 	}{
-		{name: "Azure Container Linux variant", variantID: osReleaseIDAzureContainerLinux},
-		{name: "OS Guard variant", variantID: osVariantIDOSGuard},
+		{name: "Azure Container Linux variant", variantID: config.OSReleaseIDAzureContainerLinux},
+		{name: "OS Guard variant", variantID: config.OSVariantIDOSGuard},
 	}
 
 	for _, tc := range tests {
@@ -1353,7 +1355,7 @@ enabled=1
 	app := NewTestApp(t, TestAppConfig{}).App
 	app.yumReposDir = dir
 	plan, err := app.rpmRepositoryPlan(platformInfo{
-		OS: "linux", ID: osReleaseIDAzureLinux, VersionID: "3.0.20260304", Arch: archAMD64,
+		OS: "linux", ID: config.OSReleaseIDAzureLinux, VersionID: "3.0.20260304", Arch: archAMD64,
 	}, "202607.20.2")
 	require.NoError(t, err)
 	assert.Equal(t,

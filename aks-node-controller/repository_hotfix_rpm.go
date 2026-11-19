@@ -14,6 +14,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
 func (a *App) extractRPM(ctx context.Context, packagePath, destination string) error {
@@ -262,7 +264,7 @@ func rpmReleaseVersion(versionID string) string {
 func rpmReleaseSuffix(info platformInfo) (string, error) {
 	major, _, _ := strings.Cut(info.VersionID, ".")
 	switch {
-	case info.ID == osReleaseIDAzureLinux && major == "3":
+	case info.ID == config.OSReleaseIDAzureLinux && major == "3":
 		return "azl3", nil
 	default:
 		return "", newUnsupportedRepositoryError(

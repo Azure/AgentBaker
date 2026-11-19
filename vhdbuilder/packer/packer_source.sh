@@ -185,14 +185,6 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
   SNAPSHOT_UPDATE_TIMER_SRC=/home/packer/snapshot-update.timer
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
-  VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
-  VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
-  DEPROVISION_SCRIPT_SRC=/home/packer/deprovision.sh
-  DEPROVISION_SCRIPT_DEST=/opt/azure/containers/deprovision.sh
-  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
-  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
-  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
-  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -672,20 +664,138 @@ copyPackerFiles() {
     fi
   fi
 
-  # Always copy the VHD cleanup script responsible for prepping the instance for first boot
-  # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
-  cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
-
-  # Copy the deprovision scripts and WALinuxAgent installer before waagent removes the build user.
-  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
-  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
-    cpAndMode $DEPROVISION_SCRIPT_SRC $DEPROVISION_SCRIPT_DEST 755
-    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
-    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
-  fi
-
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
+}
+
+VULNERABLE_KERNEL_MODULE_DENY_PATTERN='^(install[[:space:]]+(algif_aead|esp4|esp6|rxrpc)[[:space:]]+[/]bin[/]false|blacklist[[:space:]]+(algif_aead|esp4|esp6|rxrpc))([[:space:]]+.*)?$'
+
+kernelVersionGe() {
+  local version_a="$1"
+  local version_b="$2"
+  local sorted
+  local highest_version
+
+  sorted=$(printf "%s\n%s\n" "$version_a" "$version_b" | sort -V)
+  highest_version=$(printf "%s\n" "$sorted" | tail -n 1)
+  [ "$version_a" = "$highest_version" ]
+}
+
+ubuntuKernelIncludesVulnerableModuleFixes() {
+  local kernel_release
+  local fixed_kernel
+  local os_version
+
+  kernel_release="$(uname -r 2>/dev/null || true)"
+  if [ -z "$kernel_release" ]; then
+    return 1
+  fi
+
+  # Prefer the OS_VERSION env var, but fall back to /etc/os-release when it is empty.
+  # VHD build scripts run in environments where OS_VERSION is not always exported, so
+  # relying on it alone made out-of-scope releases (e.g. Ubuntu 26.04) fall through to the
+  # default bake path and ship the deny rules. Reading /etc/os-release keeps this gate
+  # consistent with cse_helpers.sh, which detect the release the same way.
+  os_version="${OS_VERSION}"
+  if [ -z "$os_version" ]; then
+    os_version="$(awk -F= '$1 == "VERSION_ID" { gsub(/"/, "", $2); print $2; exit }' /etc/os-release 2>/dev/null || true)"
+  fi
+  if [ -z "$os_version" ]; then
+    return 1
+  fi
+
+  case "$os_version" in
+    20.04)
+      printf '%s\n' "$kernel_release" | grep -Eq '^5\.4\.0-[0-9]+-azure-fips$' || return 1
+      fixed_kernel="5.4.0-1164-azure-fips"
+      ;;
+    22.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="5.15.0-1116-azure" ;;
+        *-generic) fixed_kernel="5.15.0-181-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    24.04)
+      case "$kernel_release" in
+        # azure-fde (CVM) and azure-fips share the azure kernel ABI and fix threshold.
+        *-azure|*-azure-fde|*-azure-fips) fixed_kernel="6.8.0-1058-azure" ;;
+        *-generic) fixed_kernel="6.8.0-124-generic" ;;
+        *) return 1 ;;
+      esac
+      ;;
+    # Future Ubuntu releases are not in this mitigation scope by default; if a
+    # future release needs the deny rules, add an explicit case above.
+    *) return 0 ;;
+  esac
+
+  kernelVersionGe "$kernel_release" "$fixed_kernel"
+}
+
+removeVulnerableKernelModuleDenyRulesFromModprobeDirectory() {
+  local modprobe_conf
+  local tmp_modprobe_conf
+
+  for modprobe_conf in /etc/modprobe.d/*.conf; do
+    [ -f "$modprobe_conf" ] || continue
+    tmp_modprobe_conf="${modprobe_conf}.tmp.$$"
+    sed -E "/$VULNERABLE_KERNEL_MODULE_DENY_PATTERN/d" "$modprobe_conf" > "$tmp_modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    cat "$tmp_modprobe_conf" > "$modprobe_conf" || {
+      rm -f "$tmp_modprobe_conf"
+      return "$ERR_PACKER_COPY_FILE"
+    }
+    rm -f "$tmp_modprobe_conf" || return "$ERR_PACKER_COPY_FILE"
+  done
+}
+
+# CVE-2026-31431 (Copy Fail), DirtyFrag, Fragnesia mitigation: copyPackerFiles bakes the full
+# modprobe-CIS.conf, including the algif_aead / esp4 / esp6 / rxrpc deny rules. Strip only
+# those rules (and their comments) on OS streams that no longer need them; the rest of the
+# CIS module deny list (dccp/sctp/rds/tipc/cramfs/etc.) stays intact on every OS stream.
+#
+# The vulnerable-module block is removed on fixed Ubuntu 22.04 / 24.04 kernels,
+# by default on future Ubuntu releases that are not explicitly in mitigation scope,
+# and on AzureLinux 3.0 (non-OSGuard) because:
+#   1. Ubuntu 22.04 linux-azure 5.15.0-1116-azure and Ubuntu 24.04 linux-azure
+#      6.8.0-1058-azure include the fixes. The CSE still applies the deny rules
+#      at runtime if it detects an older vulnerable Ubuntu kernel.
+#   2. The upstream kernel fix in 6.6.139.1-1.azl3+ supersedes the modprobe blacklist.
+#   3. Customer workloads require those kernel modules; the bake-in actively blocks
+#      legitimate use cases on fixed kernels.
+# See https://github.com/Azure/AKS/issues/5753.
+# Other Ubuntu 20.04 kernels, Mariner / AzureLinux 2.0, and AzureLinux OSGuard keep the full bake-in.
+configureVulnerableKernelModuleDenyRules() {
+  local modprobe_cis=/etc/modprobe.d/CIS.conf
+  local context_message
+
+  if isUbuntu "$OS" && ubuntuKernelIncludesVulnerableModuleFixes; then
+    context_message="on Ubuntu ${OS_VERSION} (fixed or future Ubuntu kernels are not in mitigation scope)"
+  elif isAzureLinux "$OS" "$OS_VARIANT" && [ "${OS_VERSION}" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+    context_message="on AzureLinux 3.0 (kernel 6.6.139.1-1.azl3+ has upstream fix; OSGuard intentionally retains the full bake-in)"
+  else
+    return 0
+  fi
+
+  echo "Removing algif_aead / esp4 / esp6 / rxrpc deny rules from modprobe.d ${context_message}"
+  sed -i -E \
+    -e '/^# CVE-2026-31431 \(Copy Fail\):/d' \
+    -e '/^# until kernel fix is available\. See https:\/\/ubuntu\.com\/blog\/copy-fail-vulnerability-fixes-available$/d' \
+    -e '/^# DirtyFrag \/ CopyFail2:/d' \
+    -e '/^# write LPE vulnerabilities\. rxrpc path bypasses AppArmor userns restrictions\.$/d' \
+    -e '/^# AKS platform components do not require kernel IPsec ESP\/XFRM or AFS\/RxRPC\.$/d' \
+    -e '/^# Disabling these modules prevents workloads that rely on those protocols from working$/d' \
+    -e '/^# on the node\. See https:\/\/github\.com\/V4bel\/dirtyfrag$/d' \
+    "$modprobe_cis" || return 1
+  removeVulnerableKernelModuleDenyRulesFromModprobeDirectory || return 1
+  if grep -qsE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf 2>/dev/null; then
+    echo "Failed to remove vulnerable module deny rules from /etc/modprobe.d/*.conf"
+    grep -nE "$VULNERABLE_KERNEL_MODULE_DENY_PATTERN" /etc/modprobe.d/*.conf || true
+    return 1
+  fi
 }
 
 cpAndMode() {

@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/config"
+	"github.com/Azure/agentbaker/aks-node-controller/generalize"
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/parser"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/gpu"
@@ -169,8 +171,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Usage: "Wait for provisioning to complete",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					provisionStatusFiles := ProvisionStatusFiles{
-						ProvisionJSONFile:     osCfg.provisionJSONFilePath,
-						ProvisionCompleteFile: osCfg.provisionCompleteFilePath,
+						ProvisionJSONFile:     osCfg.ProvisionJSONFilePath,
+						ProvisionCompleteFile: osCfg.ProvisionCompleteFilePath,
 					}
 					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
@@ -216,6 +218,22 @@ func (a *App) Run(ctx context.Context, args []string) int {
 						slog.Warn("ignoring unexpected check-hotfix arguments", "args", strings.Join(extra, " "))
 					}
 					return a.runCheckHotfixCommand(ctx)
+				},
+			},
+			{
+				Name:  generalizeCommand,
+				Usage: "Prepare a Linux VM for image capture: remove build and per-node state, and deprovision WALinuxAgent",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "keep-agent",
+						Usage: "remove only per-node state; keep WALinuxAgent running and its state intact, for capture through RunCommand",
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					if len(cmd.Args().Slice()) > 0 {
+						return fmt.Errorf("unexpected generalize arguments: %s", strings.Join(cmd.Args().Slice(), " "))
+					}
+					return (&generalize.Generalizer{KeepAgent: cmd.Bool("keep-agent"), RunCmd: a.cmdRun}).Run(ctx)
 				},
 			},
 		},
@@ -312,12 +330,6 @@ func (a *App) runApplyHotfixCommand(context.Context) error {
 	return nil
 }
 
-// defaultGPUComponentsFilePath is where the VHD build places components.json (see
-// vhdbuilder/packer/install-dependencies.sh). All scriptless VHDs are expected to have
-// this file baked in, so a missing or malformed file indicates a real build/provisioning
-// bug rather than an expected legacy-VHD gap.
-const defaultGPUComponentsFilePath = "/opt/azure/components.json"
-
 // loadGPUConfig reads and parses the GPU driver-version metadata baked into the VHD.
 // Errors are returned explicitly rather than hidden behind a package-level side effect,
 // so callers can decide how to handle a missing or malformed file.
@@ -390,7 +402,7 @@ func (a *App) getGPUComponentsFilePath() string {
 	if a.gpuComponentsFilePath != "" {
 		return a.gpuComponentsFilePath
 	}
-	return defaultGPUComponentsFilePath
+	return config.ComponentsFilePath
 }
 
 // compareEnvs compares the environment variables between the ProvisionConfig and NBCCmd command paths.
@@ -775,7 +787,7 @@ func writeProvisioningFile(path string, content []byte) error {
 func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
 	markerPath := a.readyReportMarkerPath
 	if markerPath == "" {
-		markerPath = osCfg.readyReportMarkerPath
+		markerPath = osCfg.ReadyReportMarkerPath
 	}
 	if markerPath == "" {
 		return
@@ -848,7 +860,7 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		provisionResult.Error = provisionErr.Error()
 		data, persistErr := json.Marshal(provisionResult)
 		if persistErr == nil {
-			persistErr = writeProvisioningFile(osCfg.provisionJSONFilePath, data)
+			persistErr = writeProvisioningFile(osCfg.ProvisionJSONFilePath, data)
 		}
 		if persistErr != nil {
 			provisionErr = errors.Join(provisionErr, fmt.Errorf("write cleanup failure status: %w", persistErr))
@@ -866,27 +878,27 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(osCfg.provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+	if _, statErr := os.Stat(osCfg.ProvisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
 		data, err := json.Marshal(provisionResult)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(osCfg.provisionJSONFilePath)
+		baseDir := filepath.Dir(osCfg.ProvisionJSONFilePath)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(osCfg.provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", osCfg.provisionJSONFilePath, "error", writeErr)
+		if writeErr := os.WriteFile(osCfg.ProvisionJSONFilePath, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", osCfg.ProvisionJSONFilePath, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(osCfg.provisionCompleteFilePath); statErr == nil {
+	if _, statErr := os.Stat(osCfg.ProvisionCompleteFilePath); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", osCfg.ProvisionCompleteFilePath, "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(osCfg.provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(osCfg.ProvisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", osCfg.ProvisionCompleteFilePath, "error", writeErr)
 	}
 }
 
