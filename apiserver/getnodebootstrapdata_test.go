@@ -1,11 +1,81 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Azure/agentbaker/pkg/agent/datamodel"
+	"github.com/stretchr/testify/require"
 )
+
+func TestGetNodeBootstrapDataGallerySelection(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		distro      datamodel.Distro
+		useEdgeZone bool
+		gallery     string
+		marketplace bool
+		status      int
+	}{
+		{"regional by default", datamodel.AKSUbuntuContainerd2204Gen2, false, "regional-ubuntu", true, http.StatusOK},
+		{"Extended Zone", datamodel.AKSUbuntuContainerd2204Gen2, true, datamodel.AKSUbuntuEdgeZoneGalleryName, false, http.StatusOK},
+		{"legacy by default", datamodel.AKSUbuntuEdgeZoneContainerd2204Gen2, false, datamodel.AKSUbuntuEdgeZoneGalleryName, false, http.StatusOK},
+		{"unsupported Extended Zone variant", datamodel.AKSUbuntuFipsContainerd2204Gen2, true, "", false, http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config := nodeBootstrappingConfigForTest(tc.distro)
+			config.UseEdgeZoneGallery = tc.useEdgeZone
+			response := serveJSONRequest(t, RoutePathNodeBootstrapData, config)
+			require.Equal(t, tc.status, response.Code, response.Body.String())
+			if tc.status != http.StatusOK {
+				require.Contains(t, response.Body.String(), "can't find image for distro")
+				return
+			}
+
+			var bootstrap datamodel.NodeBootstrapping
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &bootstrap))
+			require.NotNil(t, bootstrap.SigImageConfig)
+			require.Equal(t, tc.gallery, bootstrap.SigImageConfig.Gallery)
+			require.Equal(t, tc.marketplace, bootstrap.OSImageConfig != nil)
+			require.NotEmpty(t, bootstrap.CustomData)
+			require.NotEmpty(t, bootstrap.CSE)
+		})
+	}
+}
+
+func nodeBootstrappingConfigForTest(distro datamodel.Distro) *datamodel.NodeBootstrappingConfiguration {
+	pool := &datamodel.AgentPoolProfile{
+		Name:                "agent",
+		VMSize:              "Standard_DS1_v2",
+		OSType:              datamodel.Linux,
+		Distro:              distro,
+		StorageProfile:      "ManagedDisks",
+		AvailabilityProfile: datamodel.VirtualMachineScaleSets,
+	}
+	return &datamodel.NodeBootstrappingConfiguration{
+		ContainerService: &datamodel.ContainerService{
+			Location: "eastus",
+			Properties: &datamodel.Properties{
+				OrchestratorProfile: &datamodel.OrchestratorProfile{
+					OrchestratorType:    datamodel.Kubernetes,
+					OrchestratorVersion: "1.32.1",
+					KubernetesConfig:    &datamodel.KubernetesConfig{},
+				},
+				HostedMasterProfile:     &datamodel.HostedMasterProfile{DNSPrefix: "test"},
+				AgentPoolProfiles:       []*datamodel.AgentPoolProfile{pool},
+				LinuxProfile:            &datamodel.LinuxProfile{AdminUsername: "azureuser"},
+				ServicePrincipalProfile: &datamodel.ServicePrincipalProfile{ClientID: "client"},
+			},
+		},
+		AgentPoolProfile: pool,
+		CloudSpecConfig:  datamodel.AzurePublicCloudSpecForTest,
+		K8sComponents:    &datamodel.K8sComponents{},
+		SIGConfig:        sigConfigForTest(),
+	}
+}
 
 func TestGetNodeBootstrapDataRejectsWhenOverloaded(t *testing.T) {
 	api, err := NewAPIServer(&Options{Addr: ":8080"})

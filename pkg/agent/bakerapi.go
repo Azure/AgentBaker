@@ -65,7 +65,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		return nil, fmt.Errorf("don't have settings for cloud %s", config.CloudSpecConfig.CloudName)
 	}
 
-	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage {
+	if osImageConfig, hasImage := osImageConfigMap[distro]; hasImage && !config.UseEdgeZoneGallery {
 		nodeBootstrapping.OSImageConfig = &osImageConfig
 	}
 
@@ -74,7 +74,7 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 		return nil, err
 	}
 
-	nodeBootstrapping.SigImageConfig = findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
+	nodeBootstrapping.SigImageConfig = findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, config.UseEdgeZoneGallery)
 	if nodeBootstrapping.SigImageConfig == nil && nodeBootstrapping.OSImageConfig == nil {
 		return nil, fmt.Errorf("can't find image for distro %s", distro)
 	}
@@ -82,7 +82,8 @@ func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, conf
 	if !config.AgentPoolProfile.IsWindows() {
 		// handle node image version toggle/override
 		e := toggles.NewEntityFromNodeBootstrappingConfiguration(config)
-		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		imageVersion := agentBaker.getLinuxNodeImageVersion(e, distro, sigAzureEnvironmentSpecConfig,
+			nodeBootstrapping.SigImageConfig, config.UseEdgeZoneGallery)
 		if imageVersion != "" {
 			nodeBootstrapping.SigImageConfig.Version = imageVersion
 		}
@@ -98,14 +99,14 @@ func (agentBaker *agentBakerImpl) GetLatestSigImageConfig(sigConfig datamodel.SI
 		return nil, err
 	}
 
-	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro)
+	sigImageConfig := findSIGImageConfig(sigAzureEnvironmentSpecConfig, distro, envInfo.UseEdgeZoneGallery)
 	if sigImageConfig == nil {
 		return nil, fmt.Errorf("can't find SIG image config for distro %s in region %s", distro, envInfo.Region)
 	}
 
 	if !distro.IsWindowsDistro() {
 		e := toggles.NewEntityFromEnvironmentInfo(envInfo)
-		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)
+		imageVersion := agentBaker.getLinuxNodeImageVersion(e, distro, sigAzureEnvironmentSpecConfig, sigImageConfig, envInfo.UseEdgeZoneGallery)
 		if imageVersion != "" {
 			sigImageConfig.Version = imageVersion
 		}
@@ -121,6 +122,10 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	}
 
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
+
+	if envInfo.UseEdgeZoneGallery {
+		return agentBaker.getEdgeZoneDistroSigImageConfig(allAzureSigConfig, e), nil
+	}
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
 	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
@@ -178,7 +183,86 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	return allDistros, nil
 }
 
-func findSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distro datamodel.Distro) *datamodel.SigImageConfig {
+func (agentBaker *agentBakerImpl) getEdgeZoneDistroSigImageConfig(
+	sigConfig datamodel.SIGAzureEnvironmentSpecConfig, entity *toggles.Entity,
+) map[datamodel.Distro]datamodel.SigImageConfig {
+	configs := make(map[datamodel.Distro]datamodel.SigImageConfig)
+	for _, catalog := range []map[datamodel.Distro]datamodel.SigImageConfig{
+		sigConfig.SigEdgeZoneImageConfig,
+		sigConfig.SigUbuntuEdgeZoneImageConfig,
+		sigConfig.SigAzureLinuxEdgeZoneImageConfig,
+	} {
+		for distro := range catalog {
+			config := findEdgeZoneSIGImageConfig(sigConfig, distro)
+			if version := agentBaker.getLinuxNodeImageVersion(entity, distro, sigConfig, config, true); version != "" {
+				config.Version = version
+			}
+			configs[distro] = *config
+		}
+	}
+	return configs
+}
+
+func (agentBaker *agentBakerImpl) getLinuxNodeImageVersion(
+	entity *toggles.Entity, distro datamodel.Distro, sigConfig datamodel.SIGAzureEnvironmentSpecConfig,
+	image *datamodel.SigImageConfig, useEdgeZone bool,
+) string {
+	if useEdgeZone && image != nil {
+		// Keep existing Edge Zone rollout overrides authoritative while callers migrate to shared identities.
+		for _, catalog := range []map[datamodel.Distro]datamodel.SigImageConfig{
+			sigConfig.SigUbuntuEdgeZoneImageConfig,
+			sigConfig.SigAzureLinuxEdgeZoneImageConfig,
+		} {
+			for legacyDistro, legacyImage := range catalog {
+				if legacyImage.Gallery == image.Gallery && legacyImage.Definition == image.Definition {
+					if version := agentBaker.toggles.GetLinuxNodeImageVersion(entity, legacyDistro); version != "" {
+						return version
+					}
+				}
+			}
+		}
+	}
+	return agentBaker.toggles.GetLinuxNodeImageVersion(entity, distro)
+}
+
+func findEdgeZoneSIGImageConfig(sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distro datamodel.Distro) *datamodel.SigImageConfig {
+	if config, ok := sigConfig.SigEdgeZoneImageConfig[distro]; ok {
+		return &config
+	}
+	for _, catalog := range []struct {
+		regional map[datamodel.Distro]datamodel.SigImageConfig
+		legacy   map[datamodel.Distro]datamodel.SigImageConfig
+	}{
+		{sigConfig.SigUbuntuImageConfig, sigConfig.SigUbuntuEdgeZoneImageConfig},
+		{sigConfig.SigAzureLinuxImageConfig, sigConfig.SigAzureLinuxEdgeZoneImageConfig},
+	} {
+		if legacyConfig, ok := catalog.legacy[distro]; ok {
+			for _, sharedConfig := range sigConfig.SigEdgeZoneImageConfig {
+				if sharedConfig.Gallery == legacyConfig.Gallery && sharedConfig.Definition == legacyConfig.Definition {
+					return &sharedConfig
+				}
+			}
+			return &legacyConfig
+		}
+		regionalConfig, ok := catalog.regional[distro]
+		if !ok {
+			continue
+		}
+		for _, legacyConfig := range catalog.legacy {
+			if legacyConfig.Definition == regionalConfig.Definition {
+				return &legacyConfig
+			}
+		}
+	}
+	return nil
+}
+
+func findSIGImageConfig(
+	sigConfig datamodel.SIGAzureEnvironmentSpecConfig, distro datamodel.Distro, useEdgeZone bool,
+) *datamodel.SigImageConfig {
+	if useEdgeZone {
+		return findEdgeZoneSIGImageConfig(sigConfig, distro)
+	}
 	if imageConfig, ok := sigConfig.SigUbuntuImageConfig[distro]; ok {
 		return &imageConfig
 	}
