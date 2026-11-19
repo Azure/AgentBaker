@@ -274,11 +274,11 @@ func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	provisionCustomData := render(false)
 
 	require.NotContains(t, bakeCustomData, bootstrapToken)
-	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=""`)
+	require.Contains(t, bakeCustomData, `$global:TLSBootstrapToken=''`)
 	require.Contains(t, bakeCustomData, "function NodePrep")
 	require.Contains(t, bakeCustomData, "Write-BootstrapKubeConfig")
 	require.Contains(t, bakeCustomData, "if (-not $PreProvisionOnly)")
-	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken="%s"`, bootstrapToken))
+	require.Contains(t, provisionCustomData, fmt.Sprintf(`$global:TLSBootstrapToken='%s'`, bootstrapToken))
 }
 
 func TestWindowsCustomDataUsesBundledSSHFunctions(t *testing.T) {
@@ -302,7 +302,7 @@ func TestWindowsCustomDataUsesBundledSSHFunctions(t *testing.T) {
 			require.GreaterOrEqual(t, loadSSH, 0)
 			require.Less(t, loadSSH, loadHelpers)
 
-			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			matches := regexp.MustCompile(`\$zippedFiles=['"]([^'"]+)['"]`).FindStringSubmatch(customData)
 			require.Len(t, matches, 2)
 			archive, err := base64.StdEncoding.DecodeString(matches[1])
 			require.NoError(t, err)
@@ -340,15 +340,15 @@ func TestWindowsCustomDataPassesContainerdComponentPackageURLs(t *testing.T) {
 	}
 
 	customData := render(hcsshimURL, mobyContainerdURL, crictlURL)
-	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsHcsshimUrl="%s"`, hcsshimURL))
-	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsMobyContainerdUrl="%s"`, mobyContainerdURL))
-	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsCrictlUrl="%s"`, crictlURL))
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsHcsshimUrl='%s'`, hcsshimURL))
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsMobyContainerdUrl='%s'`, mobyContainerdURL))
+	require.Contains(t, customData, fmt.Sprintf(`$global:WindowsCrictlUrl='%s'`, crictlURL))
 	require.Contains(t, customData, "-HcsshimUrl $global:WindowsHcsshimUrl -MobyContainerdUrl $global:WindowsMobyContainerdUrl -CrictlUrl $global:WindowsCrictlUrl")
 
 	legacyCustomData := render("", "", "")
-	require.Contains(t, legacyCustomData, `$global:WindowsHcsshimUrl=""`)
-	require.Contains(t, legacyCustomData, `$global:WindowsMobyContainerdUrl=""`)
-	require.Contains(t, legacyCustomData, `$global:WindowsCrictlUrl=""`)
+	require.Contains(t, legacyCustomData, `$global:WindowsHcsshimUrl=''`)
+	require.Contains(t, legacyCustomData, `$global:WindowsMobyContainerdUrl=''`)
+	require.Contains(t, legacyCustomData, `$global:WindowsCrictlUrl=''`)
 }
 
 func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
@@ -372,7 +372,7 @@ func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
 			require.Contains(t, customData, `"--healthz-port=10248"`)
 			require.Contains(t, customData, "Start-NodeResetScriptTask")
 
-			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			matches := regexp.MustCompile(`\$zippedFiles=['"]([^'"]+)['"]`).FindStringSubmatch(customData)
 			require.Len(t, matches, 2)
 			archive, err := base64.StdEncoding.DecodeString(matches[1])
 			require.NoError(t, err)
