@@ -2,39 +2,28 @@
 # Shared Packer cleanup helpers and AIB's final deprovision hook.
 # Do not enable tracing: the agent installer uses SAS URLs.
 
-# waagent stops at its first failed cleanup action but still exits 0, which can
-# leave bake-time agent state, logs and the build user in the image.
+# waagent can stop at a failed cleanup step and still exit 0, which leaves
+# bake-time agent state, logs and the build user in the image.
 deprovisionWALinuxAgent() {
     local lib_dir="${1:-/var/lib/waagent}"
-    local unit output status=0
+    local output status=0
 
-    # Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service runs
-    # outside the extension slices and its workers write to /var/lib/waagent/events. The unit uses
-    # KillMode=process, so a stop leaves the workers alive: kill the whole unit while it is active,
-    # then stop it before Restart= fires. Disable it, because deprovision deletes its ExecStart.
+    # Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service
+    # workers write to /var/lib/waagent/events, and KillMode=process leaves them alive on stop,
+    # so kill the whole unit first. Disable it, because deprovision deletes its ExecStart.
     sudo systemctl disable gcd.service >/dev/null 2>&1 || true
     sudo systemctl kill --signal=SIGKILL gcd.service >/dev/null 2>&1 || true
+    # waagent stops only its own service; extensions and the log collector run in other units.
+    # systemctl continues past units that do not exist.
+    sudo systemctl stop gcd.service walinuxagent.service waagent.service \
+        azure-walinuxagent-logcollector.slice azure-vmextensions.slice >/dev/null 2>&1 || true
 
-    # waagent stops only its own service. Its log collector and extensions run in
-    # separate units and can write under /var/lib/waagent while waagent deletes it.
-    for unit in gcd.service walinuxagent.service waagent.service \
-        azure-walinuxagent-logcollector.slice azure-vmextensions.slice; do
-        sudo systemctl stop "${unit}" >/dev/null 2>&1 || true
-    done
-
-    # The install path differs by distro (/usr/sbin on Ubuntu, /usr/bin on Azure Linux and ACL).
     output=$(sudo waagent -force -deprovision+user 2>&1) || status=$?
     printf '%s\n' "${output}"
-    if [ "${status}" -ne 0 ]; then
-        return "${status}"
-    fi
     # Do not retry: a partial run can delete ovf-env.xml, and waagent then skips build-user deletion.
-    if printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision"; then
-        echo "waagent deprovision failed" >&2
-        return 1
-    fi
-    if [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
-        echo "waagent deprovision left files in ${lib_dir}" >&2
+    if [ "${status}" -ne 0 ] || printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision" ||
+        [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
+        echo "waagent deprovision failed (exit ${status}); see its output above and ${lib_dir}" >&2
         return 1
     fi
 }

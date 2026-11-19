@@ -173,11 +173,7 @@ Describe 'VHD deprovision'
       The output should equal 'WARNING! The waagent service will be stopped.'
       The contents of file "${TEST_ROOT}/calls" should equal "systemctl disable gcd.service
 systemctl kill --signal=SIGKILL gcd.service
-systemctl stop gcd.service
-systemctl stop walinuxagent.service
-systemctl stop waagent.service
-systemctl stop azure-walinuxagent-logcollector.slice
-systemctl stop azure-vmextensions.slice
+systemctl stop gcd.service walinuxagent.service waagent.service azure-walinuxagent-logcollector.slice azure-vmextensions.slice
 waagent -force -deprovision+user"
     End
 
@@ -194,29 +190,29 @@ waagent -force -deprovision+user"
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should be success
       The output should equal ''
-      The lines of contents of file "${TEST_ROOT}/calls" should equal 8
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 4
     End
 
-    It 'propagates a nonzero waagent exit code'
+    It 'fails when waagent exits nonzero'
       seed_lib_dir
       WAAGENT_STATUS=7
 
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
-      The status should equal 7
+      The status should equal 1
       The output should equal ''
+      The stderr should equal "waagent deprovision failed (exit 7); see its output above and ${TEST_ROOT}/lib"
     End
 
-    It 'fails when waagent reports a failed deprovision but exits 0'
+    It 'fails when waagent reports a failed deprovision but exits 0 with an empty lib dir'
       seed_lib_dir
-      WAAGENT_OUTPUT="2026/01/01 00:00:00 ERROR Failed to run 'deprovision+user': [Errno 39] Directory not empty: '/var/lib/waagent/events'"
-      WAAGENT_LEFTOVER=late-event
+      WAAGENT_OUTPUT="2026/01/01 00:00:00 ERROR Failed to run 'deprovision+user': [Errno 2] No such file or directory: 'userdel'"
 
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should include "Failed to run 'deprovision+user'"
-      The stderr should equal 'waagent deprovision failed'
+      The stderr should equal "waagent deprovision failed (exit 0); see its output above and ${TEST_ROOT}/lib"
       The contents of file "${TEST_ROOT}/calls" should include 'waagent -force -deprovision+user'
-      The lines of contents of file "${TEST_ROOT}/calls" should equal 8
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 4
     End
 
     It 'fails when the lib dir is not empty after a silent deprovision'
@@ -226,7 +222,7 @@ waagent -force -deprovision+user"
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should equal ''
-      The stderr should equal "waagent deprovision left files in ${TEST_ROOT}/lib"
+      The stderr should equal "waagent deprovision failed (exit 0); see its output above and ${TEST_ROOT}/lib"
     End
   End
 
