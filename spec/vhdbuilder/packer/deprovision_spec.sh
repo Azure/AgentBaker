@@ -143,7 +143,7 @@ Describe 'VHD deprovision'
           printf '%s\n' "$*" >> "${TEST_ROOT}/calls"
           return "${SYSTEMCTL_STATUS:-0}"
           ;;
-        fake-waagent)
+        waagent)
           printf '%s\n' "$*" >> "${TEST_ROOT}/calls"
           if [ -n "${WAAGENT_OUTPUT:-}" ]; then
             printf '%s\n' "${WAAGENT_OUTPUT}"
@@ -168,7 +168,7 @@ Describe 'VHD deprovision'
       seed_lib_dir
       WAAGENT_OUTPUT='WARNING! The waagent service will be stopped.'
 
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should be success
       The output should equal 'WARNING! The waagent service will be stopped.'
       The contents of file "${TEST_ROOT}/calls" should equal "systemctl disable gcd.service
@@ -178,11 +178,11 @@ systemctl stop walinuxagent.service
 systemctl stop waagent.service
 systemctl stop azure-walinuxagent-logcollector.slice
 systemctl stop azure-vmextensions.slice
-fake-waagent -force -deprovision+user"
+waagent -force -deprovision+user"
     End
 
     It 'succeeds when the lib dir is absent'
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/missing"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/missing"
       The status should be success
       The output should equal ''
     End
@@ -191,7 +191,7 @@ fake-waagent -force -deprovision+user"
       seed_lib_dir
       SYSTEMCTL_STATUS=5
 
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should be success
       The output should equal ''
       The lines of contents of file "${TEST_ROOT}/calls" should equal 8
@@ -201,7 +201,7 @@ fake-waagent -force -deprovision+user"
       seed_lib_dir
       WAAGENT_STATUS=7
 
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 7
       The output should equal ''
     End
@@ -211,11 +211,11 @@ fake-waagent -force -deprovision+user"
       WAAGENT_OUTPUT="2026/01/01 00:00:00 ERROR Failed to run 'deprovision+user': [Errno 39] Directory not empty: '/var/lib/waagent/events'"
       WAAGENT_LEFTOVER=late-event
 
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should include "Failed to run 'deprovision+user'"
       The stderr should equal 'waagent deprovision failed'
-      The contents of file "${TEST_ROOT}/calls" should include 'fake-waagent -force -deprovision+user'
+      The contents of file "${TEST_ROOT}/calls" should include 'waagent -force -deprovision+user'
       The lines of contents of file "${TEST_ROOT}/calls" should equal 8
     End
 
@@ -223,7 +223,7 @@ fake-waagent -force -deprovision+user"
       seed_lib_dir
       WAAGENT_LEFTOVER=late-event
 
-      When call deprovisionWALinuxAgent fake-waagent "${TEST_ROOT}/lib"
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should equal ''
       The stderr should equal "waagent deprovision left files in ${TEST_ROOT}/lib"
@@ -232,29 +232,31 @@ fake-waagent -force -deprovision+user"
 
   Describe 'Packer templates'
     check_template() {
-      local template="$1" helper="$2" waagent_bin="$3"
-      # Every deprovision must go through the verified helper, never waagent directly.
+      local template="$1" helper="$2"
+      # Every deprovision must go through the verified helper, never waagent directly,
+      # and must not pass a waagent path: the helper resolves waagent through PATH.
       ! grep -F -- '-deprovision+user' "${template}" &&
-        grep -F -- "'. ${helper} && deprovisionWALinuxAgent ${waagent_bin}" "${template}" >/dev/null &&
+        grep -F -- "'. ${helper} && deprovisionWALinuxAgent" "${template}" >/dev/null &&
+        ! grep -E -- 'deprovisionWALinuxAgent [^&]' "${template}" &&
         jq -e '[.provisioners[] | select(.type == "file" and
           .source == "vhdbuilder/packer/deprovision.sh" and
           .destination == "/home/packer/deprovision.sh")] | length == 1' "${template}" >/dev/null
     }
 
     Parameters
-      base /opt/azure/containers/deprovision.sh /usr/sbin/waagent
-      cvm /opt/azure/containers/deprovision.sh /usr/sbin/waagent
-      arm64-gen2 /opt/azure/containers/deprovision.sh /usr/sbin/waagent
-      arm64-gb /opt/azure/containers/deprovision.sh /usr/sbin/waagent
-      mariner /opt/azure/containers/deprovision.sh waagent
-      mariner-cvm /opt/azure/containers/deprovision.sh waagent
-      mariner-arm64 /opt/azure/containers/deprovision.sh waagent
-      acl /home/packer/deprovision.sh /usr/bin/waagent
-      acl-arm64 /home/packer/deprovision.sh /usr/bin/waagent
+      base /opt/azure/containers/deprovision.sh
+      cvm /opt/azure/containers/deprovision.sh
+      arm64-gen2 /opt/azure/containers/deprovision.sh
+      arm64-gb /opt/azure/containers/deprovision.sh
+      mariner /opt/azure/containers/deprovision.sh
+      mariner-cvm /opt/azure/containers/deprovision.sh
+      mariner-arm64 /opt/azure/containers/deprovision.sh
+      acl /home/packer/deprovision.sh
+      acl-arm64 /home/packer/deprovision.sh
     End
 
     It "deprovisions $1 through the verified helper"
-      When call check_template "vhdbuilder/packer/vhd-image-builder-$1.json" "$2" "$3"
+      When call check_template "vhdbuilder/packer/vhd-image-builder-$1.json" "$2"
       The status should be success
     End
   End
@@ -314,7 +316,7 @@ fake-waagent -force -deprovision+user"
       It "generalizes, reinstalls the agent, cleans credentials and removes helpers with CVM=$1"
         When run run_hook "" "$1"
         The status should be success
-        The output should equal "deprovisionWALinuxAgent waagent
+        The output should equal "deprovisionWALinuxAgent
 installPinnedWALinuxAgent /
 cleanupNvPCRCredentials $1 /
 rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh /opt/azure/containers/install_walinuxagent.py /opt/azure/containers/deprovision.sh /opt/azure/containers/aib-deprovision.sh /tmp/DeprovisioningScript.sh

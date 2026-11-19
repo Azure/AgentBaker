@@ -5,8 +5,7 @@
 # waagent stops at its first failed cleanup action but still exits 0, which can
 # leave bake-time agent state, logs and the build user in the image.
 deprovisionWALinuxAgent() {
-    local waagent_bin="$1"
-    local lib_dir="${2:-/var/lib/waagent}"
+    local lib_dir="${1:-/var/lib/waagent}"
     local unit output status=0
 
     # Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service runs
@@ -23,7 +22,8 @@ deprovisionWALinuxAgent() {
         sudo systemctl stop "${unit}" >/dev/null 2>&1 || true
     done
 
-    output=$(sudo "${waagent_bin}" -force -deprovision+user 2>&1) || status=$?
+    # The install path differs by distro (/usr/sbin on Ubuntu, /usr/bin on Azure Linux and ACL).
+    output=$(sudo waagent -force -deprovision+user 2>&1) || status=$?
     printf '%s\n' "${output}"
     if [ "${status}" -ne 0 ]; then
         return "${status}"
@@ -95,7 +95,7 @@ main() {
     esac
 
     # Keep AIB's default generalization, then reapply the same agent pin as Packer.
-    deprovisionWALinuxAgent waagent || return $?
+    deprovisionWALinuxAgent || return $?
     export HISTSIZE=0
     installPinnedWALinuxAgent / || return $?
     cleanupNvPCRCredentials "${is_cvm}" / || return $?

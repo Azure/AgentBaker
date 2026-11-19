@@ -952,7 +952,7 @@
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c '. /opt/azure/containers/deprovision.sh && deprovisionWALinuxAgent waagent && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125"
+        "sudo /bin/bash -c '. /opt/azure/containers/deprovision.sh && deprovisionWALinuxAgent && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125"
       ]
     }
   ],
