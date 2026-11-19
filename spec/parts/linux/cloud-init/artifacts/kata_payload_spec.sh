@@ -9,7 +9,7 @@ Describe 'Azure Linux 3 Kata payload copies'
         export OS=azurelinux OS_VERSION=3.0 OS_VARIANT=''
         export UBUNTU_RELEASE=unused ENABLE_FIPS=false CPU_ARCH=amd64
         export FEATURE_FLAGS=kata,kata-cc
-        SIGNED_FILES='kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64'
+        SIGNED_FILES='kata-containers.img kata-containers-igvm.img kata-containers-igvm-debug.img reference-info-base64'
         ORDINARY_GUEST="$TEST_ROOT/usr/share/kata-containers/kata-containers.img"
         CONFIDENTIAL_DIR="$TEST_ROOT/opt/confidential-containers/share/kata-containers"
         mkdir -p "$TEST_ROOT/home/packer/kata-cc"
@@ -56,7 +56,7 @@ Describe 'Azure Linux 3 Kata payload copies'
     BeforeEach 'setup'
     AfterEach 'cleanup'
 
-    It 'copies all six signed files with mode 0644 and preserves the ordinary guest'
+    It 'copies all four kata-cc files with mode 0644 and preserves the ordinary guest'
         When run copyPackerFiles
         The status should be success
         The result of function signed_payload_is_intact should equal intact
@@ -76,10 +76,8 @@ Describe 'Azure Linux 3 Kata payload copies'
     Describe 'missing required signed payload'
         Parameters
             kata-containers.img
-            kata-containers-cc.img
             kata-containers-igvm.img
             kata-containers-igvm-debug.img
-            igvm-measurement.cose
             reference-info-base64
         End
 

@@ -244,9 +244,8 @@ copyPackerFiles() {
       cpAndMode $KATA_IMAGE_SRC $KATA_IMAGE_DEST 0755
       # shellcheck disable=SC3014
       if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
-        # Current signed confidential guest/package layout; separate from the
-        # ordinary AZL3 guest installed above.
-        for file in kata-containers.img kata-containers-cc.img kata-containers-igvm.img kata-containers-igvm-debug.img igvm-measurement.cose reference-info-base64; do
+        # kata-cc (OpenVMM SNP) UVM; the names must match configuration-openvmm-azure-snp-runtime-rs(-debug).toml.
+        for file in kata-containers.img kata-containers-igvm.img kata-containers-igvm-debug.img reference-info-base64; do
           cpAndMode "/home/packer/kata-cc/$file" "$KATACC_CONFIG_DIR/$file" 0644
         done
       fi

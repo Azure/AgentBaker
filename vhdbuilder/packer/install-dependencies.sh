@@ -1379,7 +1379,12 @@ if isMarinerOrAzureLinux "$OS" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; the
     updateDnfWithNvidiaPkg
     overrideNetworkConfig || exit 1
     if grep -q "kata" <<< "$FEATURE_FLAGS"; then
+      # kata-packages-host (1.0.0-14+) pulls kata-containers-cc, openvmm and erofs-utils for kata-cc (OpenVMM SNP).
       installKataDeps
+      # shellcheck disable=SC3010
+      if [[ ",${FEATURE_FLAGS}," == *",kata-cc,"* ]]; then
+        enableKataCCKernelModules
+      fi
       if [ "${OS}" != "3.0" ]; then
         enableMarinerKata
       fi
