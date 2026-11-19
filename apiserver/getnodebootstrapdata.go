@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -70,6 +71,25 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	logCustomDataSize(ctx, api.customDataLogger, &config, len(nodeBootStrapping.CustomData))
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprint(w, string(result))
+}
+
+func logCustomDataSize(ctx context.Context, logger *slog.Logger, config *datamodel.NodeBootstrappingConfiguration, length int) {
+	if length < agent.MaxCustomDataLength*9/10 {
+		return
+	}
+
+	level := slog.LevelWarn
+	if length > agent.MaxCustomDataLength {
+		level = slog.LevelError
+	}
+
+	logger.Log(ctx, level, fmt.Sprintf(
+		"CustomData subscriptionID=%q resourceGroup=%q pool=%q os=%q distro=%q Length is %d",
+		config.SubscriptionID, config.ResourceGroupName, config.AgentPoolProfile.Name,
+		config.AgentPoolProfile.OSType, config.AgentPoolProfile.Distro, length),
+		"source", "AgentBakerCustomData")
 }

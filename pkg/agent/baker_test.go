@@ -223,6 +223,47 @@ func TestLinuxNodeBootstrappingPayloadSizeBudget(t *testing.T) {
 	}
 }
 
+func TestScriptlessNodeBootstrappingPayloadSizeBudget(t *testing.T) {
+	for _, distro := range []datamodel.Distro{
+		datamodel.AKSUbuntuContainerd2204Gen2,
+		datamodel.AKSAzureLinuxV3Gen2,
+	} {
+		for _, mode := range []string{"phase1", "phase2", "phase3"} {
+			t.Run(fmt.Sprintf("%s/%s", distro, mode), func(t *testing.T) {
+				config := newNodeCustomDataRenderConfig(distro)
+				config.EnableKubeletConfigFile = true
+				config.EnableScriptlessCSECmd = true
+				config.EnableScriptlessNBCCSECmd = mode == "phase2"
+				config.EnableScriptlessAKSNodeConfig = mode == "phase3"
+				config.AKSNodeConfigJSON = `{"version":"v1","pre_provision_only":false}`
+				payload := InitializeTemplateGenerator().getNodeBootstrappingPayload(config)
+				require.NotEmpty(t, payload)
+				_, err := base64.StdEncoding.Strict().DecodeString(payload)
+				require.NoError(t, err)
+				t.Logf("customData: %d encoded characters, %d characters remaining", len(payload), MaxCustomDataLength-len(payload))
+				require.LessOrEqual(t, len(payload), MaxCustomDataLength, "scriptless customData exceeds Compute's encoded size limit")
+			})
+		}
+	}
+}
+
+func TestWindowsNodeBootstrappingPayloadSizeBudget(t *testing.T) {
+	for _, preProvisionOnly := range []bool{false, true} {
+		t.Run(fmt.Sprintf("preProvisionOnly=%t", preProvisionOnly), func(t *testing.T) {
+			config := newNodeCustomDataRenderConfig(datamodel.AKSWindows2022Containerd)
+			config.AgentPoolProfile.OSType = datamodel.Windows
+			config.ContainerService.Properties.WindowsProfile = &datamodel.WindowsProfile{}
+			config.PreProvisionOnly = preProvisionOnly
+			payload := InitializeTemplateGenerator().getNodeBootstrappingPayload(config)
+			require.NotEmpty(t, payload)
+			_, err := base64.StdEncoding.Strict().DecodeString(payload)
+			require.NoError(t, err)
+			t.Logf("customData: %d encoded characters, %d characters remaining", len(payload), MaxCustomDataLength-len(payload))
+			require.LessOrEqual(t, len(payload), MaxCustomDataLength, "Windows customData exceeds Compute's encoded size limit")
+		})
+	}
+}
+
 func TestWindowsPreProvisionCustomDataOmitsTLSBootstrapToken(t *testing.T) {
 	const bootstrapToken = "bake00.0123456789abcdef"
 
