@@ -48,6 +48,21 @@
       "base_image_version": "26100.33828.261112",
       "patches_to_apply": []
     },
+    "2028-gen2": {
+      "comment": "Windows Server 2028 public preview (Gen2 only). https://learn.microsoft.com/windows-server/get-started/whats-new-windows-server-2028",
+      "os_disk_size": "127",
+      "base_image_publisher": "MicrosoftWindowsServer",
+      "base_image_offer": "microsoftserveroperatingsystems-previews",
+      "base_image_sku": "windows-server-vnext-azure-edition-core",
+      "windows_image_name": "windows-2028",
+      "base_image_version": "29706.1000.261113",
+      "base_image_plan": {
+        "name": "windows-server-vnext-azure-edition-core",
+        "product": "microsoftserveroperatingsystems-previews",
+        "publisher": "microsoftwindowsserver"
+      },
+      "patches_to_apply": []
+    },
     "2025-gen2-tl": {
       "os_disk_size": "45",
       "base_image_publisher": "MicrosoftWindowsServer",

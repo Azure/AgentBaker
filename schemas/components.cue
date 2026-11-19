@@ -94,6 +94,7 @@ package components
 	default?: #ReleaseDownloadURI
 	ws2022?: #ReleaseDownloadURI
 	ws2025?: #ReleaseDownloadURI
+	ws2028?: #ReleaseDownloadURI
 }
 
 #FlatcarOSDistro: {

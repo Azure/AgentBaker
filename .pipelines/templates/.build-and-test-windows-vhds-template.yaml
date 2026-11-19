@@ -18,6 +18,10 @@ parameters:
     displayName: Windows container image JSON URL Override
     type: string
     default: ""
+  - name: build2028gen2
+    displayName: Build 2028 Gen 2 Preview
+    type: boolean
+    default: True
   - name: dryrun
     displayName: Dry run
     type: boolean
@@ -186,6 +190,29 @@ stages:
       windowsNanoImageUrl: $(WINDOWS_2025_NANO_IMAGE_URL)
       windowsCoreImageUrl: $(WINDOWS_2025_CORE_IMAGE_URL)
       windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
+      overrideBranch: ${{ parameters.overrideBranch }}
+      useOverrides: ${{ parameters.useOverrides }}
+      csePackageDir: ${{ parameters.csePublishDir }}
+      cseFileName: ${{ parameters.cseFileName }}
+
+  - template: ./.build-and-test-windows-vhd-template.yaml
+    parameters:
+      stageName: win_2028_v2
+      artifactName: 2028-gen2
+      imageName: windows-2028-gen2
+      windowsSku: 2028-gen2
+      hyperVGeneration: V2
+      architecture: X86_64
+      buildVmSize: ${{ parameters.buildVmSize }}
+      build: ${{ parameters.build2028gen2 }}
+      vhddebug: ${{ parameters.vhddebug }}
+      dryrun: ${{ parameters.dryrun }}
+      installOpenSshServer: ${{ parameters.installOpenSshServer }}
+      skipExtensionCheck: ${{ parameters.skipExtensionCheck }}
+      windowsBaseImageUrl: ""
+      windowsNanoImageUrl: ""
+      windowsCoreImageUrl: ""
+      windowsContainerImageJsonUrl: ""
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
       csePackageDir: ${{ parameters.csePublishDir }}

@@ -270,6 +270,40 @@ var _ = Register(&Scenario{
 	},
 })
 
+var _ = Register(&Scenario{
+	Name:        "Windows2028Gen2",
+	Description: "Windows Server 2028 preview with Containerd - hyperv gen 2",
+	Config: Config{
+		Cluster: ClusterAzureNetwork,
+		VHD:     config.VHDWindows2028Gen2,
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.Plan = &armcompute.Plan{
+				Name:      to.Ptr("windows-server-vnext-azure-edition-core"),
+				Product:   to.Ptr("microsoftserveroperatingsystems-previews"),
+				Publisher: to.Ptr("microsoftwindowsserver"),
+			}
+			// The 127 GB preview image does not fit the default VM's ephemeral disk.
+			vmss.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings = nil
+		},
+		BootstrapConfigMutatorWithError: func(_ context.Context, _ *Cluster, configuration *datamodel.NodeBootstrappingConfiguration) error {
+			return Windows2025BootstrapConfigMutator(configuration)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2028-gen2"),
+				ValidateWindowsProductName(ctx, s, "Datacenter"),
+				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
+				ValidateKubeletArgs(ctx, s),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+				ValidateCiliumIsNotRunningWindows(ctx, s),
+				ValidateDotnetNotInstalledWindows(ctx, s),
+				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
+				ValidateCollectWindowsLogsScript(ctx, s),
+			)
+		},
+	},
+})
+
 //nolint:gochecknoinits // Register both image variants before the runner selects scenarios.
 func init() {
 	for _, tc := range []struct {

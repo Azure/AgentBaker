@@ -27,7 +27,7 @@ function GetWindowsDownloadPartForPackage {
     }
 
     $part = $downloadUrls.default
-    switch -Regex ($windowsSku) {
+    switch -Wildcard ($windowsSku) {
         "2019-containerd" {
             $part = $downloadUrls.ws2019
             break
@@ -38,6 +38,10 @@ function GetWindowsDownloadPartForPackage {
         }
         "2025*" {
             $part = $downloadUrls.ws2025
+            break
+        }
+        "2028*" {
+            $part = $downloadUrls.ws2028
             break
         }
     }

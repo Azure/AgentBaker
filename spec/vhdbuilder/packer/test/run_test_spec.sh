@@ -104,6 +104,36 @@ Describe 'Linux content-test Run Command parameters'
   End
 End
 
+Describe 'Windows cache-test Marketplace plans'
+  setup_plan() {
+    SCRIPT_PATH="${PWD}/vhdbuilder/packer/test/run-test.sh"
+    PLAN_TEST_ROOT=$(mktemp -d "${SHELLSPEC_WORKDIR}/windows-plan.XXXXXX")
+    mkdir -p "${PLAN_TEST_ROOT}/vhdbuilder/packer"
+  }
+  BeforeEach 'setup_plan'
+
+  read_plan_args() (
+    cd "$PLAN_TEST_ROOT" || return
+    eval "$(sed -n '/^TEST_VM_PLAN_ARGS=()/,/^# NVIDIA/{ /^# NVIDIA/d; p; }' "$SCRIPT_PATH")"
+    printf '%s' "${TEST_VM_PLAN_ARGS[*]}"
+  )
+
+  Parameters
+    Windows preview '--plan-name preview --plan-product preview-offer --plan-publisher microsoftwindowsserver'
+    Windows '' ''
+    Linux preview ''
+  End
+
+  It "uses plan arguments only for a Windows image with a plan ($1/$2)"
+    OS_TYPE="$1"
+    jq -n --arg name "$2" '{windows_image_plan_name: $name, windows_image_plan_product: "preview-offer", windows_image_plan_publisher: "microsoftwindowsserver"}' > "${PLAN_TEST_ROOT}/vhdbuilder/packer/settings.json"
+
+    When call read_plan_args
+    The status should be success
+    The output should equal "$3"
+  End
+End
+
 Describe 'Test VM credential log hygiene'
   openssl() { printf 'deadbeefcafebabe1234567890abcdef\n'; }
   az() { printf '%s\n' "$@" > "$AZ_ARGS"; }

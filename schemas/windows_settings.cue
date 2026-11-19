@@ -25,6 +25,11 @@
   base_image_offer:     string
   base_image_sku:        string
   base_image_version:    string
+  base_image_plan?: {
+    name: string
+    product: string
+    publisher: string
+  }
   windows_image_name:    string
   patches_to_apply:      #WindowsPatches
   sig_source_gallery_name?:      string
@@ -39,6 +44,7 @@
   "2025": #WindowsBaseVersion
   "2025-gen2": #WindowsBaseVersion
   "2025-gen2-tl": #WindowsBaseVersion
+  "2028-gen2": #WindowsBaseVersion
 }
 
 #WindowsDefenderInfo: {
