@@ -97,7 +97,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL_ArtifactStreaming",
 	Description: "Tests that an ACL node with artifact streaming enabled activates OverlayBD and acr-mirror",
-	SkipIf:      skipACLArtifactStreamingOnMainBuiltImage,
+	SkipIf:      skipACLArtifactStreamingOnDefaultBranchImage,
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -132,10 +132,10 @@ var _ = Register(&Scenario{
 
 // ACL e2e provisions with the CSE scripts baked into the VHD rather than the branch's scripts,
 // so the ACL artifact streaming path only exists on VHDs built from a branch that contains it.
-func skipACLArtifactStreamingOnMainBuiltImage(context.Context) string {
-	if laneResolvedMainBuiltImage() {
+func skipACLArtifactStreamingOnDefaultBranchImage(context.Context) string {
+	if laneResolvedDefaultBranchImage() {
 		return fmt.Sprintf(
-			"this lane resolved a main-built image (%s=%s), which predates ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
+			"this lane selected a default-branch image (%s=%s), which may predate ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
 			config.Config.SIGVersionTagName,
 			config.Config.SIGVersionTagValue,
 		)
