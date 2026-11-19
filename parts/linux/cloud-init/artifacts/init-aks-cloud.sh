@@ -318,16 +318,19 @@ function process_cert_operations {
     fi
 
     local filenames
-    mapfile -t filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
-
-    if [ ${#filenames[@]} -eq 0 ]; then
+    if ! filenames=$(jq -ers '
+        if length != 1 then error("invalid certificate response") else
+            .[0] | .. | objects | .ResouceFileName? |
+            select(type == "string") | select(length > 0) |
+            select(index("\u0000") == null and index("\n") == null and index("\r") == null)
+        end' <<< "$operation_response"); then
         echo "No certificate filenames found in response for $endpoint_type"
         return 1
     fi
 
     local -a cert_filenames=()
     local cert_filename sanitized_filename
-    for cert_filename in "${filenames[@]}"; do
+    while IFS= read -r cert_filename; do
         # Defense-in-depth: reject filenames containing path separators or ".." to
         # prevent path traversal via a malformed wireserver ResouceFileName value.
         # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
@@ -339,7 +342,7 @@ function process_cert_operations {
         fi
 
         cert_filenames+=("$sanitized_filename")
-    done
+    done <<< "$filenames"
     download_cert_batch /root/AzureCACertificates "${cert_filenames[@]}"
 }
 
