@@ -1,0 +1,14 @@
+[Unit]
+Description=Bounded recovery of AKS continuous Inspektor Gadget diagnostics
+After=containerd.service
+ConditionPathExists=/etc/ig.d/skip_vhd_ig
+ConditionPathExists=/sys/fs/cgroup/cgroup.controllers
+
+[Service]
+Type=oneshot
+UMask=0077
+RuntimeDirectory=ig-diagnostics-recovery
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/share/inspektor-gadget/diagnostics-recovery.sh
+TimeoutStartSec=90

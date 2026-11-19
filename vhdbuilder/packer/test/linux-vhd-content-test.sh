@@ -2809,6 +2809,95 @@ testKneadSecurityPatchingAssets() {
   fi
 }
 
+testIgDiagnosticsReaderCompatibility() {
+  local test="testIgDiagnosticsReaderCompatibility"
+  local reader="$1"
+  if [ ! -r "$reader" ]; then
+    err "$test" "NPD config-package reader missing or unreadable: $reader"
+    return 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    err "$test" "python3 is required to validate the NPD config-package reader"
+    return 1
+  fi
+
+  # Exercise the installed package without publishing readiness or touching live reports.
+  if ! python3 - "$reader" <<'PY'
+import datetime
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+reader = Path(sys.argv[1]).resolve()
+directory = Path.cwd() / (".ig-reader-probe-" + uuid.uuid4().hex)
+created = False
+
+def invoke(arguments, label):
+    try:
+        result = subprocess.run(
+            [sys.executable, str(reader)] + arguments, env=environment,
+            cwd=str(directory), capture_output=True, text=True, timeout=2,
+        )
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError(label + ": reader exceeded 2s compatibility deadline") from error
+    if result.returncode:
+        raise RuntimeError(label + ": " + result.stderr.strip())
+    return result.stdout
+
+try:
+    directory.mkdir(mode=0o700)
+    created = True
+    environment = dict(os.environ)
+    environment.pop("IG_DIAGNOSTICS_LOG_FILE", None)
+    environment["IG_DIAGNOSTICS_RUNTIME_DIR"] = str(directory)
+    environment["IG_DIAGNOSTICS_BOOT_ID_FILE"] = str(directory / "boot-id")
+    boot_id = str(uuid.uuid4())
+    (directory / "boot-id").write_text(boot_id)
+    started = time.time() - 1
+    collectors = {"cpu": "a" * 32, "memory": "b" * 32, "throttle": "c" * 32}
+    manifest = json.dumps({
+        "version": 1, "bootId": boot_id, "startedAt": started, "collectors": collectors,
+    })
+    candidate = directory / ".collectors.json.candidate"
+    candidate.write_text(manifest)
+    rows = {
+        "cpu": [{"cpuRelative": 1.25}],
+        "memory": [{"memRelative": 2.5}],
+        "throttle": [{"throttleRatio": 3.75}],
+    }
+    reports = "".join(json.dumps({
+        "type": "gadget-data", "seq": 1, "instanceID": instance,
+        "datasource": "cgroups" if kind == "throttle" else "processes",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "data": rows[kind],
+    }) + "\n" for kind, instance in collectors.items())
+    active = directory / "reports.ndjson"
+    active.write_text(reports)
+    invoke(["--check-startup", str(candidate)], "runtime NDJSON startup")
+    active.rename(directory / "reports-2026-01-01T00-00-00.ndjson")
+    invoke(["--check-startup", str(candidate)], "rotated NDJSON startup")
+    (directory / "collectors.json").write_text(manifest)
+    for kind in collectors:
+        if json.loads(invoke([kind], kind + " runtime read")) != rows[kind]:
+            raise RuntimeError(kind + ": reader did not return the runtime NDJSON report")
+except (OSError, ValueError, RuntimeError) as error:
+    print("NPD reader compatibility probe failed: " + str(error), file=sys.stderr)
+    sys.exit(1)
+finally:
+    if created:
+        shutil.rmtree(str(directory))
+PY
+  then
+    err "$test" "NPD config-package reader lacks capability-1 runtime/startup compatibility: $reader"
+    return 1
+  fi
+}
+
 # Basic sanity check for Inspektor Gadget artifacts baked into the image.
 testInspektorGadgetAssets() {
   local test="testInspektorGadgetAssets"
@@ -2899,6 +2988,52 @@ testInspektorGadgetAssets() {
     err $test "ig and ig-gadgets must share upstream version but found ig=${ig_ver} ig-gadgets=${ig_gadgets_ver}"
   else
     echo "$test: ig/ig-gadgets upstream version compatibility satisfied (ig=${ig_ver} ig-gadgets=${ig_gadgets_ver})"
+  fi
+
+  if ! echo "${FEATURE_FLAGS}" | grep -q kata; then
+    local asset
+    for asset in /etc/ig.d/diagnostics.yaml \
+      /usr/lib/systemd/system/ig-diagnostics.service \
+      /usr/lib/systemd/system/ig-diagnostics-recovery.service \
+      /usr/lib/systemd/system/ig-diagnostics-recovery.timer \
+      /usr/share/inspektor-gadget/diagnostics.sh \
+      /usr/share/inspektor-gadget/diagnostics-recovery.sh; do
+      if [ ! -s "${asset}" ]; then
+        err "$test" "Continuous diagnostics asset missing: ${asset}"
+      fi
+    done
+    if [ "$(cat /etc/ig.d/diagnostics-version 2>/dev/null)" != 1 ]; then
+      err "$test" "Continuous diagnostics capability missing"
+    else
+      testIgDiagnosticsReaderCompatibility /etc/node-problem-detector.d/plugin/ig_report_reader.py
+    fi
+    local unit
+    for unit in ig-diagnostics.service ig-diagnostics-recovery.timer; do
+      if systemctl is-enabled --quiet "${unit}" ||
+         systemctl is-active --quiet "${unit}"; then
+        err "$test" "Continuous diagnostics unit must be disabled and stopped for capture: ${unit}"
+      fi
+    done
+    if systemctl is-active --quiet ig-diagnostics-recovery.service; then
+      err "$test" "Continuous diagnostics recovery must be stopped for capture"
+    fi
+    if [ -e /run/ig-diagnostics/collectors.json ] ||
+       [ -e /run/ig-diagnostics-recovery/budget ] ||
+       [ -e /run/ig-diagnostics/reports.ndjson ] ||
+       compgen -G '/run/ig-diagnostics/reports-*.ndjson' >/dev/null ||
+       [ -e /var/log/ig-diagnostics/gadget.log ]; then
+      err "$test" "Live diagnostics state must not be captured"
+    fi
+    if [ -d /var/lib/ig-diagnostics/gadgets ] &&
+       [ -n "$(find /var/lib/ig-diagnostics/gadgets -type f -print -quit)" ]; then
+      err "$test" "Live collector definitions must not be captured"
+    fi
+    local gadget
+    for gadget in top_process top_cpu_throttle; do
+      if ! grep -Eq "/${gadget}:v?[0-9]+\.[0-9]+\.[0-9]+$" "${tracking_file}"; then
+        err "$test" "Required diagnostics image not imported: ${gadget}"
+      fi
+    done
   fi
 
   echo "$test:Finish"
