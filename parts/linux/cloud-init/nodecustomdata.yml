@@ -16,6 +16,12 @@ write_files:
 #   {{ if not IsAzlOSGuard }}
 #   - path: /usr/...
 #   {{ end }}
+{{- if ShouldPreferHostGAPlugin}}
+- path: {{GetPreferHostGAPluginMarkerFilepath}}
+  permissions: "0644"
+  owner: root
+  content: "true"
+{{- end}}
 {{if EnableScriptlessCSECmd}}
 - path: /opt/azure/containers/scriptless-cse-overrides.txt
   permissions: "0644"
