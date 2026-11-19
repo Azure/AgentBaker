@@ -3,6 +3,14 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'GetWindowsDownloadPartForPackage' {
+    It 'does not select a WS2025 override for a later Windows SKU' {
+        $windowsSku = '2028-gen2'
+        $package = [PSCustomObject]@{ downloadURIs = @{ windows = @{ default = 'default-package'; ws2025 = '2025-package' } } }
+        GetWindowsDownloadPartForPackage $package | Should -Be 'default-package'
+    }
+}
+
 Describe 'SafeReplaceString' {
     It 'given no vars are present, it returns the string' {
         SafeReplaceString "this is a string" | Should -Be "this is a string"
