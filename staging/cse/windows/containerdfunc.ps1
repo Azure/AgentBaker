@@ -381,6 +381,58 @@ function Install-Containerd {
   Remove-Item -Path $tarfile -Force
   Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
 
+  Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+# Installs containerd from the DALEC hcsshim, moby-containerd and kubernetes-cri-tools Windows ZIPs.
+# Each ZIP has its files at the root, so extracting all three gives the same flat layout as the
+# combined containerd package, except crictl.yaml, which is written here.
+function Install-ContainerdFromComponentPackages {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $HcsshimUrl,
+    [Parameter(Mandatory = $true)][string]
+    $MobyContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CrictlUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
+
+  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
+  if ($null -ne $svc) {
+    Write-Log "Stopping containerd service"
+    $svc | Stop-Service
+  }
+
+  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
+  foreach ($url in @($HcsshimUrl, $MobyContainerdUrl, $CrictlUrl)) {
+    $zipFile = [Io.path]::Combine($ENV:TEMP, [IO.Path]::GetFileName($url.Split('?')[0]))
+    DownloadFileOverHttp -Url $url -DestinationPath $zipFile -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE
+    AKS-Expand-Archive -Path $zipFile -DestinationPath $global:ContainerdInstallLocation
+    Remove-Item -Path $zipFile -Force
+  }
+
+  $crictlConfig = "runtime-endpoint: npipe://\\.\pipe\containerd-containerd`nimage-endpoint: npipe://\\.\pipe\containerd-containerd`ntimeout: 0`ndebug: false`n"
+  [System.IO.File]::WriteAllText([Io.path]::Combine($global:ContainerdInstallLocation, "crictl.yaml"), $crictlConfig)
+
+  Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+function Complete-ContainerdInstallation {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
+
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation
 

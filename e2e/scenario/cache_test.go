@@ -2,6 +2,7 @@ package scenario
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -9,12 +10,129 @@ import (
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/fake"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCreateGalleryImageRecoversFailedDefinition(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		state        string
+		deleteStatus int
+		pollFailure  bool
+		wantCalls    []string
+		wantErr      string
+	}{
+		{
+			name: "reuse succeeded", state: "Succeeded",
+			wantCalls: []string{"GET"},
+		},
+		{
+			name: "preserve in progress", state: "Creating",
+			wantCalls: []string{"GET"},
+		},
+		{
+			name: "delete failed before recreating", state: "Failed", deleteStatus: http.StatusAccepted,
+			wantCalls: []string{"GET", "DELETE", "POLL", "PUT"},
+		},
+		{
+			name: "already deleted by another runner", state: "Failed", deleteStatus: http.StatusNotFound,
+			wantCalls: []string{"GET", "DELETE", "PUT"},
+		},
+		{
+			name: "delete rejected", state: "Failed", deleteStatus: http.StatusConflict,
+			wantCalls: []string{"GET", "DELETE"},
+			wantErr:   "failed to delete failed gallery image",
+		},
+		{
+			name: "delete polling failed", state: "Failed", deleteStatus: http.StatusAccepted, pollFailure: true,
+			wantCalls: []string{"GET", "DELETE", "POLL"},
+			wantErr:   "failed to poll gallery image deletion",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			previousAzure := config.Azure
+			t.Cleanup(func() { config.Azure = previousAzure })
+			imageName := config.Config.TestGalleryImagePrefix + "-westus3-amd64-genV2-linux"
+			imagePath := "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Compute/galleries/gallery/images/" + imageName
+			var calls []string
+			deleteComplete := false
+			client, err := armcompute.NewGalleryImagesClient("test", &fake.TokenCredential{}, &arm.ClientOptions{
+				ClientOptions: policy.ClientOptions{
+					Retry: policy.RetryOptions{MaxRetries: -1},
+					Transport: galleryCleanupTransport(func(req *http.Request) (*http.Response, error) {
+						method := req.Method
+						if req.URL.Path == "/operations/delete-image" {
+							require.Equal(t, http.MethodGet, method)
+							method = "POLL"
+						} else {
+							require.Equal(t, imagePath, req.URL.Path)
+						}
+						calls = append(calls, method)
+						status := http.StatusOK
+						header := http.Header{"Content-Type": {"application/json"}}
+						body := fmt.Sprintf(`{"name":%q,"properties":{"provisioningState":%q}}`, imageName, tc.state)
+						switch method {
+						case http.MethodGet:
+						case http.MethodDelete:
+							status = tc.deleteStatus
+							body = `{"error":{"code":"OperationNotAllowed","message":"image has child versions"}}`
+							if status == http.StatusAccepted {
+								header.Set("Azure-AsyncOperation", "https://management.azure.com/operations/delete-image")
+								body = ""
+							} else if status == http.StatusNotFound {
+								body = `{"error":{"code":"ResourceNotFound","message":"already deleted"}}`
+								deleteComplete = true
+							}
+						case "POLL":
+							body = `{"status":"Succeeded"}`
+							deleteComplete = true
+							if tc.pollFailure {
+								body = `{"status":"Failed","error":{"code":"OperationNotAllowed","message":"deletion failed"}}`
+								deleteComplete = false
+							}
+						case http.MethodPut:
+							assert.True(t, deleteComplete, "recreation must wait for deletion")
+							body = fmt.Sprintf(`{"name":%q,"properties":{"provisioningState":"Succeeded"}}`, imageName)
+						default:
+							t.Fatalf("unexpected request: %s %s", req.Method, req.URL)
+						}
+						return &http.Response{
+							StatusCode: status, Header: header,
+							Body: io.NopCloser(strings.NewReader(body)), Request: req,
+						}, nil
+					}),
+				},
+			})
+			require.NoError(t, err)
+			config.Azure = &config.AzureClient{GalleryImages: client}
+			image, err := createGalleryImage(t.Context(), CreateGalleryImageRequest{
+				ResourceGroup: "rg", GalleryName: "gallery", Location: "westus3",
+				Arch: "amd64", HyperVGeneration: to.Ptr(armcompute.HyperVGenerationV2),
+			})
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+				assert.Contains(t, err.Error(), "OperationNotAllowed")
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, image.Name)
+				assert.Equal(t, imageName, *image.Name)
+				require.NotNil(t, image.Properties)
+				wantState := tc.state
+				if tc.state == "Failed" {
+					wantState = "Succeeded"
+				}
+				assert.Equal(t, wantState, string(*image.Properties.ProvisioningState))
+			}
+			assert.Equal(t, tc.wantCalls, calls)
+		})
+	}
+}
 
 func TestVMSizeSKUReusesRegionalCatalogue(t *testing.T) {
 	// Each invocation needs a fresh region because the cache lives for the process.
