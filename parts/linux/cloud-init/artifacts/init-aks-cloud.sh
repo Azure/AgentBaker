@@ -224,6 +224,11 @@ function retrieve_legacy_certs {
     done <<< "$certs"
 }
 
+# Download RCV1P certificates to $1; remaining arguments are validated filenames.
+# Run up to four transfers concurrently, then retry failures sequentially within
+# the ten-attempt budget per certificate, preserving rate-limit backoff.
+# Keep successful files and skip empty/exhausted responses; batch bookkeeping or
+# local file errors return nonzero. The subshell cleans up temporary batch files.
 download_cert_batch() (
     local destination="$1"
     shift
