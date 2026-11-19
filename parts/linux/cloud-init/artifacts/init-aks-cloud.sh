@@ -130,23 +130,19 @@ function make_request_with_retry {
         http_code=${curl_output##*$'\n'}
         response=${curl_output%$'\n'*}
 
-        case "$http_code:$response" in
-            403:*RequestRateLimitExceeded*)
-                echo "wireserver rate limited (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
-                sleep $retry_delay
-                retry_delay=$((retry_delay * 2))
-                attempt=$((attempt + 1))
-                ;;
-            2[0-9][0-9]:*)
-                echo "$response"
-                return 0
-                ;;
-            *)
-                echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
-                sleep $retry_delay
-                attempt=$((attempt + 1))
-                ;;
-        esac
+        if echo "$response" | grep -q "RequestRateLimitExceeded" && [ "$http_code" = "403" ]; then
+            echo "wireserver rate limited (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
+            sleep $retry_delay
+            retry_delay=$((retry_delay * 2))
+            attempt=$((attempt + 1))
+        elif [ "$http_code" -ge 200 ] 2>/dev/null && [ "$http_code" -lt 300 ] 2>/dev/null; then
+            echo "$response"
+            return 0
+        else
+            echo "wireserver request failed (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
+            sleep $retry_delay
+            attempt=$((attempt + 1))
+        fi
     done
 
     echo "exhausted all retries for ${url} (last HTTP ${http_code})" >&2
