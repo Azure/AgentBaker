@@ -337,6 +337,12 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       add-apt-repository --remove ppa:canonical-kernel-team/ppa
     else
       apt-get update
+      # Pin the azure-nvidia kernel on the vanilla ARM64 24.04 GPU image to 7.0.0-1020.
+      # Vera Rubin (Standard_ND*isr_VR_NVL72_v7) GPUs require the 7.0 azure-nvidia kernel to
+      # enable the GPU's MSI-X interrupts and init its CXL Type-2 coherent HBM. The older
+      # 6.14.0-1007-azure-nvidia kernel fails the driver probe with
+      # "NVRM: Failed to enable MSI-X ... GPU failed probe-time init, open returning -EIO".
+      NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia=7.0.0-1020.21~24.04.2"
       if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
         echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
         wait_for_apt_locks
