@@ -115,7 +115,7 @@ func TestCredentialProviderWindowsEligibility(t *testing.T) {
 					metadataFile string
 					wantSkip     string
 				}{
-					{name: "standalone default branch", currentBuild: "123", tagName: "branch", tagValue: config.DefaultSIGImageBranch, wantSkip: "require buildId=BUILD_BUILDID"},
+					{name: "standalone default branch", currentBuild: "123", tagName: "branch", tagValue: config.DEFAULT_SIG_IMAGE_BRANCH, wantSkip: "require buildId=BUILD_BUILDID"},
 					{name: "older build", currentBuild: "123", tagName: "buildId", tagValue: "122", wantSkip: "require buildId=BUILD_BUILDID"},
 					{name: "local explicit build", tagName: "buildId", tagValue: "123", wantSkip: "require buildId=BUILD_BUILDID"},
 					{name: "empty build IDs", tagName: "buildId", wantSkip: "require buildId=BUILD_BUILDID"},
