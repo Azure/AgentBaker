@@ -995,18 +995,15 @@ while ($true) {
 }
 `
 
-// Keep aligned with aks-rp's vhd/generalizelinux.go; basePrep outputs must survive capture.
+// linuxGeneralizeScript mirrors aks-rp's vhd/generalizelinux.go. It selects the binary as the
+// ANC launcher does, so scriptless scenarios run the source-built ANC staged at bake time.
 const linuxGeneralizeScript = `#!/bin/bash
 set -euo pipefail
-: > /etc/machine-id
-rm -f \
-  /opt/azure/containers/provision.complete \
-  /opt/azure/containers/aks-node-controller-config.json \
-  /opt/azure/containers/aks-node-controller-nbc-cmd.sh \
-  /opt/azure/containers/boothook.sh \
-  /opt/bin/boothook.sh \
-  /var/log/azure/aks/provision.json
-echo "reset /etc/machine-id"
+anc=/opt/azure/containers/aks-node-controller
+if [ -x "${anc}-hotfix" ]; then
+  anc="${anc}-hotfix"
+fi
+"$anc" generalize --keep-agent
 `
 
 func CreateImage(ctx context.Context, s *Scenario) (*config.Image, error) {

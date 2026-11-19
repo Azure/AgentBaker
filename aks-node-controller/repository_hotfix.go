@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"golang.org/x/net/http/httpproxy"
 )
@@ -215,9 +216,9 @@ func (a *App) tryRepositoryDownload(ctx context.Context, hotfixVersion string) e
 
 	var plan repositoryDownloadPlan
 	switch info.ID {
-	case osReleaseIDUbuntu:
+	case config.OSReleaseIDUbuntu:
 		plan, err = a.ubuntuRepositoryPlan(info, hotfixVersion)
-	case osReleaseIDAzureLinux:
+	case config.OSReleaseIDAzureLinux:
 		if isImageBasedOSVariant(info.VariantID) {
 			return newUnsupportedRepositoryError(
 				"repository fast path is not supported on image-based OS %q variant %q",

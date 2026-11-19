@@ -2040,10 +2040,10 @@ testBccTools () {
 }
 
 # testWALinuxAgentInstalled verifies that the WALinuxAgent version from
-# components.json was installed post-deprovision via the wireserver manifest
+# components.json was installed after deprovision via the wireserver manifest
 # and that waagent.conf is configured to use it.
-# The test runs on a VM booted from the captured VHD image, so the post-deprovision
-# script has already executed and self-deleted. We verify its *results*:
+# The test runs on a VM booted from the captured VHD image, so
+# "aks-node-controller generalize" has already run. We verify its *results*:
 #   1. WALinuxAgent-<version> directory exists under /var/lib/waagent/ matching components.json
 #   2. The directory contains the expected artifacts (bin/, HandlerManifest.json, manifest.xml)
 #   3. waagent.conf has AutoUpdate.Enabled=y and AutoUpdate.UpdateToLatestVersion=n
@@ -3079,7 +3079,7 @@ if [ "$OS_SKU" = "Ubuntu" ]; then
     testBlobfuse "$(getPackageExpectedVersion "blobfuse")"
   fi
 fi
-# WALinuxAgent is installed post-deprovision (not via components.json),
+# WALinuxAgent is installed by "aks-node-controller generalize" (not via components.json),
 # so test it separately. Skip on Flatcar, ACL, and AzureLinuxOSGuard which use OS-packaged version.
 if [ "$OS_SKU" != "Flatcar" ] && [ "$OS_SKU" != "AzureContainerLinux" ] && [ "$OS_SKU" != "AzureLinuxOSGuard" ]; then
   testWALinuxAgentInstalled

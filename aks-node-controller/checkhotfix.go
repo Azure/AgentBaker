@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Azure/agentbaker/aks-node-controller/common"
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Azure/agentbaker/aks-node-controller/pkg/nodeconfigutils"
 )
@@ -31,8 +32,6 @@ import (
 // endpoint resolution, the benign-vs-fatal taxonomy, and the fail-open fetch/parse/stage
 // workflow.
 const (
-	defaultNBCCmdPath = "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
-
 	// lpsALPNProto is the ALPN protocol the kube-api-proxy envoy uses to route the TLS connection
 	// to the live-patching-service (LPS) gRPC backend. The client dials the apiserver FQDN as SNI
 	// (riding the existing apiserver egress rule) and advertises this ALPN value; envoy then
@@ -600,7 +599,7 @@ func (a *App) getNBCCmdPath() string {
 	if a.nbcCmdPath != "" {
 		return a.nbcCmdPath
 	}
-	return defaultNBCCmdPath
+	return config.NBCCmdPath
 }
 
 // lpsTargetFromNBCCmd reads the apiserver FQDN and cluster CA from the existing nbc-cmd.sh file.

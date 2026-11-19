@@ -9,19 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
-const defaultOSReleasePath = "/etc/os-release"
 const embeddedNodeCustomDataPath = "/opt/azure/containers/embedded-nodecustomdata.yml"
-
-// os-release ID values that appear in more than one classification path.
-const (
-	osReleaseIDAzureContainerLinux = "azurecontainerlinux"
-	osReleaseIDAzureLinux          = "azurelinux"
-	osReleaseIDFlatcar             = "flatcar"
-	osReleaseIDUbuntu              = "ubuntu"
-	osVariantIDOSGuard             = "osguard"
-)
 
 type nodeCustomDataPlatform string
 
@@ -36,7 +28,7 @@ var embeddedGeneratedNodeCustomData embed.FS
 
 func applyEmbeddedNodeCustomData(payloadFS fs.FS, osReleasePath, outputPath string) error {
 	if osReleasePath == "" {
-		osReleasePath = defaultOSReleasePath
+		osReleasePath = config.OSReleasePath
 	}
 	platform, err := classifyNodeCustomDataPlatform(osReleasePath)
 	if err != nil {
@@ -72,38 +64,22 @@ func classifyNodeCustomDataPlatform(osReleasePath string) (nodeCustomDataPlatfor
 	if err != nil {
 		return "", fmt.Errorf("read OS release %s: %w", osReleasePath, err)
 	}
-	values := parseNodeCustomDataOSRelease(data)
+	values := config.ParseOSRelease(data)
 	id := strings.ToLower(values["ID"])
 	variant := strings.ToLower(values["VARIANT_ID"])
 
 	switch {
 	// Exclude immutable variants before matching their shared Azure Linux ID.
-	case variant == osVariantIDOSGuard, variant == osReleaseIDAzureContainerLinux,
-		id == osReleaseIDAzureContainerLinux, id == osReleaseIDFlatcar:
+	case variant == config.OSVariantIDOSGuard, variant == config.OSReleaseIDAzureContainerLinux,
+		id == config.OSReleaseIDAzureContainerLinux, id == config.OSReleaseIDFlatcar:
 		return nodeCustomDataPlatformUnsupported, nil
-	case id == osReleaseIDUbuntu:
+	case id == config.OSReleaseIDUbuntu:
 		return nodeCustomDataPlatformUbuntu, nil
-	case id == osReleaseIDAzureLinux:
+	case id == config.OSReleaseIDAzureLinux:
 		return nodeCustomDataPlatformMariner, nil
 	case id == "":
 		return "", fmt.Errorf("ID is missing from %s", osReleasePath)
 	default:
 		return "", fmt.Errorf("unsupported OS ID %q in %s", id, osReleasePath)
 	}
-}
-
-func parseNodeCustomDataOSRelease(data []byte) map[string]string {
-	values := make(map[string]string)
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		key, value, found := strings.Cut(line, "=")
-		if !found {
-			continue
-		}
-		values[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(value), `"'`)
-	}
-	return values
 }

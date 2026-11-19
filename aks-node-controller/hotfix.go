@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/agentbaker/aks-node-controller/config"
 	"github.com/Azure/agentbaker/aks-node-controller/helpers"
 	"github.com/Masterminds/semver/v3"
 )
@@ -334,7 +335,7 @@ func (a *App) detectPackageManager() (packageManager, error) {
 	if err != nil {
 		return "", err
 	}
-	if info.ID == osReleaseIDAzureLinux && isImageBasedOSVariant(info.VariantID) {
+	if info.ID == config.OSReleaseIDAzureLinux && isImageBasedOSVariant(info.VariantID) {
 		return "", fmt.Errorf(
 			"PMC package-based ANC self-update is not supported on image-based OS %q variant %q",
 			info.ID,
@@ -342,9 +343,9 @@ func (a *App) detectPackageManager() (packageManager, error) {
 		)
 	}
 	switch info.ID {
-	case osReleaseIDUbuntu:
+	case config.OSReleaseIDUbuntu:
 		return pkgMgrApt, nil
-	case osReleaseIDAzureLinux:
+	case config.OSReleaseIDAzureLinux:
 		return preferredRpmManager(), nil
 	default:
 		return "", fmt.Errorf("unsupported OS: %s", info.ID)
@@ -537,5 +538,5 @@ func shouldUpgradeToHotfix(current, hotfix string) (bool, error) {
 // Linux flavour. These ship no package manager repositories, so neither the repository fast
 // path nor a PMC install can serve them.
 func isImageBasedOSVariant(variantID string) bool {
-	return variantID == osReleaseIDAzureContainerLinux || variantID == osVariantIDOSGuard
+	return variantID == config.OSReleaseIDAzureContainerLinux || variantID == config.OSVariantIDOSGuard
 }

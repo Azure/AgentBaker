@@ -16,7 +16,7 @@ func main() {
 	logCleanup := configureLogging()
 	app := App{
 		cmdRun:      cmdRunner,
-		eventLogger: helpers.NewEventLogger(osCfg.eventsDirPath),
+		eventLogger: helpers.NewEventLogger(osCfg.EventsDirPath),
 	}
 
 	exitCode := app.Run(context.Background(), os.Args)
@@ -26,6 +26,11 @@ func main() {
 }
 
 func configureLogging() func() {
+	// generalize prepares an image for capture, so it must not leave a log file in the image.
+	if len(os.Args) > 1 && os.Args[1] == generalizeCommand {
+		slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+		return func() {}
+	}
 	logPath := setupLogPath()
 
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
@@ -54,8 +59,8 @@ func configureLogging() func() {
 
 func setupLogPath() string {
 	// Try to create production directory first
-	if err := os.MkdirAll(filepath.Dir(osCfg.logPath), 0755); err == nil {
-		return osCfg.logPath
+	if err := os.MkdirAll(filepath.Dir(osCfg.LogPath), 0755); err == nil {
+		return osCfg.LogPath
 	}
 	// If directory creation fails, fallback to current directory
 	return "aks-node-controller.log"

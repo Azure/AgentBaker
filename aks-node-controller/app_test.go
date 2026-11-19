@@ -438,6 +438,12 @@ func TestApp_Run(t *testing.T) {
 		assert.Equal(t, 1, exitCode)
 	})
 
+	t.Run("generalize rejects unexpected arguments", func(t *testing.T) {
+		tt := NewTestApp(t, TestAppConfig{})
+		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", generalizeCommand, "--keep-agent", "extra"})
+		assert.Equal(t, 1, exitCode)
+	})
+
 	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
 		origVersion := Version
