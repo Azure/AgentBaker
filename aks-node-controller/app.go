@@ -717,7 +717,7 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	if flags.NBCCmd != "" {
 		mode, input = imageCacheModeNBC, flags.NBCCmd
 	}
-	input, err := filepath.Abs(input)
+	input, err = filepath.Abs(input)
 	if err != nil {
 		return provisionResult, fmt.Errorf("resolving bootstrap path: %w", err)
 	}

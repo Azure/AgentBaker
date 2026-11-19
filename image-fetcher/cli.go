@@ -157,7 +157,7 @@ func cacheComponents(ctx context.Context, cmd *cli.Command) (result error) {
 		return fmt.Errorf("resolve images from %s: %w", path, err)
 	}
 
-	var inventory io.Writer = io.Discard
+	var inventory = io.Discard
 	if path := cmd.String("vhd-log-file"); path != "" {
 		file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {

@@ -31,7 +31,7 @@ import (
 
 // Run with IMAGE_FETCHER_RUNTIME_TEST=1 inside an isolated user/mount namespace.
 //
-//nolint:cyclop,gocognit,gocyclo
+//nolint:cyclop,gocognit,gocyclo // Keep the isolated runtime lifecycle and its ordered assertions together.
 func TestPullImageRuntimeIntegration(t *testing.T) {
 	if os.Getenv("IMAGE_FETCHER_RUNTIME_TEST") != "1" {
 		t.Skip("requires an isolated containerd and mount-capable user namespace")
