@@ -17,6 +17,21 @@
         - `Invoke-Pester vhdbuilder/packer/windows/*.tests.ps1 -Passthru`
 1. Watch out different powershell versions. Sometimes JSON parsing works differently in your local powershell and in the pipeline. Which is annoying.
 
+# Credential provider metadata compatibility
+
+On a Dalec cache miss, `Resolve-DalecCredentialProviderPackageFromMetadata`
+prefers `azure-acr-credential-provider` only when its Windows download URL is
+a Dalec ZIP. It otherwise checks `azure-acr-credential-provider-pmc`, then
+`windows credential provider dalec`. Older VHDs use the canonical name for
+legacy tarballs, which must not be interpreted as Dalec packages. If both
+modern canonical and historical entries exist, modern canonical metadata wins.
+
+The source metadata retains its existing names during this reader-only rollout.
+CSE and VHD releases are not atomic: compatible readers must reach all supported
+provisioning paths before VHD metadata is renamed. If older readers can still
+consume those VHDs, the metadata change must preserve compatibility entries.
+Adding support for old VHDs to new readers does not update old readers.
+
 # Test with AKS RP
 
 1. Run below commands to build a test package
