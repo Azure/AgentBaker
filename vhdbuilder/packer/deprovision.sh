@@ -21,9 +21,16 @@ deprovisionWALinuxAgent() {
     output=$(sudo waagent -force -deprovision+user 2>&1) || status=$?
     printf '%s\n' "${output}"
     # Do not retry: a partial run can delete ovf-env.xml, and waagent then skips build-user deletion.
-    if [ "${status}" -ne 0 ] || printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision" ||
-        [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
-        echo "waagent deprovision failed (exit ${status}); see its output above and ${lib_dir}" >&2
+    if [ "${status}" -ne 0 ]; then
+        echo "waagent deprovision failed with exit code ${status}" >&2
+        return 1
+    fi
+    if printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision"; then
+        echo "waagent deprovision failed but exited 0: it logged \"Failed to run 'deprovision\" (see its output above)" >&2
+        return 1
+    fi
+    if [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
+        echo "waagent deprovision failed but exited 0: ${lib_dir} is not empty" >&2
         return 1
     fi
 }

@@ -200,7 +200,7 @@ waagent -force -deprovision+user"
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should equal ''
-      The stderr should equal "waagent deprovision failed (exit 7); see its output above and ${TEST_ROOT}/lib"
+      The stderr should equal "waagent deprovision failed with exit code 7"
     End
 
     It 'fails when waagent reports a failed deprovision but exits 0 with an empty lib dir'
@@ -210,7 +210,7 @@ waagent -force -deprovision+user"
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should include "Failed to run 'deprovision+user'"
-      The stderr should equal "waagent deprovision failed (exit 0); see its output above and ${TEST_ROOT}/lib"
+      The stderr should equal "waagent deprovision failed but exited 0: it logged \"Failed to run 'deprovision\" (see its output above)"
       The contents of file "${TEST_ROOT}/calls" should include 'waagent -force -deprovision+user'
       The lines of contents of file "${TEST_ROOT}/calls" should equal 4
     End
@@ -222,7 +222,7 @@ waagent -force -deprovision+user"
       When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
       The status should equal 1
       The output should equal ''
-      The stderr should equal "waagent deprovision failed (exit 0); see its output above and ${TEST_ROOT}/lib"
+      The stderr should equal "waagent deprovision failed but exited 0: ${TEST_ROOT}/lib is not empty"
     End
   End
 
