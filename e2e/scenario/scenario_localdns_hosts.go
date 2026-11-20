@@ -218,8 +218,12 @@ trap restore_localdns_test_state EXIT
 
 sudo systemctl is-active --quiet localdns.service
 control_group=$(sudo systemctl show localdns.service -p ControlGroup --value)
-test "$control_group" = "/localdns.slice/localdns.service" || {
-    echo "FAIL: expected LocalDNS ControlGroup=/localdns.slice/localdns.service, got $control_group"
+expected_cgroup=/localdns.slice/localdns.service
+if [ "$(sudo systemctl show kubelet.service -p Slice --value)" = kubereserved.slice ]; then
+    expected_cgroup=/system.slice/system-localdns.slice/localdns.service
+fi
+test "$control_group" = "$expected_cgroup" || {
+    echo "FAIL: expected LocalDNS ControlGroup=$expected_cgroup, got $control_group"
     exit 1
 }
 

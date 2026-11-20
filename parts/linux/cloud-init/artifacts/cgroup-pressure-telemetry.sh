@@ -56,6 +56,7 @@ eventlevel="Microsoft.Azure.Extensions.CustomScript-1.23"
 CGROUP="/sys/fs/cgroup"
 CSLICE=$(systemctl show containerd -p Slice | cut -d= -f2)
 KSLICE=$(systemctl show kubelet -p Slice | cut -d= -f2)
+LOCALDNS_CGROUP=$(getServiceCgroup localdns.service)
 
 if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     VERSION="cgroupv2"
@@ -263,7 +264,7 @@ if [ "$CGROUP_VERSION" = "cgroup2fs" ]; then
     node_exporter_service_pressure=$(getServicePressure "${CGROUP}/system.slice/node-exporter.service")
 
     sync_container_logs_service_pressure=$(getServicePressure "${CGROUP}/system.slice/sync-container-logs.service")
-    localdns_service_pressure=$(getServicePressure "${CGROUP}/localdns.slice/localdns.service")
+    localdns_service_pressure=$(getServicePressure "${CGROUP}/${LOCALDNS_CGROUP}")
     nvidia_persistenced_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-persistenced.service")
     nvidia_gridd_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-gridd.service")
     nvidia_fabricmanager_service_pressure=$(getServicePressure "${CGROUP}/system.slice/nvidia-fabricmanager.service")

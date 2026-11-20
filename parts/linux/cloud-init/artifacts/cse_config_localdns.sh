@@ -75,6 +75,14 @@ After=system.slice
 MemoryMax=${LOCALDNS_MEMORY_LIMIT}
 CPUQuota=${LOCALDNS_CPU_LIMIT}
 EOF
+    if isNodeHardeningSlicePlacementEnabled; then
+        # Reload before reading the newly-written fragment and installed overrides.
+        if ! systemctl daemon-reload; then
+            echo "Failed to reload generated LocalDNS slice configuration"
+            exit $ERR_LOCALDNS_FAIL
+        fi
+        copySystemSlice localdns.slice || exit $ERR_LOCALDNS_FAIL
+    fi
 }
 
 # enableLocalDNS creates localdns files and starts the service.
