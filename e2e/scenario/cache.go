@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Azure/agentbaker/e2e/config"
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/Azure/agentbaker/e2e/toolkit"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -72,9 +73,22 @@ func createGalleryImage(ctx context.Context, request CreateGalleryImageRequest) 
 	}
 	image, err := config.Azure.GalleryImages.Get(ctx, request.ResourceGroup, request.GalleryName, imageName, nil)
 	if err == nil {
-		return image.GalleryImage, nil
-	}
-	if !isNotFoundErr(err) {
+		if image.Properties == nil || image.Properties.ProvisioningState == nil ||
+			*image.Properties.ProvisioningState != armcompute.GalleryProvisioningStateFailed {
+			return image.GalleryImage, nil
+		}
+		// Azure rejects new versions until the failed definition is deleted and recreated.
+		logging.Logf(ctx, "Deleting failed gallery image %s/%s/%s before recreating it", request.ResourceGroup, request.GalleryName, imageName)
+		deletePoller, deleteErr := config.Azure.GalleryImages.BeginDelete(ctx, request.ResourceGroup, request.GalleryName, imageName, nil)
+		if deleteErr != nil && !isNotFoundErr(deleteErr) {
+			return armcompute.GalleryImage{}, fmt.Errorf("failed to delete failed gallery image %s: %w", imageName, deleteErr)
+		}
+		if deleteErr == nil {
+			if _, err := deletePoller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+				return armcompute.GalleryImage{}, fmt.Errorf("failed to poll gallery image deletion %s: %w", imageName, err)
+			}
+		}
+	} else if !isNotFoundErr(err) {
 		return armcompute.GalleryImage{}, fmt.Errorf("failed to get gallery image: %w", err)
 	}
 	poller, err := config.Azure.GalleryImages.BeginCreateOrUpdate(ctx, request.ResourceGroup, request.GalleryName, imageName, armcompute.GalleryImage{

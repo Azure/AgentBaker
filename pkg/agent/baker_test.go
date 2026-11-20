@@ -64,6 +64,26 @@ func TestScriptlessAKSNodeConfigSkipsNBCRendering(t *testing.T) {
 	}
 }
 
+func TestScriptlessNBCCloudInitHandoff(t *testing.T) {
+	config := newNodeCustomDataRenderConfig(datamodel.AKSUbuntuContainerd2204Gen2)
+	config.EnableScriptlessNBCCSECmd = true
+	config.ContainerService.Location = `usnat'$(echo injected)`
+	config.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+		Name: "akscustom", RepoDepotEndpoint: `https://repo/'$(echo injected)`,
+	}
+	files := InitializeTemplateGenerator().getScriptlessConfiguration(config)
+	require.Len(t, files, 2)
+	require.Equal(t, aksNbcCmdFilepath, files[0].path)
+	compressed, err := base64.StdEncoding.DecodeString(files[0].content)
+	require.NoError(t, err)
+	content, err := getGzipDecodedValue(compressed)
+	require.NoError(t, err)
+	cmd := string(content)
+	require.Contains(t, cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "/run/aks/init-aks-cloud.done" ]; then`)
+	require.Contains(t, cmd, `REPO_DEPOT_ENDPOINT=`+shellQuote(config.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint)+
+		` LOCATION=`+shellQuote(config.ContainerService.Location)+` "${INIT_AKS_CLOUD_FILEPATH}"`)
+}
+
 func TestScriptlessAKSNodeConfigPreservesJSONProvisioningPhase(t *testing.T) {
 	generator := InitializeTemplateGenerator()
 	for _, preProvisionOnly := range []bool{true, false} {
@@ -772,6 +792,66 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(cseCmd).To(ContainSubstring("bash"))
 	})
 
+	It("quotes the cloud settings passed to the provisioning initializer", func() {
+		baseConfig.ContainerService.Location = `usnat'$(echo injected)`
+		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom", RepoDepotEndpoint: `https://repo/'$(echo injected)`,
+		}
+		baseConfig.EnableScriptlessNBCCSECmd = true
+		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		Expect(cmd).To(ContainSubstring(`REPO_DEPOT_ENDPOINT=` + shellQuote(baseConfig.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint) +
+			` LOCATION=` + shellQuote(baseConfig.ContainerService.Location) + ` "${INIT_AKS_CLOUD_FILEPATH}"`))
+		Expect(cmd).To(ContainSubstring(`LOCATION=` + shellQuote(baseConfig.ContainerService.Location)))
+	})
+
+	It("runs the NBC initializer unless early initialization succeeded", func() {
+		dir, err := os.MkdirTemp("", "agentbaker-cloud-handoff")
+		Expect(err).NotTo(HaveOccurred())
+		defer os.RemoveAll(dir)
+		initPath := filepath.Join(dir, "init.sh")
+		Expect(os.WriteFile(initPath, []byte("#!/bin/sh\nprintf '%s\\n%s\\n' \"$LOCATION\" \"$REPO_DEPOT_ENDPOINT\" > \"$RESULT\"\nexit 7\n"), 0755)).To(Succeed())
+		baseConfig.ContainerService.Location = `usnat'$(echo injected)`
+		baseConfig.ContainerService.Properties.CustomCloudEnv = &datamodel.CustomCloudEnv{
+			Name: "akscustom", RepoDepotEndpoint: `https://repo/'$(echo injected)`,
+		}
+		baseConfig.EnableScriptlessNBCCSECmd = true
+		cmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		start := strings.Index(cmd, `if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "/run/aks/init-aks-cloud.done" ]; then`)
+		Expect(start).To(BeNumerically(">=", 0))
+		end := strings.Index(cmd[start:], "fi;")
+		Expect(end).To(BeNumerically(">", 0))
+		block := cmd[start : start+end+3]
+		block = strings.ReplaceAll(block, "/var/log/azure/cluster-provision.log", filepath.Join(dir, "cloud.log"))
+		marker := filepath.Join(dir, "init.done")
+		block = strings.ReplaceAll(block, "/run/aks/init-aks-cloud.done", marker)
+		result := filepath.Join(dir, "result")
+		for _, handoff := range []bool{true, false} {
+			if handoff {
+				Expect(os.WriteFile(marker, nil, 0600)).To(Succeed())
+			} else {
+				Expect(os.Remove(marker)).To(Succeed())
+			}
+			testCmd := exec.Command("/bin/bash", "-c", block+` echo provisioned`)
+			testCmd.Env = append(os.Environ(), "INIT_AKS_CLOUD_FILEPATH="+initPath,
+				"RESULT="+result)
+			output, err := testCmd.CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output)+"\n"+block)
+			Expect(string(output)).To(ContainSubstring("provisioned"))
+			if handoff {
+				Expect(result).NotTo(BeAnExistingFile())
+			} else {
+				data, err := os.ReadFile(result)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(data)).To(Equal(baseConfig.ContainerService.Location + "\n" + baseConfig.ContainerService.Properties.CustomCloudEnv.RepoDepotEndpoint + "\n"))
+			}
+		}
+
+		baseConfig.EnableScriptlessNBCCSECmd = false
+		legacyCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+		Expect(legacyCmd).To(ContainSubstring(`if [ -f "${INIT_AKS_CLOUD_FILEPATH}" ] && [ ! -f "" ]; then`))
+		Expect(legacyCmd).NotTo(ContainSubstring("/run/aks/init-aks-cloud.done"))
+	})
+
 	It("should safely preserve proxy values for older VHD scripts in scriptless mode", func() {
 		tempDir, err := os.MkdirTemp("", "agentbaker-proxy-test")
 		Expect(err).NotTo(HaveOccurred())
@@ -1348,7 +1428,12 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 				config.EnableScriptlessAKSNodeConfig = true
 				config.EnableScriptlessNBCCSECmd = false
 				config.ScriptlessCSEProvisionMode = cseDelivery
-				config.AKSNodeConfigJSON = `{"version":"v1","kubernetes_version":"1.34.0"}`
+				config.AKSNodeConfigJSON = `{
+					"version":"v1",
+					"kubernetes_version":"1.34.0",
+					"cluster_config":{"location":"usnat"},
+					"custom_cloud_config":{"custom_cloud_env_name":"akscustom","repo_depot_endpoint":"https://repo"}
+				}`
 				config.EnabledFeatures = map[string]string{"ENABLE_PROVISIONING_HOTFIX": "true"}
 				generator := InitializeTemplateGenerator()
 
@@ -1379,6 +1464,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 					Expect(cmd).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
 				}
 				Expect(provisioningPayload).To(ContainSubstring(aksNodeConfigFilepath))
+				Expect(provisioningPayload).NotTo(ContainSubstring("/opt/azure/containers/init-aks-cloud.env"))
 				Expect(provisioningPayload).To(ContainSubstring(getBase64EncodedGzippedCustomScriptFromStr(config.AKSNodeConfigJSON)))
 				Expect(provisioningPayload).NotTo(ContainSubstring(aksNbcCmdFilepath))
 				Expect(provisioningPayload).NotTo(ContainSubstring("--nbc-cmd"))
@@ -1627,6 +1713,7 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 			expectedCount++
 		}
 		Expect(len(files)).To(Equal(expectedCount)) // nbc-cmd, nodecustomdata, aks-node-config (optional hotfix file present)
+		Expect(string(decodedPayload)).NotTo(ContainSubstring("/opt/azure/containers/init-aks-cloud.env"))
 
 		payload = templateGenerator.getScriptlessNBCCmd(config)
 
@@ -1778,7 +1865,7 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		agentPoolProfile := &datamodel.AgentPoolProfile{
 			Name:   "nodepool1",
 			OSType: datamodel.Linux,
-			Distro: datamodel.AKSUbuntuContainerd2204Gen2,
+			Distro: datamodel.AKSUbuntuContainerd2404Gen2,
 		}
 		return &datamodel.NodeBootstrappingConfiguration{
 			ContainerService: &datamodel.ContainerService{
@@ -1859,6 +1946,33 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
+	})
+
+	It("should preserve script bytes when serializing a cloud-config archive", func() {
+		for _, script := range []string{
+			"#!/bin/bash\nprintf '%s\\n' 'quoted: # text'\n\ttrue\n",
+			"#!/bin/bash\ncat <<'EOF'\n  indented text\n\nEOF\n\n",
+			"#!/bin/bash\nprintf '%s' 'Unicode: \u0085\u2028\u2029'\n",
+			"#!/bin/bash\ntrue",
+		} {
+			archive, err := buildCloudConfigArchive(script)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(archive).To(HavePrefix("#cloud-config-archive\n"))
+			var parts []struct {
+				Type    string `yaml:"type"`
+				Content string `yaml:"content"`
+			}
+			Expect(yaml.Unmarshal([]byte(archive), &parts)).To(Succeed())
+			Expect(parts).To(HaveLen(2))
+			Expect(parts[0].Type).To(Equal("text/cloud-boothook"))
+			Expect(parts[0].Content).To(Equal(script))
+			Expect(parts[1].Type).To(Equal("text/cloud-config"))
+			Expect(parts[1].Content).To(Equal(readyReportCloudConfig))
+			repeated, err := buildCloudConfigArchive(script)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(repeated).To(Equal(archive))
+		}
 	})
 
 	It("should put provisioning in CustomData and retain the CSE wait command when CustomData-only provisioning is enabled", func() {
@@ -1868,16 +1982,40 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 
 		payload, err := base64.StdEncoding.DecodeString(templateGenerator.getNodeBootstrappingPayload(config))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+		Expect(string(payload)).To(HavePrefix("#cloud-config-archive\n"))
 		Expect(string(payload)).To(ContainSubstring(aksNbcCmdFilepath))
 		Expect(string(payload)).NotTo(ContainSubstring(enabledFeaturesFilepath))
-		Expect(string(payload)).To(ContainSubstring("# azure-experimental-node-ready"))
+		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
 		Expect(string(payload)).NotTo(ContainSubstring("/etc/cloud/cloud.cfg.d/81_azure_skip_ready_report.cfg"))
-		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
+		Expect(string(payload)).To(ContainSubstring("experimental_skip_ready_report: true"))
 		Expect(string(payload)).To(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
 		Expect(string(payload)).To(ContainSubstring("if [ -s /sys/class/dmi/id/product_uuid ]; then"))
 		Expect(string(payload)).To(ContainSubstring("cat /sys/class/dmi/id/product_uuid > /var/lib/waagent/provisioned"))
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+
+		var parts []struct {
+			Type    string `yaml:"type"`
+			Content string `yaml:"content"`
+		}
+		Expect(yaml.Unmarshal(payload, &parts)).To(Succeed())
+		Expect(parts).To(HaveLen(2))
+		Expect(parts[0].Type).To(Equal("text/cloud-boothook"))
+		Expect(parts[1].Type).To(Equal("text/cloud-config"))
+		var cloudConfig struct {
+			Datasource struct {
+				Azure struct {
+					SkipReady bool `yaml:"experimental_skip_ready_report"`
+				} `yaml:"Azure"`
+			} `yaml:"datasource"`
+		}
+		Expect(yaml.Unmarshal([]byte(parts[1].Content), &cloudConfig)).To(Succeed())
+		Expect(cloudConfig.Datasource.Azure.SkipReady).To(BeTrue())
+		Expect(parts[0].Content).To(HavePrefix("#!/bin/bash\n"))
+		Expect(parts[0].Content).To(HaveSuffix(hotfixMarkerTemplate + serviceStartTemplate))
+		cmd := exec.Command("bash", "-n")
+		cmd.Stdin = strings.NewReader(parts[0].Content)
+		output, err := cmd.CombinedOutput()
+		Expect(err).NotTo(HaveOccurred(), string(output))
 	})
 
 	It("should omit the Ready reporting handoff when CSE delivery is already selected", func() {
@@ -1891,6 +2029,8 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
 		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+		Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
+		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
 		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
 		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
 		Expect(templateGenerator.getNodeBootstrappingCmd(config)).To(Equal(fmt.Sprintf(
@@ -1900,28 +2040,77 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 	})
 
 	It("should fall back to CSE when CustomData-only provisioning exceeds the CustomData limit", func() {
-		templateGenerator := InitializeTemplateGenerator()
-		config := newScriptlessCmdTestConfig()
-		config.CustomDataOnlyProvisioning = true
-		certificate := make([]byte, 87*1024)
-		_, err := rand.Read(certificate)
-		Expect(err).NotTo(HaveOccurred())
-		config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
-			CustomCATrustCerts: []string{string(certificate)},
-		}
+		for _, phase3 := range []bool{false, true} {
+			templateGenerator := InitializeTemplateGenerator()
+			config := newScriptlessCmdTestConfig()
+			config.CustomDataOnlyProvisioning = true
+			config.EnableScriptlessAKSNodeConfig = phase3
+			certificate := make([]byte, 87*1024)
+			_, err := rand.Read(certificate)
+			Expect(err).NotTo(HaveOccurred())
+			config.CustomCATrustConfig = &datamodel.CustomCATrustConfig{
+				CustomCATrustCerts: []string{string(certificate)},
+			}
+			config.AKSNodeConfigJSON = fmt.Sprintf(`{"version":"v1","data":"%s"}`, base64.StdEncoding.EncodeToString(certificate))
 
-		encodedPayload := templateGenerator.getNodeBootstrappingPayload(config)
-		Expect(len(encodedPayload)).To(BeNumerically("<", MaxCustomDataLength))
-		payload, err := base64.StdEncoding.DecodeString(encodedPayload)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
-		Expect(config.ScriptlessCSEProvisionMode).To(BeTrue())
-		Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
-		Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
-		Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
-		Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
-		Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
-		Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
+			encodedPayload := templateGenerator.getNodeBootstrappingPayload(config)
+			Expect(len(encodedPayload)).To(BeNumerically("<", MaxCustomDataLength))
+			payload, err := base64.StdEncoding.DecodeString(encodedPayload)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeFalse())
+			Expect(config.ScriptlessCSEProvisionMode).To(BeTrue())
+			Expect(string(payload)).To(HavePrefix("#cloud-boothook\n"))
+			Expect(string(payload)).NotTo(ContainSubstring("# azure-experimental-node-ready"))
+			Expect(string(payload)).NotTo(ContainSubstring("/var/lib/waagent/experimental_skip_ready_report"))
+			Expect(string(payload)).NotTo(ContainSubstring("experimental_skip_ready_report: true"))
+			Expect(string(payload)).NotTo(ContainSubstring(aksNbcCmdFilepath))
+			Expect(string(payload)).To(ContainSubstring("fetch_provision_config.py"))
+			Expect(templateGenerator.getNodeBootstrappingCmd(config)).NotTo(BeEmpty())
+		}
+	})
+
+	It("should deliver an archive boothook with datasource options in both provisioning modes", func() {
+		for _, distro := range []datamodel.Distro{
+			datamodel.AKSUbuntuContainerd2404Gen2,
+			datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		} {
+			for _, phase3 := range []bool{false, true} {
+				config := newScriptlessCmdTestConfig()
+				config.AgentPoolProfile.Distro = distro
+				config.CustomDataOnlyProvisioning = true
+				config.EnableScriptlessAKSNodeConfig = phase3
+				config.AKSNodeConfigJSON = `{"version":"v1"}`
+				Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
+				generator := InitializeTemplateGenerator()
+				encoded := generator.getNodeBootstrappingPayload(config)
+				Expect(len(encoded)).To(BeNumerically("<", MaxCustomDataLength))
+				payload, err := base64.StdEncoding.DecodeString(encoded)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(payload)).To(HavePrefix("#cloud-config-archive\n"))
+				var parts []struct {
+					Type    string `yaml:"type"`
+					Content string `yaml:"content"`
+				}
+				Expect(yaml.Unmarshal(payload, &parts)).To(Succeed())
+				Expect(parts).To(HaveLen(2))
+				Expect(parts[0].Type).To(Equal("text/cloud-boothook"))
+				Expect(parts[1].Type).To(Equal("text/cloud-config"))
+				var cloudConfig struct {
+					Datasource map[string]map[string]bool `yaml:"datasource"`
+				}
+				Expect(yaml.Unmarshal([]byte(parts[1].Content), &cloudConfig)).To(Succeed())
+				Expect(cloudConfig.Datasource["Azure"]["experimental_skip_ready_report"]).To(BeTrue())
+				script := parts[0].Content
+				Expect(script).To(HavePrefix("#!/bin/bash\n"))
+				Expect(script).To(ContainSubstring("aks-node-controller.service"))
+				Expect(script).To(ContainSubstring("/var/lib/waagent/provisioned"))
+				cmd := exec.Command("bash", "-n")
+				cmd.Stdin = strings.NewReader(script)
+				output, err := cmd.CombinedOutput()
+				Expect(err).NotTo(HaveOccurred(), string(output))
+				Expect(generator.getNodeBootstrappingCmd(config)).To(Equal("/opt/azure/containers/aks-node-controller provision-wait"))
+			}
+		}
 	})
 
 	It("should support CustomData-only provisioning for pre-provisioning", func() {
@@ -1963,15 +2152,32 @@ var _ = Describe("getNodeBootstrappingCmd", func() {
 		}
 	})
 
-	It("should allow CustomData-only provisioning for cloud-init images", func() {
-		for _, phase3 := range []bool{false, true} {
-			config := newScriptlessCmdTestConfig()
-			config.CustomDataOnlyProvisioning = true
-			config.EnableScriptlessAKSNodeConfig = phase3
-			config.AKSNodeConfigJSON = `{"version":"v1"}`
-			Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
-			Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeTrue())
+	It("should allow CustomData-only provisioning for patched cloud-init images", func() {
+		for _, distro := range []datamodel.Distro{
+			datamodel.AKSUbuntuContainerd2404Gen2,
+			datamodel.AKSUbuntuMinimalContainerd2604Gen2,
+		} {
+			for _, phase3 := range []bool{false, true} {
+				config := newScriptlessCmdTestConfig()
+				config.AgentPoolProfile.Distro = distro
+				config.CustomDataOnlyProvisioning = true
+				config.EnableScriptlessAKSNodeConfig = phase3
+				config.AKSNodeConfigJSON = `{"version":"v1"}`
+				Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(Succeed())
+				Expect(config.IsCustomDataOnlyProvisioningEnabled()).To(BeTrue())
+				payload, err := base64.StdEncoding.DecodeString(InitializeTemplateGenerator().getNodeBootstrappingPayload(config))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(payload)).To(HavePrefix("#cloud-config-archive\n"))
+			}
 		}
+	})
+
+	It("should reject CustomData-only provisioning for Ubuntu without patched packages", func() {
+		config := newScriptlessCmdTestConfig()
+		config.AgentPoolProfile.Distro = datamodel.AKSUbuntuContainerd2204Gen2
+		config.CustomDataOnlyProvisioning = true
+		Expect(ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config)).To(
+			MatchError("CustomData-only provisioning requires an Ubuntu 24.04 or 26.04 image with patched cloud-init"))
 	})
 })
 

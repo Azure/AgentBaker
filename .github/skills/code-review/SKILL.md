@@ -60,18 +60,10 @@ Analyze PRs for these compatibility scenarios:
 
 **4. PIS / VHD Caching — basePrep vs nodePrep split (Windows + Linux)**
 
-- **Context**: PIS bakes a VHD from a temporary VM, then boots many real nodes from it. Same model in Windows `parts/windows/kuberneteswindowssetup.ps1.template` (`BasePrep`/`NodePrep`) and Linux `parts/linux/cloud-init/artifacts/cse_main.sh` (`basePrep`/`nodePrep`):
-  - `basePrep` — gated only by the `base_prep.complete` marker (`C:\AzureData\` Windows, `/opt/azure/containers/` Linux). **Skipped on PIS real nodes** because the marker is baked into the VHD.
-  - `nodePrep` — runs whenever `PreProvisionOnly` is false (every real node); skipped only on the bake VM.
-  - The bake run sets `PreProvisionOnly=true` (`{{GetPreProvisionOnly}}`) and writes the marker after `basePrep` succeeds (Windows `finally`; Linux `cse_start.sh`).
-  - On PIS, basePrep and nodePrep are separate VM runs: variables re-initialize from the real node's live CustomData, so `basePrep` in-memory state is gone. (Non-PIS: both run in one execution, no reboot between phases, so state carries — but don't rely on it.)
-- **Breaking signals**:
-  - Perishable data written in `basePrep`: TLS bootstrap tokens, any kubeconfig embedding a token (e.g. Windows `Write-BootstrapKubeConfig` → `c:\k\bootstrap-config`), secrets, expiring SAS URLs/creds, per-node identity/name/certs. Baked into the VHD and never refreshed (real nodes skip `basePrep`) → stale. Write it in `nodePrep`.
-  - `nodePrep` reading a variable that only `basePrep` set (not re-derived from CustomData) — empty on PIS nodes.
-  - A service/scheduled task enabled in `basePrep` that auto-starts on the real node before `nodePrep` refreshes its config — it runs against the stale baked config (e.g. a kubelet unit starting from the bake-time `bootstrap-config` before `nodePrep` rewrites the token).
-  - Heavy node-agnostic work (package/binary downloads, image pulls) moved into `nodePrep` — defeats caching, slows provisioning. Keep it in `basePrep`.
-- **Rule**: `basePrep` = static, non-secret, valid for every node booting weeks later. `nodePrep` = node-specific, secret, expiring, or CustomData-derived.
-- **Don't flag**: plain variable reads (live on the real node from CustomData); cached binaries/packages/images; the `base_prep.complete` marker; cluster-wide non-secrets (CA cert, apiserver FQDN, service CIDR); pre-existing `basePrep` writes unless the PR newly depends on them.
+- **Context**: PIS uses the same CSE version as its base VHD. When the base VHD changes, PIS uses a new image.
+- **Breaking signals**: newly baked secrets or expiring data; `nodePrep` relying on bake-time variables; services starting before per-node configuration is refreshed; static installation moved to every node. Require a concrete new failure in a supported configuration.
+- **Rule**: `basePrep` installs static components, including packages selected by CustomData, and is skipped when `base_prep.complete` exists. `nodePrep` runs when `PreProvisionOnly` is false and refreshes per-node, secret, or expiring data from live inputs. The phases run on separate VMs under PIS.
+- **Don't flag**: expected caching, cluster-wide non-secrets, or an existing rebake requirement for toggle-only changes with the same base VHD. These alone do not justify moving installation, changing cache keys, or excluding PIS.
 
 **5. Package/Dependency Update PRs (Renovate)**
 

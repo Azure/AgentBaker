@@ -452,15 +452,15 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.4.0-main-09-11-2026-e2bfa13b"
+          "latestVersion": "7.5.0-main-11-11-2026-3e060365"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.4.0-main-09-11-2026-e2bfa13b-targetallocator"
+          "latestVersion": "7.5.0-main-11-11-2026-3e060365-targetallocator"
         },
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=azuremonitor/containerinsights/ciprod/prometheus-collector/images",
-          "latestVersion": "7.4.0-main-09-11-2026-e2bfa13b-cfg"
+          "latestVersion": "7.5.0-main-11-11-2026-3e060365-cfg"
         }
       ],
       "windowsVersions": []
@@ -1160,7 +1160,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           },
@@ -1168,7 +1168,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           },
@@ -1176,7 +1176,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           }
@@ -1936,7 +1936,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           },
@@ -1944,7 +1944,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           },
@@ -1952,7 +1952,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           },
@@ -1960,7 +1960,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=ig, repository=production, os=ubuntu, release=20.04",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           }
@@ -1970,7 +1970,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           }
@@ -1980,7 +1980,7 @@
             "versionsV2": [
               {
                 "renovateTag": "RPM_registry=https://packages.microsoft.com/azurelinux/3.0/prod/cloud-native/x86_64/repodata, name=ig, os=azurelinux, release=3.0",
-                "latestVersion": "0.57.0"
+                "latestVersion": "0.58.0"
               }
             ]
           }

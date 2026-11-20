@@ -2,10 +2,13 @@ package scenario
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
@@ -16,6 +19,122 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v8"
 	"github.com/stretchr/testify/require"
 )
+
+func TestSSHDisabledAcrossReboot(t *testing.T) {
+	for _, test := range []struct {
+		name                  string
+		invalidBootID         bool
+		unchangedBootID       bool
+		failAfterReboot       bool
+		failRebootSchedule    bool
+		kubeletNotReadyChecks int
+		kubeletNeverReady     bool
+		wantError             string
+		wantRestarts          int
+		wantSSHChecks         int
+	}{
+		{name: "same instance rebooted without SSH", wantRestarts: 1, wantSSHChecks: 2},
+		{name: "invalid boot evidence prevents restart", invalidBootID: true, wantError: "invalid boot ID before", wantSSHChecks: 1},
+		{name: "successful scheduling without a reboot is rejected", unchangedBootID: true, wantError: "wait for SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
+		{name: "reboot scheduling failure is reported", failRebootSchedule: true, wantError: "schedule SSH-disabled VM reboot", wantRestarts: 1, wantSSHChecks: 1},
+		{name: "guest validation fails after reboot", failAfterReboot: true, wantError: "RunCommand script failed", wantRestarts: 1, wantSSHChecks: 2},
+		{name: "waits for kubelet to become active", kubeletNotReadyChecks: 2, wantRestarts: 1, wantSSHChecks: 2},
+		{name: "kubelet readiness timeout blocks final SSH validation", kubeletNeverReady: true, wantError: "wait for kubelet to become active after SSH-disabled reboot", wantRestarts: 1, wantSSHChecks: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			restarts := 0
+			kubeletChecks, sshChecks := 0, 0
+			script := ""
+			respond := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				require.Contains(t, req.URL.Path, "/virtualMachines/0/")
+				switch req.Method {
+				case http.MethodPut:
+					var command armcompute.VirtualMachineRunCommand
+					require.NoError(t, json.NewDecoder(req.Body).Decode(&command))
+					script = *command.Properties.Source.Script
+					if script == fmt.Sprintf(rebootSSHDisabledNodeScript, "00000000-0000-4000-8000-000000000001") {
+						restarts++
+					}
+					return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded"}}`)
+				case http.MethodGet:
+					output := "SUCCESS: SSH units are disabled and stopped"
+					state, exitCode := "Succeeded", 0
+					switch script {
+					case fmt.Sprintf(rebootSSHDisabledNodeScript, "00000000-0000-4000-8000-000000000001"):
+						if test.failRebootSchedule {
+							state, exitCode, output = "Failed", 1, "failed to schedule reboot"
+						}
+					case "cat /proc/sys/kernel/random/boot_id":
+						output = "00000000-0000-4000-8000-000000000001"
+						if test.invalidBootID {
+							output = strings.Repeat("x", 36)
+						} else if restarts > 0 && !test.unchangedBootID {
+							output = "00000000-0000-4000-8000-000000000002"
+						}
+					case "systemctl is-active --quiet kubelet":
+						kubeletChecks++
+						if test.kubeletNeverReady || kubeletChecks <= test.kubeletNotReadyChecks {
+							state, exitCode, output = "Failed", 3, "activating"
+						}
+					case validateSSHServiceDisabledScript:
+						sshChecks++
+						if restarts > 0 {
+							require.Greater(t, kubeletChecks, test.kubeletNotReadyChecks)
+						}
+						if restarts > 0 && test.failAfterReboot {
+							state, exitCode, output = "Failed", 1, "FAILED: sshd.service is active"
+						}
+					}
+					return gcResponse(req, http.StatusOK, fmt.Sprintf(
+						`{"properties":{"instanceView":{"executionState":%q,"exitCode":%d,"output":%q}}}`, state, exitCode, output))
+				case http.MethodDelete:
+					return gcResponse(req, http.StatusNoContent, "")
+				default:
+					t.Fatalf("unexpected VM request: %s %s", req.Method, req.URL)
+					return nil
+				}
+			})
+			options := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{respond}}}
+			runCommands, err := armcompute.NewVirtualMachineScaleSetVMRunCommandsClient("test", nil, options)
+			require.NoError(t, err)
+			previousAzure := config.Azure
+			config.Azure = &config.AzureClient{VMSSVMRunCommands: runCommands}
+			t.Cleanup(func() { config.Azure = previousAzure })
+			s := &Scenario{
+				Config: Config{VHD: &config.Image{OS: config.OSUbuntu}, SkipSSHConnectivityValidation: true},
+				Runtime: &ScenarioRuntime{
+					VMSSName: "vmss",
+					Cluster: &Cluster{Model: &armcontainerservice.ManagedCluster{
+						Properties: &armcontainerservice.ManagedClusterProperties{NodeResourceGroup: to.Ptr("rg")},
+					}},
+					VM: &ScenarioVM{VM: &armcompute.VirtualMachineScaleSetVM{InstanceID: to.Ptr("0")}},
+				},
+			}
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
+				if test.unchangedBootID {
+					var cancel context.CancelFunc
+					ctx, cancel = context.WithTimeout(ctx, 300*time.Millisecond)
+					defer cancel()
+				}
+				err = ValidateSSHDisabledAcrossReboot(ctx, s)
+				if test.wantError == "" {
+					require.NoError(t, err)
+				} else {
+					require.ErrorContains(t, err, test.wantError)
+				}
+				if test.kubeletNeverReady {
+					require.ErrorIs(t, err, context.DeadlineExceeded)
+					require.Greater(t, kubeletChecks, 1)
+				} else if !test.invalidBootID && !test.unchangedBootID && !test.failRebootSchedule {
+					require.Equal(t, test.kubeletNotReadyChecks+1, kubeletChecks)
+				}
+			})
+			require.Equal(t, test.wantRestarts, restarts)
+			require.Equal(t, test.wantSSHChecks, sshChecks)
+		})
+	}
+}
 
 func TestWindowsGuestValidationWithoutSSH(t *testing.T) {
 	state, exitCode, commands, deletes := "Succeeded", 0, 0, 0

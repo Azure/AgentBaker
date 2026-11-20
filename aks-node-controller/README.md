@@ -34,6 +34,19 @@ not yet been validated and requires a rebuilt VHD containing this ANC binary.
 
 ## Usage
 
+### CustomData-only cloud-config-archive delivery
+
+With `CustomDataOnlyProvisioning` enabled, Ubuntu CustomData uses
+`#cloud-config-archive`: a `text/cloud-boothook` Bash script followed by a
+`text/cloud-config` part with `datasource.Azure.experimental_skip_ready_report: true`.
+The flag is read before provisioning by cloud-init datasource. The script
+hands WALinuxAgent reporting to ANC and retains the provisioning-complete guard.
+
+Use only Ubuntu 24.04/26.04 images carrying both the runtime override and its
+schema fix. This PR does not change cloud-init packages or image builds. Stock
+cloud-init and the old boothook-marker patch are insufficient. Non-CustomData-only
+MIME delivery and AgentBaker's oversized CSE fallback are unchanged.
+
 ### Phase 3 through AgentBaker
 
 Set `NodeBootstrappingConfiguration.EnableScriptlessAKSNodeConfig = true` and supply
@@ -53,6 +66,22 @@ are retained. `ScriptlessCSEProvisionMode` selects CSE delivery instead of embed
 the provisioning config in CustomData; the automatic size fallback uses the same
 config-only payload. Leaving the new flag false preserves legacy, Phase 2, and
 Phase 2.5 behavior.
+
+The VHD launcher calls `init-cloud` before acquiring a hotfix. ANC uses the NBC
+command when present, otherwise AKSNodeConfig, and records successful initialization
+in `/run/aks/init-aks-cloud.done` so provisioning does not repeat it. Older NBC
+commands that do not support this marker retain the previous hotfix ordering. On
+failure, the launcher skips acquisition and provisioning retries initialization.
+
+For scriptless nodes using early initialization, `init-aks-cloud.sh` is not
+hotfixable for that initial run: it runs before hotfix acquisition, and the marker
+is not script-version-aware. Fixes to early initialization require rebuilding the
+VHD and provisioning from the rebuilt image; replacing the script in a hotfix does
+not rerun it after a successful early initialization.
+
+The plan is to move the initialization logic into ANC in Go to make it hotfixable
+again. That future design must safely apply updated initialization logic after
+hotfix acquisition while preserving legacy shell-based provisioning.
 
 ### Validating and normalizing AKSNodeConfig
 

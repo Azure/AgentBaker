@@ -294,6 +294,11 @@ func runScenario(ctx context.Context, scenarioName string, s *Scenario) (runErr 
 
 	logging.Logf(ctx, "Choosing the private ACR %q for the vm validation", config.GetPrivateACRName(s.Tags.NonAnonymousACR, s.Location))
 
+	if s.ValidationTimeout > 0 {
+		validationCtx, validationCancel := context.WithTimeout(ctx, s.ValidationTimeout)
+		defer validationCancel()
+		return validateVM(validationCtx, s)
+	}
 	return validateVM(vmssCtx, s)
 }
 
@@ -894,25 +899,6 @@ func runCommand(ctx context.Context, s *Scenario, command string) (result armcom
 		return armcompute.VirtualMachineRunCommandInstanceView{}, errors.New("RunCommand result missing instance view")
 	}
 	return *getResp.Properties.InstanceView, nil
-}
-
-func RestartVMSSVM(ctx context.Context, s *Scenario) error {
-	if s.Runtime == nil || s.Runtime.Cluster == nil || s.Runtime.Cluster.Model == nil ||
-		s.Runtime.Cluster.Model.Properties == nil || s.Runtime.Cluster.Model.Properties.NodeResourceGroup == nil ||
-		s.Runtime.VM == nil || s.Runtime.VM.VM == nil || s.Runtime.VM.VM.InstanceID == nil {
-		return fmt.Errorf("scenario runtime is incomplete for VMSS VM restart")
-	}
-
-	rg := *s.Runtime.Cluster.Model.Properties.NodeResourceGroup
-	instanceID := *s.Runtime.VM.VM.InstanceID
-	poller, err := config.Azure.VMSSVM.BeginRestart(ctx, rg, s.Runtime.VMSSName, instanceID, nil)
-	if err != nil {
-		return fmt.Errorf("begin VMSS VM restart: %w", err)
-	}
-	if _, err = poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
-		return fmt.Errorf("restart VMSS VM: %w", err)
-	}
-	return nil
 }
 
 // runCommandScriptError converts a RunCommand instance view into an error if the

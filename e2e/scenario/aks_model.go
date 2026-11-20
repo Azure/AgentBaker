@@ -111,7 +111,11 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
-			DNSPrefix: to.Ptr(clusterName),
+			DNSPrefix:  to.Ptr(clusterName),
+			EnableRBAC: to.Ptr(true),
+			AADProfile: &armcontainerservice.ManagedClusterAADProfile{
+				Managed: to.Ptr(true),
+			},
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 				{
 					Name:         to.Ptr("nodepool1"),
@@ -295,7 +299,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, getCVMFirewallRule()},
 		},
 	}
 
@@ -321,6 +325,23 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			NetworkRuleCollections:     netRuleCollections,
 			NatRuleCollections:         natRuleCollections,
 			IPConfigurations:           ipConfigurations,
+		},
+	}
+}
+
+func getCVMFirewallRule() *armnetwork.AzureFirewallApplicationRule {
+	return &armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("cvm-validation-fqdn"),
+		SourceAddresses: []*string{to.Ptr(SharedVNetCIDR)},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{{
+			ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+			Port:         to.Ptr[int32](443),
+		}},
+		TargetFqdns: []*string{
+			to.Ptr("github.com"),
+			to.Ptr("pypi.org"),
+			to.Ptr("files.pythonhosted.org"),
+			to.Ptr(strings.TrimPrefix(cvmAttestationIssuer, "https://")),
 		},
 	}
 }

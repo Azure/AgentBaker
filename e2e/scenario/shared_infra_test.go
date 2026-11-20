@@ -31,6 +31,31 @@ func TestGetFirewallAllowsNTP(t *testing.T) {
 	require.Equal(t, []*armnetwork.AzureFirewallNetworkRuleProtocol{to.Ptr(armnetwork.AzureFirewallNetworkRuleProtocolUDP)}, rule.Protocols)
 }
 
+func TestGetFirewallAllowsCVMValidation(t *testing.T) {
+	fw := getFirewall(logging.WithLogger(t.Context(), t), "westus3", "subnet-id", "public-ip-id")
+	coll := fw.Properties.ApplicationRuleCollections[0]
+	require.Equal(t, armnetwork.AzureFirewallRCActionTypeAllow, *coll.Properties.Action.Type)
+	var cvmRule *armnetwork.AzureFirewallApplicationRule
+	for _, rule := range coll.Properties.Rules {
+		if *rule.Name == "cvm-validation-fqdn" {
+			cvmRule = rule
+			break
+		}
+	}
+	require.NotNil(t, cvmRule)
+	require.Equal(t, []*string{to.Ptr(SharedVNetCIDR)}, cvmRule.SourceAddresses)
+	require.Equal(t, []*armnetwork.AzureFirewallApplicationRuleProtocol{{
+		ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+		Port:         to.Ptr[int32](443),
+	}}, cvmRule.Protocols)
+	require.ElementsMatch(t, []*string{
+		to.Ptr("github.com"),
+		to.Ptr("pypi.org"),
+		to.Ptr("files.pythonhosted.org"),
+		to.Ptr("sharedwus.wus.attest.azure.net"),
+	}, cvmRule.TargetFqdns)
+}
+
 func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 	originalConfig, originalAzure := config.Config, config.Azure
 	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
@@ -80,6 +105,50 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			name: "stale blob rule", wantUpdate: true,
 			mutate: func(fw *armnetwork.AzureFirewall) {
 				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[1].TargetFqdns = []*string{to.Ptr("old.blob.core.windows.net")}
+			},
+		},
+		{
+			name: "legacy firewall without CVM rule", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = fw.Properties.ApplicationRuleCollections[0].Properties.Rules[:4]
+			},
+		},
+		{
+			name: "incomplete CVM destinations", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].TargetFqdns = []*string{to.Ptr("github.com")}
+			},
+		},
+		{
+			name: "CVM rule without attestation destination", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].TargetFqdns = []*string{
+					to.Ptr("github.com"), to.Ptr("pypi.org"), to.Ptr("files.pythonhosted.org"),
+				}
+			},
+		},
+		{
+			name: "wrong CVM protocol", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].Protocols[0].ProtocolType = to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTP)
+			},
+		},
+		{
+			name: "wrong CVM port", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].Protocols[0].Port = to.Ptr[int32](80)
+			},
+		},
+		{
+			name: "wrong CVM source", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].SourceAddresses = []*string{to.Ptr("192.168.0.0/16")}
+			},
+		},
+		{
+			name: "application deny action", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
 			},
 		},
 	} {

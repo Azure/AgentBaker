@@ -21,12 +21,21 @@ Windows VHD-caching scenarios retain SSH access during the bake when enabled:
 function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
 and keys, including on cached images. Only Windows scenarios that explicitly
 skip SSH connectivity validation use VMSS RunCommand for guest checks in both
-the bake and real-node stages. Linux behavior is unchanged.
+the bake and real-node stages.
 OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
 prepared; provisioning only re-enables it after those steps succeed.
 The shared `Install-OpenSSH` implementation ships only in the versioned Windows
 CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
 and require an updated CSE bundle or VHD to receive this fix.
+
+Linux SSH-disabled scenarios use RunCommand to verify the persistent SSH block,
+schedule a guest reboot through RunCommand, confirm its boot ID changed, and check the block
+again after kubelet becomes active. CSE stops SSH listeners and uses an AKS-owned
+systemd condition without changing distribution enablement or administrator masks.
+SSH policy runs only in `nodePrep`, so image preparation leaves SSH defaults
+unchanged. This delays SSH policy enforcement until `nodePrep` on ordinary nodes
+as well. There is no activation history or automatic re-enable path; a code
+rollback alone does not remove a persisted block.
 
 ## Writing and extending scenarios
 
@@ -95,6 +104,43 @@ It selects NVIDIA MIG devices of that profile, runs a consuming pod on the scena
 node, and checks the ResourceClaim's allocated driver, pool, and device against that
 node's ResourceSlices before deleting the pod. Missing or mismatched type/profile
 attributes fail validation. Non-MIG DRA scenarios retain their existing scheduling checks.
+
+### CVM validation
+
+The Ubuntu and Azure Linux V3 CVM scenarios run standard node validation plus
+CVM-specific VMSS, guest platform, measured-boot PCR, and Microsoft Azure
+Attestation checks. Azure Container Linux (ACL) retains standard node validation
+only; the attestation collector does not yet support its immutable OS.
+Disk security is checked against each scenario's configured encryption mode.
+Attestation verifies the signature, issuer, token validity, scenario nonce, compliance,
+Secure Boot, vTPM, and SEV-SNP or TDX policy claims. The collector retrieves a pinned
+revision of `Azure/cvm-attestation-tools` and its Python dependencies on the test VM.
+On-node Python collection, including MAA and IMDS requests, is limited to three
+minutes, with forced termination after a further ten seconds if needed.
+The entire collector, including package installation, Git fetch, and Python dependency
+setup, has an eight-minute remote deadline and a nine-minute SSH backstop.
+The five dedicated CVM validators have a separate twelve-minute validation budget
+after provisioning, still bounded by the overall scenario deadline. Other scenarios,
+including ACL, retain their existing timeout behavior. Collector phase timings and
+sanitized service failures are retained in the redacted log; transport failures retain
+partial output, and workspace cleanup reconnects if its SSH transport is unusable.
+Image selection uses the existing selector (including "latest" and build metadata);
+the exact resolved resource ID is recorded and compared with fresh Azure reads of
+both the VMSS and VM instance. This confirms reported image selection, not disk-content
+integrity. PCR evidence requires SHA-256 PCRs 0-23 with valid 32-byte digests and is also
+published as `cvm/measured-boot-pcrs.json`. It establishes readability and format only:
+there is no nonce-bound PCR quote, event-log replay, or approved measurement baseline.
+Evidence is written under the scenario's `cvm/` artifact directory, with verdicts in
+`cvm/cvm-checks.json` and `cvm-attestation-summary.json`; raw attestation tokens are
+not published.
+Attestation results distinguish `passed`, `failed` (invalid tokens or rejected
+assertions), and `unable_to_verify` (collection, timeout, or verification-service
+errors). Both failure statuses fail the scenario. The summary records an overall
+`attestation` result; properties not established by accepted evidence use
+`status: unable_to_verify` with `passed: null`, rather than claiming they are
+disabled. A verified property mismatch records the actual observed value and
+`status: failed`. Previously verified results are retained if later artifact
+publication or cleanup fails.
 
 ### Scriptless provisioning
 
@@ -376,6 +422,11 @@ functions — no separate setup script is needed.
 Shared setup does not delete cluster subnets: an empty subnet with no AKS cluster may belong
 to another runner that is still creating its cluster. The external resource-group garbage
 collector owns cleanup of abandoned subnets.
+
+VHD-caching setup deletes and recreates a gallery image definition only when Azure reports
+its provisioning state as `Failed`. It waits for deletion before recreating the definition
+and stops on deletion errors. It does not delete child image versions or definitions in
+other states.
 
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
 Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
