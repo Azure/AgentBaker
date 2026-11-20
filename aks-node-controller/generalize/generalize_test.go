@@ -199,7 +199,7 @@ type imageModeFixture struct {
 func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 	t.Helper()
 	f := &imageModeFixture{root: t.TempDir()}
-	f.ws = newFakeWireserver(t, testWALinuxAgentVersion)
+	f.ws = newFakeWireserver(t)
 	f.g = &Generalizer{rootDir: f.root, installer: f.ws.installer(), RunCmd: func(cmd *exec.Cmd) error {
 		joined := strings.Join(cmd.Args, " ")
 		f.cmds = append(f.cmds, joined)
@@ -266,7 +266,6 @@ func TestGeneralizeImage(t *testing.T) {
 		notes, err := os.ReadFile(filepath.Join(f.root, "/opt/azure/vhd-install.complete"))
 		require.NoError(t, err)
 		assert.Equal(t, "  - WALinuxAgent version "+testWALinuxAgentVersion+"\n", string(notes))
-		assert.NoFileExists(t, filepath.Join(f.root, "/etc/resolv.conf"), "temporary resolv.conf must be removed")
 	})
 
 	t.Run("OS-provided agent skips the pinned install", func(t *testing.T) {
@@ -305,7 +304,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f.failCmd = "waagent"
 
 		assert.Error(t, f.run())
-		assert.Zero(t, f.ws.requests.Load())
+		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
 	})
 
 	t.Run("fails when waagent deprovision logs a failure but exits 0", func(t *testing.T) {
@@ -313,7 +312,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f.deprovisionOutput = "Failed to run 'deprovision+user': OSError: [Errno 39] Directory not empty: '/var/lib/waagent/events'\n"
 
 		assert.ErrorContains(t, f.run(), "Failed to run 'deprovision")
-		assert.Zero(t, f.ws.requests.Load())
+		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
 	})
 
 	t.Run("fails when the pinned agent cannot be downloaded", func(t *testing.T) {
@@ -321,6 +320,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f.ws.manifestVersion = "1.0.0"
 
 		assert.Error(t, f.run())
+		assert.Empty(t, f.cmds, "a failed download must stop the build before any change")
 		assert.NoFileExists(t, filepath.Join(f.root, "/opt/azure/vhd-install.complete"))
 	})
 }

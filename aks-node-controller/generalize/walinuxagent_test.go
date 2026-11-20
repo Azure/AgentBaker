@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -40,9 +39,9 @@ type fakeWireserver struct {
 	failGoalState atomic.Int32
 }
 
-func newFakeWireserver(t *testing.T, version string) *fakeWireserver {
+func newFakeWireserver(t *testing.T) *fakeWireserver {
 	t.Helper()
-	w := &fakeWireserver{t: t, manifestVersion: version, zip: testZip(t, map[string]string{
+	w := &fakeWireserver{t: t, manifestVersion: testWALinuxAgentVersion, zip: testZip(t, map[string]string{
 		"HandlerManifest.json": "{}",
 		"bin/agent.egg":        "egg",
 	})}
@@ -112,46 +111,41 @@ func testZip(t *testing.T, files map[string]string) []byte {
 }
 
 func TestWALinuxAgentInstaller(t *testing.T) {
-	t.Run("installs the pinned version and retries", func(t *testing.T) {
-		ws := newFakeWireserver(t, testWALinuxAgentVersion)
+	t.Run("downloads the pinned version and retries", func(t *testing.T) {
+		ws := newFakeWireserver(t)
 		ws.failGoalState.Store(2)
-		state, downloads := t.TempDir(), filepath.Join(t.TempDir(), "downloads")
-		// The install merges into an existing directory, like the Python installer.
-		writeUnderRoot(t, state, "WALinuxAgent-"+testWALinuxAgentVersion+"/old.txt", "old")
+		zipPath := filepath.Join(t.TempDir(), "downloads", "agent.zip")
 
-		require.NoError(t, ws.installer().install(context.Background(), testWALinuxAgentVersion, state, downloads))
-		dir := filepath.Join(state, "WALinuxAgent-"+testWALinuxAgentVersion)
-		egg, err := os.ReadFile(filepath.Join(dir, "bin", "agent.egg"))
+		require.NoError(t, ws.installer().download(context.Background(), testWALinuxAgentVersion, zipPath))
+		got, err := os.ReadFile(zipPath)
 		require.NoError(t, err)
-		assert.Equal(t, "egg", string(egg))
-		assert.FileExists(t, filepath.Join(dir, "old.txt"))
-		zipCopy, err := os.ReadFile(filepath.Join(downloads, "WALinuxAgent-"+testWALinuxAgentVersion+".zip"))
-		require.NoError(t, err)
-		assert.Equal(t, ws.zip, zipCopy)
+		assert.Equal(t, ws.zip, got)
 	})
 
 	t.Run("errors do not contain SAS tokens", func(t *testing.T) {
-		ws := newFakeWireserver(t, testWALinuxAgentVersion)
+		ws := newFakeWireserver(t)
 		ws.zip = []byte("not a zip")
-		err := ws.installer().install(context.Background(), testWALinuxAgentVersion, t.TempDir(), t.TempDir())
+		zipPath := filepath.Join(t.TempDir(), "agent.zip")
+		err := ws.installer().download(context.Background(), testWALinuxAgentVersion, zipPath)
 		require.Error(t, err)
+		assert.NoFileExists(t, zipPath, "an invalid zip must not be saved")
 
-		ws = newFakeWireserver(t, testWALinuxAgentVersion)
+		ws = newFakeWireserver(t)
 		installer := ws.installer()
 		ws.server.Close()
-		err = installer.install(context.Background(), testWALinuxAgentVersion, t.TempDir(), t.TempDir())
+		err = installer.download(context.Background(), testWALinuxAgentVersion, filepath.Join(t.TempDir(), "agent.zip"))
 		require.Error(t, err)
 		assert.NotContains(t, err.Error(), "secret")
 	})
 
 	t.Run("stops retrying when the context is done", func(t *testing.T) {
-		ws := newFakeWireserver(t, testWALinuxAgentVersion)
+		ws := newFakeWireserver(t)
 		ws.failGoalState.Store(100)
 		installer := ws.installer()
 		installer.retryDelay = time.Hour
 		ctx, cancel := context.WithCancel(context.Background())
 		time.AfterFunc(50*time.Millisecond, cancel)
-		err := installer.install(ctx, testWALinuxAgentVersion, t.TempDir(), t.TempDir())
+		err := installer.download(ctx, testWALinuxAgentVersion, filepath.Join(t.TempDir(), "agent.zip"))
 		require.ErrorIs(t, err, context.Canceled)
 	})
 }
@@ -179,13 +173,37 @@ func TestFindWALinuxAgentZipURL(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestExtractZipRejectsEscapes(t *testing.T) {
-	for _, name := range []string{"../evil", "/abs", "a/../../evil"} {
-		dir := filepath.Join(t.TempDir(), "agent")
-		err := extractZip(testZip(t, map[string]string{"ok": "x", name: "x"}), dir)
-		require.Error(t, err, name)
-		assert.NoDirExists(t, dir, "nothing must be written for %s", name)
+func TestExtractZip(t *testing.T) {
+	writeZip := func(t *testing.T, files map[string]string) string {
+		t.Helper()
+		p := filepath.Join(t.TempDir(), "agent.zip")
+		require.NoError(t, os.WriteFile(p, testZip(t, files), 0o644))
+		return p
 	}
+
+	t.Run("replaces the directory", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "agent")
+		old := writeUnderRoot(t, dir, "old.txt", "old")
+		require.NoError(t, extractZip(writeZip(t, map[string]string{"bin/agent.egg": "egg"}), dir))
+		got, err := os.ReadFile(filepath.Join(dir, "bin", "agent.egg"))
+		require.NoError(t, err)
+		assert.Equal(t, "egg", string(got))
+		assert.NoFileExists(t, old)
+	})
+
+	t.Run("writes nothing outside the directory", func(t *testing.T) {
+		for _, name := range []string{"../evil", "a/../../evil", "/abs"} {
+			base := t.TempDir()
+			dir := filepath.Join(base, "agent")
+			_ = extractZip(writeZip(t, map[string]string{name: "x"}), dir)
+			require.NoError(t, filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+				if err == nil && !d.IsDir() && !strings.HasPrefix(p, dir+string(filepath.Separator)) {
+					t.Errorf("%s wrote %s", name, p)
+				}
+				return err
+			}))
+		}
+	})
 }
 
 func TestPinnedWALinuxAgentVersion(t *testing.T) {
@@ -203,7 +221,7 @@ func TestPinnedWALinuxAgentVersion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
 			writeUnderRoot(t, root, config.ComponentsFilePath, tc.components)
-			got, err := (&Generalizer{rootDir: root}).pinnedWALinuxAgentVersion()
+			got, err := (&Generalizer{rootDir: root}).pinnedWALinuxAgentVersion(map[string]string{"ID": "ubuntu"})
 			if tc.want == "" {
 				require.Error(t, err)
 				return
@@ -279,127 +297,4 @@ func TestConfigureWALinuxAgentAutoUpdate(t *testing.T) {
 		})
 	}
 	require.Error(t, configureWALinuxAgentAutoUpdate(filepath.Join(t.TempDir(), "missing")))
-}
-
-func TestEnsureWireserverDNS(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
-	const nameserver = "nameserver 168.63.129.16\n"
-	read := func(t *testing.T, p string) string {
-		t.Helper()
-		b, err := os.ReadFile(p)
-		require.NoError(t, err)
-		return string(b)
-	}
-
-	t.Run("keeps a working resolv.conf", func(t *testing.T) {
-		root := t.TempDir()
-		conf := writeUnderRoot(t, root, "/etc/resolv.conf", "nameserver 10.0.0.1\n")
-		restore, err := (&Generalizer{rootDir: root}).ensureWireserverDNS()
-		require.NoError(t, err)
-		assert.Equal(t, "nameserver 10.0.0.1\n", read(t, conf))
-		require.NoError(t, restore())
-		assert.Equal(t, "nameserver 10.0.0.1\n", read(t, conf))
-	})
-
-	t.Run("regular file without nameserver", func(t *testing.T) {
-		root := t.TempDir()
-		conf := writeUnderRoot(t, root, "/etc/resolv.conf", "search example\n")
-		restore, err := (&Generalizer{rootDir: root}).ensureWireserverDNS()
-		require.NoError(t, err)
-		assert.Equal(t, nameserver, read(t, conf))
-		require.NoError(t, restore())
-		assert.Equal(t, "search example\n", read(t, conf))
-	})
-
-	t.Run("absent file", func(t *testing.T) {
-		root := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(root, "etc"), 0o755))
-		restore, err := (&Generalizer{rootDir: root}).ensureWireserverDNS()
-		require.NoError(t, err)
-		assert.Equal(t, nameserver, read(t, filepath.Join(root, "/etc/resolv.conf")))
-		require.NoError(t, restore())
-		assert.NoFileExists(t, filepath.Join(root, "/etc/resolv.conf"))
-	})
-
-	for _, tc := range []struct {
-		name         string
-		absolute     bool
-		targetExists bool
-	}{
-		{name: "absolute symlink to empty target", absolute: true, targetExists: true},
-		{name: "relative symlink to empty target", targetExists: true},
-		{name: "dangling absolute symlink", absolute: true},
-		{name: "dangling relative symlink"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			root := t.TempDir()
-			target := filepath.Join(root, "run/systemd/resolve/stub-resolv.conf")
-			require.NoError(t, os.MkdirAll(filepath.Dir(target), 0o755))
-			require.NoError(t, os.MkdirAll(filepath.Join(root, "etc"), 0o755))
-			if tc.targetExists {
-				require.NoError(t, os.WriteFile(target, nil, 0o644))
-			}
-			raw := "../run/systemd/resolve/stub-resolv.conf"
-			if tc.absolute {
-				raw = "/run/systemd/resolve/stub-resolv.conf"
-			}
-			conf := filepath.Join(root, "/etc/resolv.conf")
-			require.NoError(t, os.Symlink(raw, conf))
-
-			restore, err := (&Generalizer{rootDir: root}).ensureWireserverDNS()
-			require.NoError(t, err)
-			assert.Equal(t, nameserver, read(t, target))
-			got, err := os.Readlink(conf)
-			require.NoError(t, err)
-			assert.Equal(t, raw, got)
-
-			require.NoError(t, restore())
-			got, err = os.Readlink(conf)
-			require.NoError(t, err)
-			assert.Equal(t, raw, got)
-			if tc.targetExists {
-				assert.Empty(t, read(t, target))
-			} else {
-				assert.NoFileExists(t, target)
-			}
-		})
-	}
-
-	t.Run("restore re-creates a replaced symlink", func(t *testing.T) {
-		root := t.TempDir()
-		target := writeUnderRoot(t, root, "run/resolv.conf", "")
-		conf := filepath.Join(root, "/etc/resolv.conf")
-		require.NoError(t, os.MkdirAll(filepath.Dir(conf), 0o755))
-		require.NoError(t, os.Symlink("/run/resolv.conf", conf))
-		restore, err := (&Generalizer{rootDir: root}).ensureWireserverDNS()
-		require.NoError(t, err)
-		require.NoError(t, os.Remove(conf))
-		require.NoError(t, os.WriteFile(conf, []byte("replaced"), 0o644))
-
-		require.NoError(t, restore())
-		got, err := os.Readlink(conf)
-		require.NoError(t, err)
-		assert.Equal(t, "/run/resolv.conf", got)
-		assert.Empty(t, read(t, target))
-	})
-}
-
-func TestInstallPinnedWALinuxAgentRestoresDNSOnFailure(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
-	root := t.TempDir()
-	conf := writeUnderRoot(t, root, "/etc/resolv.conf", "search example\n")
-	writeUnderRoot(t, root, config.ComponentsFilePath, testWALinuxAgentComponentsJSON)
-	ws := newFakeWireserver(t, "1.0.0")
-	g := &Generalizer{rootDir: root, installer: ws.installer()}
-
-	err := g.installPinnedWALinuxAgent(context.Background(), map[string]string{"ID": "ubuntu"})
-	require.Error(t, err)
-	assert.False(t, strings.Contains(err.Error(), "secret"))
-	content, readErr := os.ReadFile(conf)
-	require.NoError(t, readErr)
-	assert.Equal(t, "search example\n", string(content))
 }

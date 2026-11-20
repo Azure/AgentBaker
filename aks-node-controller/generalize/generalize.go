@@ -84,6 +84,7 @@ type generalizeStep struct {
 
 func (g *Generalizer) steps() []generalizeStep {
 	return []generalizeStep{
+		{name: "DownloadPinnedAgent", imageOnly: true, run: g.downloadPinnedWALinuxAgent},
 		{name: "DisableContainerd", imageOnly: true, run: g.disableContainerd},
 		{name: "RemoveBuildArtifacts", imageOnly: true, run: g.removeBuildArtifacts},
 		{name: "ResetMachineID", run: g.resetMachineID},
