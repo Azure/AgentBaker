@@ -20,6 +20,13 @@
                 "inline": [
                     "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"
                 ]
+            },
+            {
+                "type": "Shell",
+                "name": "InstallDeprovisionHook",
+                "inline": [
+                    "sudo install -m 0755 /opt/azure/containers/aib-deprovision.sh /tmp/DeprovisioningScript.sh"
+                ]
             }
         ],
         "optimize": {

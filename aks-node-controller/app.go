@@ -168,8 +168,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Usage: "Wait for provisioning to complete",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					provisionStatusFiles := ProvisionStatusFiles{
-						ProvisionJSONFile:     provisionJSONFilePath,
-						ProvisionCompleteFile: provisionCompleteFilePath,
+						ProvisionJSONFile:     osCfg.provisionJSONFilePath,
+						ProvisionCompleteFile: osCfg.provisionCompleteFilePath,
 					}
 					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
@@ -721,7 +721,10 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
 	markerPath := a.readyReportMarkerPath
 	if markerPath == "" {
-		markerPath = readyReportMarkerPath
+		markerPath = osCfg.readyReportMarkerPath
+	}
+	if markerPath == "" {
+		return
 	}
 	if _, err := os.Stat(markerPath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -790,27 +793,27 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+	if _, statErr := os.Stat(osCfg.provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
 		data, err := json.Marshal(provisionResult)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(provisionJSONFilePath)
+		baseDir := filepath.Dir(osCfg.provisionJSONFilePath)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
+		if writeErr := os.WriteFile(osCfg.provisionJSONFilePath, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", osCfg.provisionJSONFilePath, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
+	if _, statErr := os.Stat(osCfg.provisionCompleteFilePath); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(osCfg.provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", writeErr)
 	}
 }
 

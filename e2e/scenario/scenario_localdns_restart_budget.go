@@ -23,7 +23,7 @@ import (
 //  2. The unit actually reaches terminal 'failed' once the burst is spent inside the window.
 //     A directive can be present and still not bound anything.
 
-// laneResolvedMainBuiltImage reports whether this lane resolved a main-built image rather
+// laneResolvedDefaultBranchImage reports whether this lane selected a default-branch image rather
 // than one built from the branch under test.
 //
 // This is the gate for the restart-budget validation, and it deliberately reads the lane's
@@ -34,17 +34,18 @@ import (
 //
 // The gate lane sets SIG_VERSION_TAG_NAME=buildId / SIG_VERSION_TAG_VALUE=<vhd build id>
 // from VHD_BUILD_ID (.pipelines/scripts/e2e_run.sh:83-88) and therefore tests this PR's own
-// VHDs. Everything else falls back to the default branch=refs/heads/main selector, which
-// resolves a main-built image that legitimately still ships the systemd default 10s/5
-// budget: localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not
+// VHDs. Everything else falls back to the branch selector in config.DefaultConfiguration, which
+// may resolve an image that predates changes under test:
+// localdns.service is baked into the VHD (vhdbuilder/packer/packer_source.sh), not
 // delivered through CustomData. .pipelines/e2e.yaml triggers on any PR touching e2e/** and
 // runs in exactly that configuration.
 //
 // A lane pointed at some other branch's image asserts rather than skips: if you asked for a
 // specific branch's VHD, a missing budget there is a real failure worth hearing about.
-func laneResolvedMainBuiltImage() bool {
-	return config.Config.SIGVersionTagName == "branch" &&
-		config.Config.SIGVersionTagValue == "refs/heads/main"
+func laneResolvedDefaultBranchImage() bool {
+	defaults := config.DefaultConfiguration()
+	return config.Config.SIGVersionTagName == defaults.SIGVersionTagName &&
+		config.Config.SIGVersionTagValue == defaults.SIGVersionTagValue
 }
 
 // validateLocalDNSRestartBudgetDirectives asserts that the unit carries the budget and
