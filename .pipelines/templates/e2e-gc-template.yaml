@@ -3,6 +3,12 @@ parameters:
     type: string
   - name: SUBSCRIPTION_ID
     type: string
+  - name: JOB_NAME
+    type: string
+    default: e2e_gc
+  - name: JOB_DISPLAY_NAME
+    type: string
+    default: "Garbage Collection"
   - name: DRY_RUN
     type: boolean
     default: false
@@ -11,8 +17,8 @@ parameters:
     default: false
 
 jobs:
-  - job: e2e_gc
-    displayName: Garbage Collection
+  - job: ${{ parameters.JOB_NAME }}
+    displayName: ${{ parameters.JOB_DISPLAY_NAME }}
     timeoutInMinutes: 0
     steps:
       - checkout: self

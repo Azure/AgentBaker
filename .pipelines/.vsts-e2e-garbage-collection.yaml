@@ -7,7 +7,7 @@ parameters:
     type: boolean
     default: false
   - name: NO_WAIT
-    displayName: Wait for resource deletion
+    displayName: Don't wait for resource deletion
     type: boolean
     default: true
 
@@ -34,5 +34,14 @@ stages:
         parameters:
           ARM_SERVICE_CONNECTION: $(TME_ARM_SERVICE_CONNECTION)
           SUBSCRIPTION_ID: $(TME_E2E_SUBSCRIPTION_ID)
+          DRY_RUN: ${{ parameters.DRY_RUN }}
+          NO_WAIT: ${{ parameters.NO_WAIT }}
+
+      - template: ./templates/e2e-gc-template.yaml
+        parameters:
+          ARM_SERVICE_CONNECTION: $(TME_ARM_SERVICE_CONNECTION)
+          SUBSCRIPTION_ID: $(TME_RCV1P_E2E_SUBSCRIPTION_ID)
+          JOB_NAME: e2e_gc_rcv1p
+          JOB_DISPLAY_NAME: "Garbage Collection RCV1P"
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
