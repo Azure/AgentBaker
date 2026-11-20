@@ -57,7 +57,8 @@ parameters:
   - name: buildAzureLinuxV3gen2katacc
     displayName: Build AzureLinuxV3 Gen2 Kata-CC
     type: boolean
-    default: true
+    # Off until the Kata UVM sign pipeline publishes the OpenVMM SNP payload.
+    default: false
   - name: buildAzureLinuxV3ARM64
     displayName: Build AzureLinuxV3 Gen2 - ARM64
     type: boolean
