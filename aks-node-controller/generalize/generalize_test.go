@@ -2,6 +2,7 @@ package generalize
 
 import (
 	"context"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -191,6 +192,8 @@ type imageModeFixture struct {
 	ws   *fakeWireserver
 	// failCmd makes a command fail when its joined args start with this prefix.
 	failCmd string
+	// deprovisionOutput is the output of the fake waagent.
+	deprovisionOutput string
 }
 
 func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
@@ -202,6 +205,10 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 		f.cmds = append(f.cmds, joined)
 		if f.failCmd != "" && strings.HasPrefix(joined, f.failCmd) {
 			return &testExitError{Code: 1}
+		}
+		if filepath.Base(cmd.Path) == "waagent" {
+			_, err := io.WriteString(cmd.Stdout, f.deprovisionOutput)
+			return err
 		}
 		return nil
 	}}
@@ -239,6 +246,9 @@ func TestGeneralizeImage(t *testing.T) {
 		assert.Equal(t, []string{
 			"systemctl daemon-reload",
 			"systemctl disable --now containerd",
+			"systemctl kill --signal=SIGKILL gcd.service",
+			"systemctl disable --now gcd.service",
+			"systemctl stop walinuxagent.service waagent.service azure-walinuxagent-logcollector.slice azure-vmextensions.slice",
 			waagent + " -force -deprovision+user",
 			"systemctl stop walinuxagent.service waagent.service",
 		}, f.cmds)
@@ -298,6 +308,14 @@ func TestGeneralizeImage(t *testing.T) {
 		f.failCmd = filepath.Join(f.root, "/usr/sbin/waagent")
 
 		assert.Error(t, f.run())
+		assert.Zero(t, f.ws.requests.Load())
+	})
+
+	t.Run("fails when waagent deprovision logs a failure but exits 0", func(t *testing.T) {
+		f := newImageModeFixture(t, "ID=ubuntu\n")
+		f.deprovisionOutput = "Failed to run 'deprovision+user': OSError: [Errno 39] Directory not empty: '/var/lib/waagent/events'\n"
+
+		assert.ErrorContains(t, f.run(), "Failed to run 'deprovision")
 		assert.Zero(t, f.ws.requests.Load())
 	})
 

@@ -93,7 +93,7 @@ func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease m
 
 	// Stop the agent so that it does not create WALinuxAgent-* directories again during the prune.
 	// "waagent -deprovision" stops the daemon but can leave the unit active.
-	if stopErr := g.runCmd(ctx, "systemctl", "stop", "walinuxagent.service", "waagent.service"); stopErr != nil {
+	if _, stopErr := g.runCmd(ctx, "systemctl", "stop", "walinuxagent.service", "waagent.service"); stopErr != nil {
 		slog.Info("stop WALinuxAgent services", "error", stopErr)
 	}
 
