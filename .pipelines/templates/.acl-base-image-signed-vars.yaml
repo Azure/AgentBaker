@@ -10,6 +10,8 @@
 # ACL_BASE_IMAGE_SOURCE selects where the ACL base image comes from:
 #   acg         - the ACL prod pipeline's Azure Compute Gallery image. Default
 #                 when not specified. Signed.
+#   aclstaging  - an ACL release candidate: an ESRP-signed prod build staged
+#                 in the aclstaging gallery before ACL publishes it. Signed.
 #   acldevel    - the acldevel dev pipeline's unsigned image (see PR #9458).
 #                 Sets ACL_BASE_IMAGE_SIGNED=false because acldevel images
 #                 are unsigned and cannot pass UEFI Secure Boot signature
@@ -26,6 +28,7 @@ parameters:
     values:
       - acg
       - acldevel
+      - aclstaging
 
 steps:
   - ${{ if eq(parameters.ACL_BASE_IMAGE_SOURCE, 'acldevel') }}:

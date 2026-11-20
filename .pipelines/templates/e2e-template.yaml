@@ -49,6 +49,7 @@ parameters:
     values:
       - acg
       - acldevel
+      - aclstaging
 
 jobs:
   - job: e2e
