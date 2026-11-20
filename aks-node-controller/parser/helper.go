@@ -1101,6 +1101,11 @@ func getRepoDepotEndpoint(aksnodeconfig *aksnodeconfigv1.Configuration) string {
 	return ""
 }
 
+// CloudInitializationSettings returns the same values used by the CSE command.
+func CloudInitializationSettings(config *aksnodeconfigv1.Configuration) (string, string) {
+	return config.GetClusterConfig().GetLocation(), getRepoDepotEndpoint(config)
+}
+
 // ---------------------- End of cse timeout helper code ----------------------//
 
 // IsKubernetesVersionGe returns true if actualVersion is greater than or equal to version.

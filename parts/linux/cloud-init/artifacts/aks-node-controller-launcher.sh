@@ -22,6 +22,7 @@ NBC_CMD_PATH="${NBC_CMD_PATH:-/opt/azure/containers/aks-node-controller-nbc-cmd.
 # producer is the sole trusted writer. Parsed below at wrapper runtime; absent file (default-off,
 # or an older VHD without the producer) is a no-op.
 FEATURES_PATH="${FEATURES_PATH:-/opt/azure/containers/enabled_features.sh}"
+CLOUD_INIT_LOG="${CLOUD_INIT_LOG:-/var/log/azure/cluster-provision.log}"
 LOGGER_TAG="aks-node-controller-launcher"
 
 log() {
@@ -44,17 +45,32 @@ if [ ! -f "$CONFIG_PATH" ] && [ ! -f "$NBC_CMD_PATH" ]; then
     exit 0
 fi
 
-anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH"
+skip_hotfix_acquisition=false
+config_args=()
+if [ -f "$CONFIG_PATH" ]; then
+    config_args+=("--provision-config=$CONFIG_PATH")
+fi
+if [ -f "$NBC_CMD_PATH" ]; then
+    config_args+=("--nbc-cmd=$NBC_CMD_PATH")
+fi
+if "$BIN_PATH" init-cloud "${config_args[@]}" >> "$CLOUD_INIT_LOG" 2>&1; then
+    log "Early cloud initialization command completed"
+else
+    init_status=$?
+    # Do not download with incomplete trust; let provisioning retry initialization.
+    skip_hotfix_acquisition=true
+    log "Early cloud initialization failed with exit code ${init_status}; skipping hotfix acquisition and retrying during provisioning"
+fi
+
+anc_run_hotfix_flow "$BIN_PATH" "$HOTFIX_BIN" "$HOTFIX_JSON" "$FEATURES_PATH" "$skip_hotfix_acquisition"
 BIN_PATH="$ANC_HOTFIX_SELECTED_BIN"
 
-command=("$BIN_PATH" provision)
+command=("$BIN_PATH" provision "${config_args[@]}")
 if [ -f "$CONFIG_PATH" ]; then
     log "Launching aks-node-controller with config ${CONFIG_PATH}"
-    command+=("--provision-config=$CONFIG_PATH")
 fi
 if [ -f "$NBC_CMD_PATH" ]; then
     log "Launching aks-node-controller with nbc cmd ${NBC_CMD_PATH}"
-    command+=("--nbc-cmd=$NBC_CMD_PATH")
 fi
 
 "${command[@]}" &

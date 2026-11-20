@@ -42,11 +42,13 @@ EOF
         # Feature-flag file is test-local and absent by default; tests that exercise the
         # source path create it explicitly.
         export FEATURES_PATH="${TEST_DIR}/enabled_features.sh"
+        export CLOUD_INIT_LOG="${TEST_DIR}/cloud-init.log"
+        export INIT_AKS_CLOUD_DONE="${TEST_DIR}/run/init-aks-cloud.done"
     }
 
     cleanup_wrapper_test() {
         rm -rf "$TEST_DIR"
-        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN
+        unset BIN_PATH CONFIG_PATH NBC_CMD_PATH TEST_DIR BIN_DIR HOTFIX_JSON ENABLE_PROVISIONING_HOTFIX CHECK_HOTFIX_EXIT FEATURES_PATH ANC_HOTFIX_SELECTED_BIN CLOUD_INIT_LOG INIT_AKS_CLOUD_DONE
     }
 
     create_fake_aks_node_controller() {
@@ -64,6 +66,7 @@ EOF
     create_recording_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+[ "$1" = "init-cloud" ] && exit 0
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "check-hotfix" ]; then
     exit "${CHECK_HOTFIX_EXIT:-0}"
@@ -89,6 +92,7 @@ EOF
     create_failing_download_aks_node_controller() {
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+[ "$1" = "init-cloud" ] && exit 0
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     exit 1
@@ -109,6 +113,7 @@ EOF
 
         cat >"$BIN_PATH" <<'EOF'
 #!/bin/sh
+[ "$1" = "init-cloud" ] && exit 0
 printf '%s\n' "$1" >>"${TEST_DIR}/calls"
 if [ "$1" = "download-hotfix" ]; then
     cp "${TEST_DIR}/hotfix-template" "${BIN_PATH}-hotfix"
@@ -143,6 +148,72 @@ EOF
 
     BeforeEach setup_wrapper_test
     AfterEach cleanup_wrapper_test
+
+    It 'passes both inputs to init-cloud before hotfix acquisition'
+        touch "$CONFIG_PATH" "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        export ENABLE_PROVISIONING_HOTFIX=true
+        cat > "$BIN_PATH" <<'EOF'
+#!/bin/bash
+if [ "$1" = init-cloud ]; then
+    printf '%s\n' "$@" > "$TEST_DIR/init-args"
+    mkdir -p "$(dirname "$INIT_AKS_CLOUD_DONE")"
+    touch "$INIT_AKS_CLOUD_DONE"
+fi
+if [ -f "$INIT_AKS_CLOUD_DONE" ]; then state=done; else state=unset; fi
+printf '%s:%s\n' "$1" "$state" >> "$TEST_DIR/calls"
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization command completed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'init-cloud:done\ncheck-hotfix:done\ndownload-hotfix:done\nprovision:done')"
+        args=$(cat "$TEST_DIR/init-args")
+        The variable args should eq "$(printf 'init-cloud\n--provision-config=%s\n--nbc-cmd=%s' "$CONFIG_PATH" "$NBC_CMD_PATH")"
+    End
+
+    It 'skips acquisition and uses a staged hotfix when early initialization fails'
+        touch "$CONFIG_PATH" "$HOTFIX_JSON"
+        export ENABLE_PROVISIONING_HOTFIX=true
+        cat > "$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf 'base:%s\n' "$1" >> "$TEST_DIR/calls"
+[ "$1" = init-cloud ] && exit 5
+exit 0
+EOF
+        cat > "${BIN_PATH}-hotfix" <<'EOF'
+#!/bin/sh
+printf 'hotfix:%s\n' "$1" >> "$TEST_DIR/calls"
+EOF
+        chmod +x "$BIN_PATH" "${BIN_PATH}-hotfix"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed with exit code 5'
+        The output should include 'Skipping ANC hotfix acquisition'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'base:init-cloud\nhotfix:apply-embedded-hotfix\nhotfix:provision')"
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
+    End
+
+    It 'continues provisioning without acquisition when init-cloud is unsupported'
+        touch "$NBC_CMD_PATH" "$HOTFIX_JSON"
+        cat > "$BIN_PATH" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$1" >> "$TEST_DIR/calls"
+[ "$1" = init-cloud ] && exit 1
+exit 0
+EOF
+        chmod +x "$BIN_PATH"
+
+        When run bash "$SCRIPT"
+        The status should be success
+        The output should include 'Early cloud initialization failed'
+        calls=$(cat "$TEST_DIR/calls")
+        The variable calls should eq "$(printf 'init-cloud\nprovision')"
+        The path "$INIT_AKS_CLOUD_DONE" should not be exist
+    End
 
     It 'exits successfully without invoking aks-node-controller when config and nbc cmd are absent'
         When run bash "$SCRIPT"
