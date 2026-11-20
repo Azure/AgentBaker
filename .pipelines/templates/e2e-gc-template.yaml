@@ -5,7 +5,10 @@ parameters:
     type: string
   - name: JOB_NAME
     type: string
-    default: "e2e_gc"
+    default: e2e_gc
+  - name: JOB_DISPLAY_NAME
+    type: string
+    default: "Garbage Collection"
   - name: DRY_RUN
     type: boolean
     default: false
@@ -15,7 +18,7 @@ parameters:
 
 jobs:
   - job: ${{ parameters.JOB_NAME }}
-    displayName: Garbage Collection
+    displayName: ${{ parameters.JOB_DISPLAY_NAME }}
     timeoutInMinutes: 0
     steps:
       - checkout: self

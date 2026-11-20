@@ -41,5 +41,7 @@ stages:
         parameters:
           ARM_SERVICE_CONNECTION: $(TME_ARM_SERVICE_CONNECTION)
           SUBSCRIPTION_ID: $(TME_RCV1P_E2E_SUBSCRIPTION_ID)
+          JOB_NAME: e2e_gc_rcv1p
+          JOB_DISPLAY_NAME: "Garbage Collection RCV1P"
           DRY_RUN: ${{ parameters.DRY_RUN }}
           NO_WAIT: ${{ parameters.NO_WAIT }}
