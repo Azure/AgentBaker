@@ -3,9 +3,11 @@
 package generalize
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -139,26 +141,30 @@ func (g *Generalizer) Run(ctx context.Context) error {
 	return nil
 }
 
-func (g *Generalizer) runCmd(ctx context.Context, name string, args ...string) error {
+// runCmd runs a command, copies its output to stderr, and returns the output.
+func (g *Generalizer) runCmd(ctx context.Context, name string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Stdout = os.Stderr
-	cmd.Stderr = os.Stderr
+	var output bytes.Buffer
+	w := io.MultiWriter(os.Stderr, &output)
+	cmd.Stdout = w
+	cmd.Stderr = w
 	run := g.RunCmd
 	if run == nil {
 		run = (*exec.Cmd).Run
 	}
 	if err := run(cmd); err != nil {
-		return fmt.Errorf("run %s: %w", cmd.String(), err)
+		return output.Bytes(), fmt.Errorf("run %s: %w", cmd.String(), err)
 	}
-	return nil
+	return output.Bytes(), nil
 }
 
 // disableContainerd makes clones start containerd only after CSE configures it.
 func (g *Generalizer) disableContainerd(ctx context.Context, _ map[string]string) error {
-	if err := g.runCmd(ctx, "systemctl", "daemon-reload"); err != nil {
+	if _, err := g.runCmd(ctx, "systemctl", "daemon-reload"); err != nil {
 		return err
 	}
-	return g.runCmd(ctx, "systemctl", "disable", "--now", "containerd")
+	_, err := g.runCmd(ctx, "systemctl", "disable", "--now", "containerd")
+	return err
 }
 
 func (g *Generalizer) removeBuildArtifacts(context.Context, map[string]string) error {
@@ -210,7 +216,26 @@ func (g *Generalizer) deprovisionAgent(ctx context.Context, _ map[string]string)
 	if err != nil {
 		return err
 	}
-	return g.runCmd(ctx, waagent, "-force", "-deprovision+user")
+	// Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service workers write
+	// to /var/lib/waagent/events and survive "stop" (KillMode=process), so kill them first. waagent stops
+	// only its own service; extensions and the log collector run in other units. All best effort.
+	for _, args := range [][]string{
+		{"kill", "--signal=SIGKILL", "gcd.service"},
+		{"disable", "--now", "gcd.service"},
+		{"stop", "walinuxagent.service", "waagent.service", "azure-walinuxagent-logcollector.slice", "azure-vmextensions.slice"},
+	} {
+		if _, stopErr := g.runCmd(ctx, "systemctl", args...); stopErr != nil {
+			slog.Info("stop WALinuxAgent state writers", "error", stopErr)
+		}
+	}
+
+	// waagent stops at the first failed cleanup action but still exits 0. Do not retry: a partial run can
+	// delete ovf-env.xml, and waagent then skips build-user deletion.
+	output, err := g.runCmd(ctx, waagent, "-force", "-deprovision+user")
+	if err == nil && bytes.Contains(output, []byte("Failed to run 'deprovision")) {
+		err = errors.New("waagent deprovision logged \"Failed to run 'deprovision\" but exited 0")
+	}
+	return err
 }
 
 // removeNvPCRAnchors removes systemd NvPCR anchors. Only builds with a vTPM have them. The SRK, NV
