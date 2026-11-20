@@ -216,8 +216,6 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 	writeUnderRoot(t, f.root, "/etc/machine-id", "id\n")
 	writeUnderRoot(t, f.root, config.ComponentsFilePath, testWALinuxAgentComponentsJSON)
 	writeUnderRoot(t, f.root, "/etc/waagent.conf", "AutoUpdate.Enabled=n\nAutoUpdate.UpdateToLatestVersion=y\n")
-	waagent := writeUnderRoot(t, f.root, "/usr/sbin/waagent", "#!/bin/sh\n")
-	require.NoError(t, os.Chmod(waagent, 0o755))
 	return f
 }
 
@@ -242,14 +240,13 @@ func TestGeneralizeImage(t *testing.T) {
 
 		require.NoError(t, f.run())
 
-		waagent := filepath.Join(f.root, "/usr/sbin/waagent")
 		assert.Equal(t, []string{
 			"systemctl daemon-reload",
 			"systemctl disable --now containerd",
 			"systemctl kill --signal=SIGKILL gcd.service",
 			"systemctl disable --now gcd.service",
 			"systemctl stop walinuxagent.service waagent.service azure-walinuxagent-logcollector.slice azure-vmextensions.slice",
-			waagent + " -force -deprovision+user",
+			"waagent -force -deprovision+user",
 			"systemctl stop walinuxagent.service waagent.service",
 		}, f.cmds)
 		for _, p := range append(append([]string{}, buildArtifactPaths...), nodeStatePaths...) {
@@ -285,7 +282,7 @@ func TestGeneralizeImage(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Join(f.root, filepath.Dir("/boot/flatcar/first_boot")), 0o755))
 
 			require.NoError(t, f.run(), osRelease)
-			assert.Contains(t, f.cmds, filepath.Join(f.root, "/usr/sbin/waagent")+" -force -deprovision+user", osRelease)
+			assert.Contains(t, f.cmds, "waagent -force -deprovision+user", osRelease)
 			assert.Zero(t, f.ws.requests.Load(), osRelease)
 			assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir), osRelease)
 		}
@@ -305,7 +302,7 @@ func TestGeneralizeImage(t *testing.T) {
 
 	t.Run("fails when waagent deprovision fails", func(t *testing.T) {
 		f := newImageModeFixture(t, "ID=ubuntu\n")
-		f.failCmd = filepath.Join(f.root, "/usr/sbin/waagent")
+		f.failCmd = "waagent"
 
 		assert.Error(t, f.run())
 		assert.Zero(t, f.ws.requests.Load())
@@ -317,13 +314,6 @@ func TestGeneralizeImage(t *testing.T) {
 
 		assert.ErrorContains(t, f.run(), "Failed to run 'deprovision")
 		assert.Zero(t, f.ws.requests.Load())
-	})
-
-	t.Run("fails when waagent is missing", func(t *testing.T) {
-		f := newImageModeFixture(t, "ID=ubuntu\n")
-		require.NoError(t, os.Remove(filepath.Join(f.root, "/usr/sbin/waagent")))
-
-		assert.Error(t, f.run())
 	})
 
 	t.Run("fails when the pinned agent cannot be downloaded", func(t *testing.T) {

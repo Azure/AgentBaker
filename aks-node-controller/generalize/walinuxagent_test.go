@@ -173,6 +173,8 @@ func TestFindWALinuxAgentZipURL(t *testing.T) {
 
 	_, err = findWALinuxAgentZipURL(manifest, "2.21")
 	require.Error(t, err, "version match must be exact")
+	_, err = findWALinuxAgentZipURL(manifest, "2.")
+	require.Error(t, err, "version match must be exact")
 	_, err = findWALinuxAgentZipURL([]byte("<bad"), "2.2")
 	require.Error(t, err)
 }
