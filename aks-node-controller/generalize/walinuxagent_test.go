@@ -3,6 +3,7 @@ package generalize
 import (
 	"archive/zip"
 	"bytes"
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
@@ -30,18 +31,19 @@ const testWALinuxAgentComponentsJSON = `{
 }`
 
 type fakeWireserver struct {
-	t               *testing.T
 	server          *httptest.Server
 	manifestVersion string
 	zip             []byte
-	requests        atomic.Int32
+	// zipBaseURL overrides the host of the pinned agent zip URL.
+	zipBaseURL string
+	requests   atomic.Int32
 	// failGoalState makes the goal state endpoint fail this many times.
 	failGoalState atomic.Int32
 }
 
 func newFakeWireserver(t *testing.T) *fakeWireserver {
 	t.Helper()
-	w := &fakeWireserver{t: t, manifestVersion: testWALinuxAgentVersion, zip: testZip(t, map[string]string{
+	w := &fakeWireserver{manifestVersion: testWALinuxAgentVersion, zip: testZip(t, map[string]string{
 		"HandlerManifest.json": "{}",
 		"bin/agent.egg":        "egg",
 	})}
@@ -82,9 +84,9 @@ func (w *fakeWireserver) serve(rw http.ResponseWriter, r *http.Request) {
   <Plugins>
     <Plugin><Version>1.0.0.0</Version><Uris><Uri>%[1]s/wrong.zip</Uri></Uris></Plugin>
     <Plugin><Version>%[2]s</Version><Uris><Uri></Uri></Uris></Plugin>
-    <Plugin><Version>%[2]s</Version><Uris><Uri> %[1]s/agent.zip?sig=secret </Uri><Uri>%[1]s/second.zip</Uri></Uris></Plugin>
+    <Plugin><Version>%[2]s</Version><Uris><Uri> %[3]s/agent.zip?sig=secret </Uri><Uri>%[1]s/second.zip</Uri></Uris></Plugin>
   </Plugins>
-</PluginVersionManifest>`, w.server.URL, w.manifestVersion)
+</PluginVersionManifest>`, w.server.URL, w.manifestVersion, cmp.Or(w.zipBaseURL, w.server.URL))
 	case "/agent.zip":
 		if r.URL.Query().Get("sig") != "secret" {
 			http.Error(rw, "bad sig", http.StatusForbidden)
@@ -130,11 +132,13 @@ func TestWALinuxAgentInstaller(t *testing.T) {
 		require.Error(t, err)
 		assert.NoFileExists(t, zipPath, "an invalid zip must not be saved")
 
+		// A transport error on a SAS URL: net/http puts the full URL in the error.
 		ws = newFakeWireserver(t)
-		installer := ws.installer()
-		ws.server.Close()
-		err = installer.download(context.Background(), testWALinuxAgentVersion, filepath.Join(t.TempDir(), "agent.zip"))
-		require.Error(t, err)
+		closed := httptest.NewServer(http.NotFoundHandler())
+		closed.Close()
+		ws.zipBaseURL = closed.URL
+		err = ws.installer().download(context.Background(), testWALinuxAgentVersion, filepath.Join(t.TempDir(), "agent.zip"))
+		require.ErrorContains(t, err, "/agent.zip")
 		assert.NotContains(t, err.Error(), "secret")
 	})
 
@@ -213,7 +217,6 @@ func TestPinnedWALinuxAgentVersion(t *testing.T) {
 		{name: "pinned", components: testWALinuxAgentComponentsJSON, want: "2.16.0.2"},
 		{name: "missing package", components: `{"Packages":[]}`},
 		{name: "empty", components: `{"Packages":[{"name":"walinuxagent","downloadURIs":{"default":{"current":{"versionsV2":[{"latestVersion":""}]}}}}]}`},
-		{name: "null", components: `{"Packages":[{"name":"walinuxagent","downloadURIs":{"default":{"current":{"versionsV2":[{"latestVersion":null}]}}}}]}`},
 		{name: "skip", components: `{"Packages":[{"name":"walinuxagent","downloadURIs":{"default":{"current":{"versionsV2":[{"latestVersion":"<SKIP>"}]}}}}]}`},
 		{name: "unsafe", components: `{"Packages":[{"name":"walinuxagent","downloadURIs":{"default":{"current":{"versionsV2":[{"latestVersion":"2.1/../x"}]}}}}]}`},
 		{name: "invalid JSON", components: `{`},

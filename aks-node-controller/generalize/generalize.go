@@ -101,13 +101,13 @@ type Generalizer struct {
 	// agent sees a changed VM unique ID and cleans its own goal-state, extension, and DHCP state before
 	// it handles the clone's goal state.
 	KeepAgent bool
-	// RunCmd runs external commands. If nil, Run uses (*exec.Cmd).Run.
-	RunCmd func(*exec.Cmd) error
 
 	// rootDir prefixes all paths for testing.
 	rootDir string
 	// installer overrides the wireserver client for testing.
 	installer *walinuxagentInstaller
+	// execCmd overrides (*exec.Cmd).Run for testing.
+	execCmd func(*exec.Cmd) error
 }
 
 // Run runs the generalize steps in order and stops at the first failure.
@@ -145,7 +145,7 @@ func (g *Generalizer) runCmd(ctx context.Context, name string, args ...string) (
 	w := io.MultiWriter(os.Stderr, &output)
 	cmd.Stdout = w
 	cmd.Stderr = w
-	run := g.RunCmd
+	run := g.execCmd
 	if run == nil {
 		run = (*exec.Cmd).Run
 	}
@@ -183,14 +183,11 @@ func (g *Generalizer) removeBuildArtifacts(context.Context, map[string]string) e
 // systemd, and the running VM keeps a valid file. The clone gets a new ID on boot.
 func (g *Generalizer) resetMachineID(context.Context, map[string]string) error {
 	machineID := g.path("/etc/machine-id")
-	f, err := os.OpenFile(machineID, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
+	//nolint:gosec // machine-id must stay world-readable
+	if err := os.WriteFile(machineID, nil, 0o644); err != nil {
 		return fmt.Errorf("reset %s: %w", machineID, err)
 	}
-	if err = f.Close(); err != nil {
-		return fmt.Errorf("reset %s: %w", machineID, err)
-	}
-	if err = os.Chmod(machineID, 0o644); err != nil {
+	if err := os.Chmod(machineID, 0o644); err != nil {
 		return fmt.Errorf("chmod %s: %w", machineID, err)
 	}
 	slog.Info("reset machine-id", "path", machineID)
@@ -255,8 +252,8 @@ func removeNvPCRCredentials(dir string) error {
 			continue
 		}
 		path := filepath.Join(dir, e.Name())
-		if err = removeIfExists(path); err != nil {
-			return err
+		if err = os.RemoveAll(path); err != nil {
+			return fmt.Errorf("remove %s: %w", path, err)
 		}
 		slog.Info("removed NvPCR anchor", "path", path)
 	}

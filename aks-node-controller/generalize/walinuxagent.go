@@ -27,10 +27,7 @@ import (
 // after it, because deprovision removes /var/lib/waagent. The daemon then starts this version from
 // disk, so a new node does not download the agent.
 const (
-	walinuxagentStateDir    = "/var/lib/waagent"
-	walinuxagentDownloadDir = "/opt/walinuxagent/downloads"
-	wireServerIP            = "168.63.129.16"
-
+	walinuxagentStateDir      = "/var/lib/waagent"
 	walinuxagentFetchAttempts = 10
 )
 
@@ -50,10 +47,9 @@ type walinuxagentInstaller struct {
 }
 
 func defaultWALinuxAgentInstaller() *walinuxagentInstaller {
-	transport, _ := http.DefaultTransport.(*http.Transport)
 	return &walinuxagentInstaller{
-		client:        &http.Client{Transport: transport.Clone(), Timeout: 60 * time.Second},
-		wireserverURL: "http://" + wireServerIP + ":80",
+		client:        &http.Client{Timeout: 60 * time.Second},
+		wireserverURL: "http://168.63.129.16",
 		retryDelay:    5 * time.Second,
 	}
 }
@@ -98,15 +94,21 @@ func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease m
 	if err = configureWALinuxAgentAutoUpdate(g.path("/etc/waagent.conf")); err != nil {
 		return err
 	}
-	if err = appendFile(g.path("/opt/azure/vhd-install.complete"), fmt.Sprintf("  - WALinuxAgent version %s\n", version)); err != nil {
-		return err
+	manifest := g.path("/opt/azure/vhd-install.complete")
+	f, err := os.OpenFile(manifest, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", manifest, err)
+	}
+	_, err = fmt.Fprintf(f, "  - WALinuxAgent version %s\n", version)
+	if err = errors.Join(err, f.Close()); err != nil {
+		return fmt.Errorf("write %s: %w", manifest, err)
 	}
 	slog.Info("installed pinned WALinuxAgent", "version", version)
 	return nil
 }
 
 func (g *Generalizer) walinuxagentZipPath(version string) string {
-	return g.path(filepath.Join(walinuxagentDownloadDir, "WALinuxAgent-"+version+".zip"))
+	return g.path(filepath.Join("/opt/walinuxagent/downloads", "WALinuxAgent-"+version+".zip"))
 }
 
 // pinnedWALinuxAgentVersion returns the WALinuxAgent version from components.json. It returns "" on
@@ -221,50 +223,42 @@ func (w *walinuxagentInstaller) download(ctx context.Context, version, zipPath s
 	return nil
 }
 
+// fetch is the only exit for request errors, so it redacts every URL query that they contain.
 func (w *walinuxagentInstaller) fetch(ctx context.Context, rawURL string, headers map[string]string) ([]byte, error) {
-	var lastErr error
-	for attempt := 1; attempt <= walinuxagentFetchAttempts; attempt++ {
-		var body []byte
-		body, lastErr = w.fetchOnce(ctx, rawURL, headers)
-		if lastErr == nil {
+	for attempt := 1; ; attempt++ {
+		body, err := w.fetchOnce(ctx, rawURL, headers)
+		if err == nil {
 			return body, nil
 		}
 		if attempt == walinuxagentFetchAttempts {
-			break
+			return nil, fmt.Errorf("fetch %s after %d attempts: %s", stripURLQuery(rawURL), attempt,
+				redactURLQueries(err.Error()))
 		}
-		timer := time.NewTimer(w.retryDelay)
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return nil, ctx.Err()
-		case <-timer.C:
+		case <-time.After(w.retryDelay):
 		}
 	}
-	return nil, fmt.Errorf("fetch %s after %d attempts: %s", stripURLQuery(rawURL), walinuxagentFetchAttempts,
-		redactURLQueries(lastErr.Error()))
 }
 
 func (w *walinuxagentInstaller) fetchOnce(ctx context.Context, rawURL string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, unwrapURLError(err)
+		return nil, err
 	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
 	resp, err := w.client.Do(req)
 	if err != nil {
-		return nil, unwrapURLError(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("unexpected HTTP status %s", resp.Status)
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, unwrapURLError(err)
-	}
-	return body, nil
+	return io.ReadAll(resp.Body)
 }
 
 // findWALinuxAgentZipURL returns the first Uri of the first Plugin whose Version is version. The
@@ -329,10 +323,6 @@ func pruneStaleWALinuxAgentDirs(stateDir, version string) error {
 }
 
 func configureWALinuxAgentAutoUpdate(confPath string) error {
-	info, err := os.Stat(confPath)
-	if err != nil {
-		return fmt.Errorf("stat %s: %w", confPath, err)
-	}
 	data, err := os.ReadFile(confPath)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", confPath, err)
@@ -343,7 +333,12 @@ func configureWALinuxAgentAutoUpdate(confPath string) error {
 	if conf == string(data) {
 		return nil
 	}
-	return writeFileKeepMode(confPath, []byte(conf), info.Mode().Perm())
+	// The file exists, so WriteFile keeps its mode.
+	//nolint:gosec // fixed image path
+	if err = os.WriteFile(confPath, []byte(conf), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", confPath, err)
+	}
+	return nil
 }
 
 // setWAAgentConfOption replaces key=from with key=to everywhere, and appends key=to if no line sets key.
@@ -360,30 +355,6 @@ func setWAAgentConfOption(conf, key, from, to string) string {
 	return conf + key + "=" + to + "\n"
 }
 
-func appendFile(p, content string) error {
-	f, err := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
-	if err != nil {
-		return fmt.Errorf("open %s: %w", p, err)
-	}
-	_, err = f.WriteString(content)
-	return errors.Join(err, f.Close())
-}
-
-func writeFileKeepMode(p string, content []byte, mode fs.FileMode) error {
-	//nolint:gosec // p is a fixed image path; mode is the existing file mode
-	if err := os.WriteFile(p, content, mode); err != nil {
-		return fmt.Errorf("write %s: %w", p, err)
-	}
-	return nil
-}
-
-func removeIfExists(p string) error {
-	if err := os.Remove(p); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("remove %s: %w", p, err)
-	}
-	return nil
-}
-
 func stripURLQuery(rawURL string) string {
 	before, _, _ := strings.Cut(rawURL, "?")
 	return before
@@ -391,13 +362,4 @@ func stripURLQuery(rawURL string) string {
 
 func redactURLQueries(s string) string {
 	return urlQueryPattern.ReplaceAllString(s, "$1?<redacted>")
-}
-
-// unwrapURLError drops the full request URL from net/http errors, because it can contain a SAS token.
-func unwrapURLError(err error) error {
-	var urlErr *url.Error
-	if errors.As(err, &urlErr) {
-		return urlErr.Err
-	}
-	return err
 }
