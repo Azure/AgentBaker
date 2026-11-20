@@ -148,8 +148,8 @@ func TestVMSizeSKUReusesRegionalCatalogue(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Header:     http.Header{"Content-Type": {"application/json"}},
 					Body: io.NopCloser(strings.NewReader(`{"value":[
-						{"name":"size-a","resourceType":"virtualMachines"},
-						{"name":"size-b","resourceType":"virtualMachines"}
+						{"name":"size-a","resourceType":"virtualMachines","capabilities":[{"name":"CpuArchitectureType","value":"x64"}]},
+						{"name":"size-b","resourceType":"virtualMachines","capabilities":[{"name":"CpuArchitectureType","value":"Arm64"}]}
 					]}`)),
 					Request: req,
 				}
@@ -176,6 +176,15 @@ func TestVMSizeSKUReusesRegionalCatalogue(t *testing.T) {
 		assert.Equal(t, strings.ToLower(test.size), *sku.Name)
 	}
 	assert.Equal(t, 1, calls)
+	arch, err := VMSizeArchitecture(t.Context(), location, "SIZE-A")
+	require.NoError(t, err)
+	assert.Equal(t, "amd64", arch)
+	arch, err = VMSizeArchitecture(t.Context(), strings.ToLower(location), "size-b")
+	require.NoError(t, err)
+	assert.Equal(t, "arm64", arch)
+	assert.Equal(t, 1, calls, "architecture selection must reuse the provisioning catalogue")
+	_, err = VMSizeArchitecture(t.Context(), location, "missing-size")
+	require.ErrorContains(t, err, `VM size "missing-size" not found in location`)
 	_, err = getVMSizeSKU(t.Context(), location, "missing-size")
 	require.ErrorContains(t, err, `VM size "missing-size" not found in location`)
 	assert.Equal(t, 1, calls)

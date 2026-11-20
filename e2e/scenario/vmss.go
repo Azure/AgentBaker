@@ -669,16 +669,44 @@ func createVMSSModel(ctx context.Context, s *Scenario) (armcompute.VirtualMachin
 		return armcompute.VirtualMachineScaleSet{}, err
 	}
 
-	if s.Config.UseNVMe {
-		if model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil ||
-			model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings == nil {
-			return armcompute.VirtualMachineScaleSet{}, fmt.Errorf("VMSS model is missing diff disk settings required for NVMe placement")
-		}
-		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	if err := configureOSDisk(ctx, s, &model); err != nil {
+		return armcompute.VirtualMachineScaleSet{}, err
 	}
 	return model, nil
+}
+
+func configureOSDisk(ctx context.Context, s *Scenario, model *armcompute.VirtualMachineScaleSet) error {
+	if model == nil || model.Properties == nil || model.Properties.VirtualMachineProfile == nil ||
+		model.Properties.VirtualMachineProfile.StorageProfile == nil ||
+		model.Properties.VirtualMachineProfile.StorageProfile.OSDisk == nil {
+		return fmt.Errorf("VMSS model is missing OS disk settings")
+	}
+	osDisk := model.Properties.VirtualMachineProfile.StorageProfile.OSDisk
+	// Preserve managed disks explicitly selected by a scenario or the VHD bake phase.
+	if osDisk.DiffDiskSettings == nil {
+		return nil
+	}
+	if model.SKU == nil || model.SKU.Name == nil || *model.SKU.Name == "" {
+		return fmt.Errorf("VMSS model is missing a VM size for OS disk capability lookup")
+	}
+	vmSize := *model.SKU.Name
+	sku, err := getVMSizeSKU(ctx, s.Location, vmSize)
+	if err != nil {
+		return fmt.Errorf("checking ephemeral OS disk support for %q: %w", vmSize, err)
+	}
+	supported, err := config.SkuSupportsEphemeralOSDisk(sku)
+	if err != nil {
+		return fmt.Errorf("checking ephemeral OS disk support for %q: %w", vmSize, err)
+	}
+	if !supported {
+		osDisk.DiffDiskSettings = nil
+		logging.Logf(ctx, "VM size %q does not support ephemeral OS disks; using a managed OS disk", vmSize)
+		return nil
+	}
+	if s.Config.UseNVMe {
+		osDisk.DiffDiskSettings.Placement = to.Ptr(armcompute.DiffDiskPlacementNvmeDisk)
+	}
+	return nil
 }
 
 func usesScriptlessNBCCSECmd(s *Scenario) bool {
@@ -1434,7 +1462,7 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 		}
 		return nil
 	}
-	_, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
+	poller, err := config.Azure.VMSS.BeginDelete(ctx, *s.Runtime.Cluster.Model.Properties.NodeResourceGroup, s.Runtime.VMSSName, &armcompute.VirtualMachineScaleSetsClientBeginDeleteOptions{
 		ForceDeletion: to.Ptr(true),
 	})
 	if err != nil {
@@ -1443,6 +1471,11 @@ func deleteVMSS(ctx context.Context, s *Scenario) error {
 			return nil
 		}
 		return fmt.Errorf("begin deleting vmss %q: %w", s.Runtime.VMSSName, err)
+	}
+	if config.Config.AdHocSKUValidation {
+		if _, err := poller.PollUntilDone(ctx, config.PollUntilDoneOptions()); err != nil {
+			return fmt.Errorf("wait for ad-hoc vmss %q deletion: %w", s.Runtime.VMSSName, err)
+		}
 	}
 	return nil
 }

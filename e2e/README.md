@@ -240,7 +240,8 @@ build's image, and the general Windows E2E job, using the main-tagged test image
 ## VM size configuration
 
 Resource SKU catalogues are loaded once per location using the runner's single
-Azure client. Gen2, NVMe, and fallback-size checks share all pages of that catalogue.
+Azure client. Architecture, Gen2, NVMe, ephemeral-disk and fallback-size checks
+share all pages of that catalogue.
 
 The general VM size defaults to `Standard_D2ds_v5`. Set it with `--vm-sku` or
 `DEFAULT_VM_SKU`.
@@ -255,6 +256,13 @@ The four MANA (Microsoft Azure Network Adapter) scenarios use a separate VM size
 which defaults to `Standard_D2ds_v6`. Set it with `--mana-vm-sku` or `MANA_VM_SKU`.
 Choose a size that supports MANA and NVMe. This setting controls both the bootstrap
 configuration and the VMSS SKU. Command-line arguments take precedence over environment variables.
+
+After scenario VMSS mutations, the runner checks the final VM size's
+`EphemeralOSDiskSupported` capability using the shared regional SKU catalogue.
+Unsupported sizes use managed OS disks, including NVMe sizes without local storage;
+NVMe controller support does not imply ephemeral OS disk support. Supported sizes
+retain their ephemeral disk configuration, and explicitly selected managed disks
+remain managed. Missing or invalid capability metadata fails explicitly.
 
 ## ACL COSI Validation
 
@@ -309,6 +317,73 @@ the enclosing VM lifecycle deadline.
 
 Run offline unit tests with `go test -short ./...` from this directory. Live
 four-variant builds and update scenarios require the pipeline service connections.
+
+### Daily VM-series coverage (v7 and later)
+
+The normal `.pipelines/e2e.yaml` and default TME E2E behavior are unchanged.
+The daily orchestration in `aks-rp` adds a separate VM-series lane using an
+`ABE2E_VM_SKUS` roster. Each entry names a `jobName`, `vmSize`, and optional
+`location` / `subscriptionId`; it runs through the existing TME child pipeline
+with its `vmSeriesCoverage: true` template parameter. The roster is deliberately
+empty by default until the release owner chooses representative SKUs. Future
+v8/v9 names use the same path; no generation is hardcoded in selection.
+
+The runner's `--vm-series-coverage` (`VM_SERIES_COVERAGE=true`) determines
+architecture from the requested SKU's `CpuArchitectureType` in the Resource SKUs
+API. It selects the union of `VMSeriesCoverageTest` and `KernelCoverageTest`
+representatives for that architecture and the build's `--vm-series-os`
+(`VM_SERIES_OS=linux|windows`). Existing `--tags` / `--skip-tags` filters still
+apply, including exact-name filters used by retry tooling. A mismatched/empty
+selection fails explicitly; it cannot become a green zero-test run.
+
+| Daily build cohort | Representative coverage |
+|---|---|
+| Linux amd64 | Ubuntu 22.04 (including FIPS), 24.04, 26.04 Minimal; Azure Linux 3 (including FIPS); Azure Container Linux / FIPS |
+| Linux arm64 | Ubuntu 22.04, 24.04, 26.04 Minimal; Azure Linux 3 / FIPS; Azure Container Linux / FIPS |
+| Windows amd64 | Windows Server 2022 Gen2, 2025 Gen2, and 2025 Gen2 Trusted Launch |
+| Windows arm64 | Unsupported; use only amd64 SKUs in the Windows roster |
+
+These are representative bootstrap/common-validation configurations, not every
+feature scenario. Gen1, specialized GPU/Kata, retired images and Ubuntu ARM64 FIPS
+are not included. Linux and Windows daily definitions run independently against
+their own `VHD_BUILD_ID`; Linux coverage does not claim to have tested Windows
+images from a different build. A partially built image cohort must be narrowed
+with explicit filters or missing required images fail the lane.
+
+VM-series runs require scenario concurrency 1, reject `--keep-vmss`, enforce the
+requested SKU after all scenario mutations, and wait for VMSS deletion before
+starting the next scenario. `--system-pool-vm-sku` (`SYSTEM_POOL_VM_SKU`) defaults
+to `Standard_D2ds_v5`, keeping persistent system nodes out of the target SKU
+family; explicit scenario system-pool overrides are preserved. The orchestration
+matrix also uses `maxParallel: 1`, so even multiple sizes in one quota family
+run serially within that build. This is not a cross-pipeline quota reservation:
+overlapping daily/manual runs must still respect regional and family headroom.
+
+The TME VM-series mode uses a 210-minute suite / 240-minute job limit and no
+automatic child scenario retries. Normal/RCV1P jobs retain their own retry policy.
+Each Linux representative logs `/etc/os-release` and `uname -rm`; JUnit and
+scenario artifacts distinguish passes, failures, filtered images and observed
+kernel versions. The caller supplies the VHD build ID rather than floating to
+latest-main images.
+
+Shared-infrastructure startup no longer deletes apparently orphaned subnets:
+an empty subnet whose cluster is not yet visible can belong to an in-flight
+create. Remove truly unused subnets only through separately coordinated
+maintenance with ownership/age checks. Older runner branches can still contain
+the unsafe cleanup, so avoid overlapping with those until rolled forward.
+
+### Ad-hoc strict SKU validation
+
+`ADHOC_SKU_VALIDATION=true` (`--adhoc-sku-validation`) overrides scenario-specific
+VM sizes in both bootstrap inputs and the final VMSS model. It rejects Gen1/SCSI
+image fallbacks and waits for VMSS deletion before releasing the scenario's
+concurrency slot. This mode must only be used with scenarios and images compatible
+with the requested architecture and hardware capabilities. It does not alter the
+shared AKS system-pool SKU.
+
+The strict flag defaults to disabled and is automatically enabled by VM-series
+coverage. `E2E_PARALLEL` overrides pipeline scenario concurrency; the normal
+pipeline defaults to 60.
 
 ## Gallery replication
 
