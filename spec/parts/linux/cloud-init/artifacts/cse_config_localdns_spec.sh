@@ -439,4 +439,87 @@ OVERRIDE_EOF
             The output should include "aks-localdns-hosts-setup timer enabled successfully."
         End
     End
+
+    Describe 'configureLocalDNSExporterSocket'
+        setup() {
+            TEST_TEMP_DIR=$(mktemp -d)
+            LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR="${TEST_TEMP_DIR}/localdns-exporter.socket.d"
+            DROPIN_FILE="${LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR}/10-listen-address.conf"
+            NODE_IP="10.224.0.4"
+            SOCKET_UNIT_EXISTS=true
+            ENABLE_FAILS=false
+
+            get_primary_nic_ip() {
+                echo "${NODE_IP}"
+            }
+            systemctl() {
+                case "$1" in
+                    cat) [ "${SOCKET_UNIT_EXISTS}" = true ] ;;
+                    *) echo "systemctl $*" ;;
+                esac
+            }
+            systemctlEnableAndStartNoBlock() {
+                echo "systemctlEnableAndStartNoBlock $*"
+                [ "${ENABLE_FAILS}" = false ]
+            }
+            export LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR
+        }
+
+        cleanup() {
+            rm -rf "$TEST_TEMP_DIR"
+            unset LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR DROPIN_FILE NODE_IP SOCKET_UNIT_EXISTS ENABLE_FAILS
+        }
+
+        BeforeEach 'setup'
+        AfterEach 'cleanup'
+
+        It 'should bind the exporter socket to the node IP'
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "creating socket drop-in to bind to 10.224.0.4:9353"
+            The output should include "systemctl daemon-reload"
+            The output should include "systemctlEnableAndStartNoBlock localdns-exporter.socket 30"
+            The contents of file "$DROPIN_FILE" should include "ListenStream=10.224.0.4:9353"
+        End
+
+        It 'should clear the VHD default listen address before setting the node IP'
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "creating socket drop-in"
+            The line 2 of contents of file "$DROPIN_FILE" should equal "ListenStream="
+            The line 3 of contents of file "$DROPIN_FILE" should equal "ListenStream=10.224.0.4:9353"
+        End
+
+        It 'should set FreeBind so the socket survives reboot before DHCP assigns the node IP'
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "creating socket drop-in"
+            The contents of file "$DROPIN_FILE" should include "FreeBind=yes"
+        End
+
+        It 'should keep the VHD default binding when the node IP is unavailable'
+            NODE_IP=""
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "get_primary_nic_ip returned empty, using VHD default (0.0.0.0:9353)"
+            The output should include "systemctlEnableAndStartNoBlock localdns-exporter.socket 30"
+            The file "$DROPIN_FILE" should not be exist
+        End
+
+        It 'should skip everything when the socket unit is not on the VHD'
+            SOCKET_UNIT_EXISTS=false
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "socket unit not found on this VHD, skipping"
+            The output should not include "systemctlEnableAndStartNoBlock"
+            The directory "$LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR" should not be exist
+        End
+
+        It 'should warn but not fail provisioning when the socket cannot be enabled'
+            ENABLE_FAILS=true
+            When call configureLocalDNSExporterSocket
+            The status should be success
+            The output should include "WARNING: Failed to enable localdns-exporter.socket"
+        End
+    End
 End
