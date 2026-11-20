@@ -56,23 +56,20 @@ var buildArtifactPaths = []string{
 	"/opt/azure/containers/imds_instance_metadata_cache.json",
 	// Prevents build-time extension logs and telemetry from shipping on the OS disk.
 	"/var/log/azure/Microsoft.Azure.Extensions.CustomScript",
+	// systemd NvPCR anchors are bound to the build VM's TPM; a clone creates its own at boot.
+	// The SRK, NV indices, disk-encryption keys, and other system credentials stay intact.
+	"/var/lib/systemd/nvpcr/nvpcr-anchor.cred",
+	"/run/systemd/nvpcr/nvpcr-anchor.cred",
 }
 
-// nvpcrAnchorPaths and nvpcrCredentialDirs hold the systemd NvPCR anchor. The anchor is bound to
-// the TPM of the build VM, so a clone must create its own.
+// nvpcrCredentialDirs hold boot-loader copies of the NvPCR anchor (nvpcr-anchor.*.cred).
 //
 //nolint:gochecknoglobals // read-only list
-var (
-	nvpcrAnchorPaths = []string{
-		"/var/lib/systemd/nvpcr/nvpcr-anchor.cred",
-		"/run/systemd/nvpcr/nvpcr-anchor.cred",
-	}
-	nvpcrCredentialDirs = []string{
-		"/boot/loader/credentials",
-		"/boot/efi/loader/credentials",
-		"/efi/loader/credentials",
-	}
-)
+var nvpcrCredentialDirs = []string{
+	"/boot/loader/credentials",
+	"/boot/efi/loader/credentials",
+	"/efi/loader/credentials",
+}
 
 type generalizeStep struct {
 	name string
@@ -92,7 +89,6 @@ func (g *Generalizer) steps() []generalizeStep {
 		{name: "ResetACLFirstBoot", run: g.resetACLFirstBoot},
 		{name: "DeprovisionAgent", imageOnly: true, run: g.deprovisionAgent},
 		{name: "InstallPinnedAgent", imageOnly: true, run: g.installPinnedWALinuxAgent},
-		{name: "RemoveNvPCRAnchors", imageOnly: true, run: g.removeNvPCRAnchors},
 		{name: "Sync", run: func(context.Context, map[string]string) error { syncFilesystems(); return nil }},
 	}
 }
@@ -175,6 +171,11 @@ func (g *Generalizer) removeBuildArtifacts(context.Context, map[string]string) e
 			return fmt.Errorf("remove %s: %w", path, err)
 		}
 	}
+	for _, d := range nvpcrCredentialDirs {
+		if err := removeNvPCRCredentials(g.path(d)); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -235,30 +236,9 @@ func (g *Generalizer) deprovisionAgent(ctx context.Context, _ map[string]string)
 	return err
 }
 
-// removeNvPCRAnchors removes systemd NvPCR anchors. Only builds with a vTPM have them. The SRK, NV
-// indices, disk-encryption keys, and other system credentials stay intact.
-func (g *Generalizer) removeNvPCRAnchors(context.Context, map[string]string) error {
-	for _, p := range nvpcrAnchorPaths {
-		path := g.path(p)
-		if err := os.Remove(path); err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				continue
-			}
-			return fmt.Errorf("remove %s: %w", path, err)
-		}
-		slog.Info("removed NvPCR anchor", "path", path)
-	}
-	for _, d := range nvpcrCredentialDirs {
-		if err := removeNvPCRCredentials(g.path(d)); err != nil {
-			return err
-		}
-	}
-	// /run/credentials/@encrypted is a RAM-only boot import. Removing its boot source above prevents
-	// a reimport.
-	return nil
-}
-
 // removeNvPCRCredentials removes top-level anchor files and symlinks in dir. A missing dir is not an error.
+// The match ignores case because the ESP is FAT. /run/credentials/@encrypted is a RAM-only boot import;
+// removing its boot source here prevents a reimport.
 func removeNvPCRCredentials(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
