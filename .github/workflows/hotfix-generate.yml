@@ -5,7 +5,7 @@ name: Hotfix Template Update
 #   - Changed CSE scripts are injected into nodecustomdata.yml and rendered into
 #     platform-specific YAML files for embedded ANC delivery.
 #   - Script changes set `scripts_version` for legacy customData delivery;
-#     --use-anc-for-scripts also sets `hotfixes` for VHD bases from 202611.22.
+#     --use-anc-for-scripts also sets `hotfixes` for VHD bases from 202611.13.
 #   - Writes the result to
 #     parts/linux/cloud-init/artifacts/aks-node-controller-hotfix.json (embedded
 #     directly into scriptless customData by pkg/agent/baker.go).

@@ -65,8 +65,8 @@ class HotfixGenerateTests(unittest.TestCase):
         legacy_payloads = {}
 
         for base, use_anc in (
-            ("202611.21", False), ("202611.21", True),
-            ("202611.22", False), ("202611.22", True),
+            ("202611.12", False), ("202611.12", True),
+            ("202611.13", False), ("202611.13", True),
         ):
             with self.subTest(base=base, use_anc=use_anc), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
@@ -163,7 +163,7 @@ class HotfixGenerateTests(unittest.TestCase):
                         generate("HEAD")
                         version = f"{base}.{patch}"
                         expected = {"scripts_version": version}
-                        if use_anc and base == "202611.22":
+                        if use_anc and base == "202611.13":
                             expected["hotfixes"] = {base: version}
                         self.assertEqual(
                             expected,
@@ -737,12 +737,12 @@ write_files:
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
-            return_value="202611.22.1",
+            return_value="202611.13.1",
         ):
             self.assertEqual(
-                ("", "202611.22.1"),
+                ("", "202611.13.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202611.22.0",
+                    "202611.13.0",
                     anc_changed=False,
                     script_hotfix_changed=True,
                     use_anc_for_scripts=False,
@@ -752,9 +752,9 @@ write_files:
     def test_resolve_hotfix_versions_gates_script_anc_delivery_by_vhd_base(self):
         for base, enabled in (
             ("202607.10", False),
-            ("202611.21", False),
-            ("202611.22", True),
-            ("202611.23", True),
+            ("202611.12", False),
+            ("202611.13", True),
+            ("202611.14", True),
             ("202701.01", True),
         ):
             with self.subTest(base=base), mock.patch.object(
@@ -772,12 +772,12 @@ write_files:
 
     def test_old_vhd_keeps_independent_anc_hotfix_with_scripts(self):
         with mock.patch.object(
-            hotfix_generate, "bump_version", return_value="202611.21.1"
+            hotfix_generate, "bump_version", return_value="202611.12.1"
         ):
             self.assertEqual(
-                ("202611.21.1", "202611.21.1"),
+                ("202611.12.1", "202611.12.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202611.21.0", anc_changed=True, script_hotfix_changed=True,
+                    "202611.12.0", anc_changed=True, script_hotfix_changed=True,
                     use_anc_for_scripts=True,
                 ),
             )
