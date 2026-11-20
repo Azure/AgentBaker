@@ -751,6 +751,7 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
+	funcMap["ShellQuote"] = shellQuote
 
 	funcMap["GetCloudInitFileEncodingLine"] = func() string {
 		return getCloudInitFileEncodingLine(config)

@@ -935,6 +935,7 @@ providers:
         BeforeEach 'setup'
         setup() {
             SHOULD_ENFORCE_KUBE_PMC_INSTALL=""
+            CUSTOM_KUBE_BINARY_URL=""
             CUSTOM_KUBE_BINARY_DOWNLOAD_URL=""
             PRIVATE_KUBE_BINARY_DOWNLOAD_URL=""
             BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER=""
@@ -946,6 +947,28 @@ providers:
             OS="UBUNTU"
             Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_helpers_ubuntu.sh"
             Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
+
+            It 'should honor the custom kube binary URL emitted by CSE for package-based versions'
+                installKubeletKubectlFromPkg() {
+                    echo "installKubeletKubectlFromPkg $1"
+                }
+                CUSTOM_KUBE_BINARY_URL="https://example.invalid/kubernetes-node-linux-amd64.tar.gz"
+                KUBERNETES_VERSION="1.34.12"
+                SHOULD_ENFORCE_KUBE_PMC_INSTALL="true"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
+
+            It 'should prioritize the emitted custom URL over the bootstrap registry'
+                CUSTOM_KUBE_BINARY_URL="https://example.invalid/kubernetes-node-linux-amd64.tar.gz"
+                KUBERNETES_VERSION="1.35.0"
+                BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER="example.azurecr.io"
+                When call configureKubeletAndKubectl
+                The output should include "installKubeletKubectlFromURL"
+                The output should not include "installKubeletKubectlFromBootstrapProfileRegistry"
+                The output should not include "installKubeletKubectlFromPkg"
+            End
 
             # Test cases for URL installation (first condition)
             It 'should install from URL if CUSTOM_KUBE_BINARY_DOWNLOAD_URL is set'
