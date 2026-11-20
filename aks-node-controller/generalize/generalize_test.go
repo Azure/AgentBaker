@@ -94,7 +94,7 @@ func TestGeneralize(t *testing.T) {
 		writeUnderRoot(t, root, config.OSReleasePath, "ID=ubuntu\n")
 		writeUnderRoot(t, root, "/etc/machine-id", "id\n")
 		artifact := writeUnderRoot(t, root, buildArtifactPaths[0], "key")
-		anchor := writeUnderRoot(t, root, nvpcrAnchorPaths[0], "cred")
+		anchor := writeUnderRoot(t, root, "/boot/loader/credentials/nvpcr-anchor.abc.cred", "cred")
 
 		require.NoError(t, g.Run(context.Background()))
 		assert.Empty(t, cmds)
@@ -325,15 +325,15 @@ func TestGeneralizeImage(t *testing.T) {
 	})
 }
 
-func TestRemoveNvPCRAnchors(t *testing.T) {
+func TestRemoveBuildArtifactsNvPCR(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("generalize is Linux-only")
 	}
 	root := t.TempDir()
 	g := &Generalizer{rootDir: root}
 	anchors := []string{
-		writeUnderRoot(t, root, nvpcrAnchorPaths[0], "x"),
-		writeUnderRoot(t, root, nvpcrAnchorPaths[1], "x"),
+		writeUnderRoot(t, root, "/var/lib/systemd/nvpcr/nvpcr-anchor.cred", "x"),
+		writeUnderRoot(t, root, "/run/systemd/nvpcr/nvpcr-anchor.cred", "x"),
 		writeUnderRoot(t, root, "/boot/loader/credentials/nvpcr-anchor.abc.cred", "x"),
 		writeUnderRoot(t, root, "/efi/loader/credentials/NVPCR-ANCHOR.def.cred", "x"),
 	}
@@ -343,11 +343,12 @@ func TestRemoveNvPCRAnchors(t *testing.T) {
 	kept := []string{
 		writeUnderRoot(t, root, "/boot/loader/credentials/other.cred", "x"),
 		writeUnderRoot(t, root, "/boot/loader/credentials/sub/nvpcr-anchor.nested.cred", "x"),
+		writeUnderRoot(t, root, "/var/lib/systemd/tpm2-srk-public-key.pem", "x"),
 		target,
 	}
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "/boot/loader/credentials/nvpcr-anchor.dir.cred"), 0o755))
 
-	require.NoError(t, g.removeNvPCRAnchors(context.Background(), nil))
+	require.NoError(t, g.removeBuildArtifacts(context.Background(), nil))
 	for _, p := range append(anchors, link) {
 		assert.NoFileExists(t, p)
 	}
@@ -356,9 +357,12 @@ func TestRemoveNvPCRAnchors(t *testing.T) {
 	}
 	assert.DirExists(t, filepath.Join(root, "/boot/loader/credentials/nvpcr-anchor.dir.cred"))
 	// A repeated run, with /boot/efi/loader/credentials missing, succeeds.
-	require.NoError(t, g.removeNvPCRAnchors(context.Background(), nil))
+	require.NoError(t, g.removeBuildArtifacts(context.Background(), nil))
 
-	// A failed removal propagates.
-	writeUnderRoot(t, root, filepath.Join(nvpcrAnchorPaths[0], "child"), "x")
-	require.Error(t, g.removeNvPCRAnchors(context.Background(), nil))
+	// A failed credential-dir read propagates.
+	require.NoError(t, os.Chmod(filepath.Join(root, "/boot/loader/credentials"), 0o000))
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "/boot/loader/credentials"), 0o755) })
+	if os.Geteuid() != 0 {
+		require.Error(t, g.removeBuildArtifacts(context.Background(), nil))
+	}
 }
