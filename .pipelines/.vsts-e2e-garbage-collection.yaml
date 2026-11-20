@@ -7,7 +7,7 @@ parameters:
     type: boolean
     default: false
   - name: NO_WAIT
-    displayName: Wait for resource deletion
+    displayName: Don't wait for resource deletion
     type: boolean
     default: true
 
