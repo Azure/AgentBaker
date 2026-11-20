@@ -13,8 +13,9 @@ parameters:
       - acldevel
       - aclstaging
   # The Run pipeline form marks a string parameter whose default is "" as required,
-  # so these default to a single space. Leave the space to keep the pinned versions;
-  # values are trimmed where they're used.
+  # so these default to a single space. Leave the space to keep the pinned versions
+  # for acg and acldevel; aclstaging has no pins and needs a version. Values are
+  # trimmed where they're used.
   - name: ACL_BASE_IMAGE_VERSION
     displayName: ACL base image version override - shared fallback
     type: string
@@ -1161,7 +1162,9 @@ stages:
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       VHD_BUILD_ID: $(Build.BuildId)
-      TAGS_TO_SKIP: "os=windows"
+      # A candidate's (aclstaging) GPU sysexts reach MCR only when ACL publishes
+      # it, and GPU scenarios pull them from there, so a candidate run skips them.
+      TAGS_TO_SKIP: ${{ iif(eq(parameters.ACL_BASE_IMAGE_SOURCE, 'aclstaging'), 'os=windows,gpu=true', 'os=windows') }}
       # VHD already contains the binary under test; skip the compile+download hack.
       DISABLE_SCRIPTLESS_COMPILATION: true
     jobs:
