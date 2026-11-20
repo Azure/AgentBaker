@@ -307,11 +307,10 @@ func (t *TemplateGenerator) getScriptlessConfiguration(config *datamodel.NodeBoo
 
 	// Use an ordered slice (not a map) so the rendered customData is deterministic
 	// across runs/tests instead of depending on Go's randomized map iteration order.
-	encodedFiles := []encodedFile{
+	return []encodedFile{
 		{aksNbcCmdFilepath, encodedNBCCMD},
 		{aksNodeConfigFilepath, encodedAKSNodeConfig},
 	}
-	return encodedFiles
 }
 
 func supportsScriptlessProvisioning(config *datamodel.NodeBootstrappingConfiguration) bool {
@@ -789,6 +788,10 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 			return ""
 		}
 		return variables[s]
+	}
+	funcMap["ShellQuote"] = shellQuote
+	funcMap["IsScriptlessProvisioning"] = func() bool {
+		return supportsScriptlessProvisioning(config)
 	}
 
 	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
