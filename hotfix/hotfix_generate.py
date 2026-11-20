@@ -17,9 +17,10 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    Mariner with AgentBaker's canonical Go-template renderer. Diffing against the
    frozen baseline keeps both delivery paths cumulative.
 
-3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
-   writes the `hotfixes` map to activate the embedded ANC payload. Independent ANC
-   code changes always write `hotfixes`.
+3. Writes `scripts_version` for script hotfixes. The workflow passes
+   --use-anc-for-scripts to also write the `hotfixes` map and activate the
+   embedded ANC payload without disabling CustomData delivery. Independent ANC
+   code changes write `hotfixes` without clearing an existing `scripts_version`.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   base_ref: git ref for the PR base branch, used only to detect ANC Go-module
@@ -28,8 +29,8 @@ Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
             derived from linux_sig_version.json.
   --baseline-ref: optional testing override for changed-script detection. Payloads
                   generated with this option are not necessarily cumulative.
-  --use-anc-for-scripts: additionally activate generated script payloads through
-                         the ANC hotfixes map.
+  --use-anc-for-scripts: activate generated script payloads through the ANC
+                         hotfixes map alongside legacy CustomData delivery.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -223,6 +224,10 @@ def write_hotfix_file(version, scripts_version):
     if version:
         base = ".".join(version.split(".")[:2])
         payload["hotfixes"] = {base: version}
+        if not scripts_version and os.path.isfile(TARGET_FILE):
+            # An ANC-only bump must not disable delivery of existing CustomData scripts.
+            with open(TARGET_FILE) as f:
+                scripts_version = json.load(f).get("scripts_version")
     if scripts_version:
         payload["scripts_version"] = scripts_version
 
@@ -638,7 +643,7 @@ def main():
     else:
         print(
             f"Script hotfix payload unchanged vs {base_ref}; "
-            "scripts_version not set",
+            "scripts_version not bumped",
             file=sys.stderr,
         )
 

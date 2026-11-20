@@ -265,7 +265,8 @@ Key components:
 ### Provisioning script hotfix payloads
 
 Patched ANC binaries can embed selected Linux provisioning scripts generated from
-`parts/linux/cloud-init/artifacts/`. At the start of `provision`, ANC writes the
+`parts/linux/cloud-init/artifacts/`. Before launching `provision`, the launcher
+invokes `apply-embedded-hotfix` on the selected hotfix binary. ANC writes the
 rendered nodecustomdata matching the local platform to
 `/opt/azure/containers/embedded-nodecustomdata.yml` (mode `0600` on creation)
 and calls the existing `applyNodeCustomData` function before constructing the
@@ -294,9 +295,17 @@ This does not add support for non-distro template conditions.
 ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 
+The hotfix workflow runs `hotfix/hotfix_generate.py` with
+`--use-anc-for-scripts` to deliver script hotfixes through both paths. It keeps
+the legacy CustomData script overrides and `scripts_version`, and sets `hotfixes`
+to the same version so eligible nodes can also acquire the ANC package with the
+embedded payload. Both payloads are cumulative from the immutable VHD baseline
+tag. Running the generator without the flag still renders embedded payloads but
+does not activate them for script-only changes.
+
 When a PR has no new script hotfix, generation leaves the existing rendered
-payload unchanged. The active ANC version pointer is likewise retained until it
-is retired explicitly.
+payload unchanged. A change to ANC alone advances the package pointer without
+clearing the existing legacy script pointer.
 
 The existing applier writes entries sequentially and creates missing destination
 files and parent directories. There is no transactional rollback: if an entry
@@ -309,8 +318,9 @@ hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
 script differs from the VHD baseline, even when other scripts also changed.
 Wrapper fixes require a new node image until runtime eligibility is available.
 
-Script hotfix delivery is package-only. The existing base-to-version hotfix map
+Embedded delivery uses the ANC package. The existing base-to-version hotfix map
 selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
-contains its corresponding rendered scripts. If the package cannot be installed,
-provisioning fails open to the original VHD scripts. The operational fallback is
-to upgrade the node image.
+contains its corresponding rendered scripts. If installation fails, provisioning
+continues without the embedded payload and does not undo any CustomData script
+overrides already applied. Publish the matching ANC package before rolling out
+the pointer.

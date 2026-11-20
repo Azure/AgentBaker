@@ -2,6 +2,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import unittest
@@ -56,6 +57,63 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_workflow_generates_both_script_hotfix_deliveries(self):
+        repository = Path(__file__).resolve().parents[1]
+        workflow = repository / ".github/workflows/hotfix-generate.yml"
+        command = next(
+            shlex.split(line)
+            for line in workflow.read_text().splitlines()
+            if line.strip().startswith("python3 hotfix/hotfix_generate.py ")
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            template = root / "nodecustomdata.yml"
+            template.write_bytes((repository / hotfix_generate.TEMPLATE).read_bytes())
+            generated = root / "generated"
+            target = root / "hotfix.json"
+            with (
+                mock.patch.object(hotfix_generate, "TEMPLATE", str(template)),
+                mock.patch.object(hotfix_generate, "GENERATED_DIR", str(generated)),
+                mock.patch.object(hotfix_generate, "TARGET_FILE", str(target)),
+                mock.patch.object(hotfix_generate, "read_base_version", return_value="202608.14.0"),
+                mock.patch.object(hotfix_generate, "resolve_baseline_ref", return_value="vhd-baseline"),
+                mock.patch.object(hotfix_generate, "bump_version", return_value="202608.14.1"),
+                mock.patch.object(hotfix_generate, "detect_changed_varkeys", return_value={"provisionSource"}),
+                mock.patch.object(
+                    hotfix_generate, "path_changed",
+                    side_effect=lambda _, path, *excludes: path in {str(template), str(generated)},
+                ),
+                mock.patch("sys.argv", command[1:]),
+                mock.patch("sys.stderr", new_callable=io.StringIO),
+                mock.patch.object(
+                    subprocess, "run",
+                    side_effect=self._run_without_git_fetch(subprocess.run),
+                ),
+            ):
+                hotfix_generate.main()
+
+            overrides = template.read_text().split(hotfix_generate.SCRIPTS_BEGIN, 1)[1]
+            overrides = overrides.split(hotfix_generate.SCRIPTS_END, 1)[0]
+            self.assertIn('GetVariableProperty "cloudInitData" "provisionSource"', overrides)
+            for platform in ("ubuntu", "mariner"):
+                payload = generated / f"rendered_nodecustomdata_{platform}.yml"
+                content = payload.read_text()
+                self.assertIn("- path: /opt/azure/containers/provision_source.sh", content)
+                self.assertIn("ERR_SYSTEMCTL_START_FAIL=4", content)
+            self.assertEqual(
+                {"hotfixes": {"202608.14": "202608.14.1"}, "scripts_version": "202608.14.1"},
+                json.loads(target.read_text()),
+            )
+
+    @staticmethod
+    def _run_without_git_fetch(run):
+        def run_local(command, **kwargs):
+            if command[:2] == ["git", "fetch"]:
+                return subprocess.CompletedProcess(command, 0)
+            return run(command, **kwargs)
+
+        return run_local
+
     def test_production_renderer_omits_empty_platform_payloads(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
@@ -559,6 +617,17 @@ write_files:
             ):
                 hotfix_generate.write_hotfix_file("", "")
                 self.assertFalse(target.exists())
+
+    def test_anc_only_bump_preserves_legacy_script_pointer(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "hotfix.json"
+            with mock.patch.object(hotfix_generate, "TARGET_FILE", str(target)):
+                hotfix_generate.write_hotfix_file("202608.14.1", "202608.14.1")
+                hotfix_generate.write_hotfix_file("202608.14.2", "")
+            self.assertEqual(
+                {"hotfixes": {"202608.14": "202608.14.2"}, "scripts_version": "202608.14.1"},
+                json.loads(target.read_text()),
+            )
 
     def test_resolve_hotfix_versions_defaults_scripts_to_scripts_version(self):
         with mock.patch.object(
