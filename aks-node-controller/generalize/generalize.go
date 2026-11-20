@@ -212,10 +212,6 @@ func (g *Generalizer) removeNodeState(context.Context, map[string]string) error 
 // deprovisionAgent runs the standard Azure Linux generalization. It also removes the last provisioned
 // user (the Packer build user).
 func (g *Generalizer) deprovisionAgent(ctx context.Context, _ map[string]string) error {
-	waagent, err := g.lookPathWithFallback("waagent", "/usr/sbin/waagent", "/usr/bin/waagent")
-	if err != nil {
-		return err
-	}
 	// Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service workers write
 	// to /var/lib/waagent/events and survive "stop" (KillMode=process), so kill them first. waagent stops
 	// only its own service; extensions and the log collector run in other units. All best effort.
@@ -231,7 +227,7 @@ func (g *Generalizer) deprovisionAgent(ctx context.Context, _ map[string]string)
 
 	// waagent stops at the first failed cleanup action but still exits 0. Do not retry: a partial run can
 	// delete ovf-env.xml, and waagent then skips build-user deletion.
-	output, err := g.runCmd(ctx, waagent, "-force", "-deprovision+user")
+	output, err := g.runCmd(ctx, "waagent", "-force", "-deprovision+user")
 	if err == nil && bytes.Contains(output, []byte("Failed to run 'deprovision")) {
 		err = errors.New("waagent deprovision logged \"Failed to run 'deprovision\" but exited 0")
 	}
@@ -284,23 +280,6 @@ func removeNvPCRCredentials(dir string) error {
 		slog.Info("removed NvPCR anchor", "path", path)
 	}
 	return nil
-}
-
-// lookPathWithFallback finds name in PATH, then in fallbacks. sudo can reset PATH to a secure_path
-// that differs per distribution. Tests with a root directory use only the fallbacks.
-func (g *Generalizer) lookPathWithFallback(name string, fallbacks ...string) (string, error) {
-	if g.rootDir == "" {
-		if p, err := exec.LookPath(name); err == nil {
-			return p, nil
-		}
-	}
-	for _, p := range fallbacks {
-		p = g.path(p)
-		if info, err := os.Stat(p); err == nil && !info.IsDir() && info.Mode()&0o111 != 0 {
-			return p, nil
-		}
-	}
-	return "", fmt.Errorf("%s not found in PATH or %s", name, strings.Join(fallbacks, ", "))
 }
 
 func (g *Generalizer) path(p string) string {

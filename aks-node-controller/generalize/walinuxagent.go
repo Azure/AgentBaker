@@ -345,60 +345,24 @@ func (w *walinuxagentInstaller) fetchOnce(ctx context.Context, rawURL string, he
 	return body, nil
 }
 
-// xmlNode is a generic element tree. The manifest is matched by local element names.
-type xmlNode struct {
-	XMLName xml.Name
-	Text    string    `xml:",chardata"`
-	Nodes   []xmlNode `xml:",any"`
-}
-
-func (n *xmlNode) walk(fn func(*xmlNode) bool) bool {
-	for i := range n.Nodes {
-		if !fn(&n.Nodes[i]) || !n.Nodes[i].walk(fn) {
-			return false
-		}
-	}
-	return true
-}
-
-// findWALinuxAgentZipURL returns the first Uri of the first Plugin whose direct Version child is version.
+// findWALinuxAgentZipURL returns the first Uri of the first Plugin whose Version is version. The
+// layout is the one WALinuxAgent reads; element names match in any namespace.
 func findWALinuxAgentZipURL(manifest []byte, version string) (string, error) {
-	var root xmlNode
-	if err := xml.Unmarshal(manifest, &root); err != nil {
+	var m struct {
+		Plugins []struct {
+			Version string   `xml:"Version"`
+			URIs    []string `xml:"Uris>Uri"`
+		} `xml:"Plugins>Plugin"`
+	}
+	if err := xml.Unmarshal(manifest, &m); err != nil {
 		return "", fmt.Errorf("parse WALinuxAgent manifest: %w", err)
 	}
-	var found string
-	root.walk(func(plugin *xmlNode) bool {
-		if plugin.XMLName.Local != "Plugin" || !pluginHasVersion(plugin, version) {
-			return true
-		}
-		var uri string
-		plugin.walk(func(n *xmlNode) bool {
-			if n.XMLName.Local == "Uri" {
-				uri = strings.TrimSpace(n.Text)
-				return false
-			}
-			return true
-		})
-		if uri == "" {
-			return true
-		}
-		found = uri
-		return false
-	})
-	if found == "" {
-		return "", fmt.Errorf("version %s not found in WALinuxAgent manifest", version)
-	}
-	return found, nil
-}
-
-func pluginHasVersion(plugin *xmlNode, version string) bool {
-	for _, child := range plugin.Nodes {
-		if child.XMLName.Local == "Version" {
-			return child.Text == version
+	for _, p := range m.Plugins {
+		if p.Version == version && len(p.URIs) > 0 && strings.TrimSpace(p.URIs[0]) != "" {
+			return strings.TrimSpace(p.URIs[0]), nil
 		}
 	}
-	return false
+	return "", fmt.Errorf("version %s not found in WALinuxAgent manifest", version)
 }
 
 // extractZip writes files 0644 and directories 0755, and writes symlink entries as regular files.
