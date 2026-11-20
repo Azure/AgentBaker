@@ -64,8 +64,11 @@ class HotfixGenerateTests(unittest.TestCase):
         original_directory = Path.cwd()
         legacy_payloads = {}
 
-        for use_anc in (False, True):
-            with self.subTest(use_anc=use_anc), tempfile.TemporaryDirectory() as directory:
+        for base, use_anc in (
+            ("202611.21", False), ("202611.21", True),
+            ("202611.22", False), ("202611.22", True),
+        ):
+            with self.subTest(base=base, use_anc=use_anc), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory)
 
                 def git(*args):
@@ -89,7 +92,7 @@ class HotfixGenerateTests(unittest.TestCase):
                 generated.mkdir(parents=True)
                 (generated / "README").write_text("No script hotfix payloads.\n")
                 (root / hotfix_generate.LINUX_SIG_VERSION_FILE).write_text(
-                    '{"version": "202608.14.0"}\n'
+                    json.dumps({"version": f"{base}.0"}) + "\n"
                 )
                 (root / hotfix_generate.ARTIFACTS_DIR).mkdir()
                 sources = ("cse_helpers.sh", "cse_main.sh")
@@ -105,7 +108,7 @@ class HotfixGenerateTests(unittest.TestCase):
                 git("config", "core.autocrlf", "false")
                 git("add", ".")
                 git("commit", "--quiet", "-m", "VHD baseline")
-                baseline = "v0.20260814.0"
+                baseline = f"v0.{base.replace('.', '')}.0"
                 git("tag", baseline)
                 original_template = (root / hotfix_generate.TEMPLATE).read_text()
 
@@ -158,10 +161,10 @@ class HotfixGenerateTests(unittest.TestCase):
                             root / hotfix_generate.ARTIFACTS_DIR / source,
                         )
                         generate("HEAD")
-                        version = f"202608.14.{patch}"
+                        version = f"{base}.{patch}"
                         expected = {"scripts_version": version}
-                        if use_anc:
-                            expected["hotfixes"] = {"202608.14": version}
+                        if use_anc and base == "202611.22":
+                            expected["hotfixes"] = {base: version}
                         self.assertEqual(
                             expected,
                             json.loads(Path(hotfix_generate.TARGET_FILE).read_text()),
@@ -194,14 +197,14 @@ class HotfixGenerateTests(unittest.TestCase):
                         payloads = {path: content for path, content in before.items()
                                     if path != str(Path(hotfix_generate.TARGET_FILE))}
                         if use_anc:
-                            self.assertEqual(legacy_payloads[patch], payloads)
+                            self.assertEqual(legacy_payloads[(base, patch)], payloads)
                         else:
-                            legacy_payloads[patch] = payloads
+                            legacy_payloads[(base, patch)] = payloads
                         generate("HEAD")
                         self.assertEqual(before, snapshot())
                         git("add", ".")
                         git("commit", "--quiet", "-m", f"Script hotfix {patch}")
-                        git("tag", f"v0.20260814.{patch}")
+                        git("tag", f"v0.{base.replace('.', '')}.{patch}")
                         generate("HEAD")
                         self.assertEqual(before, snapshot())
 
@@ -734,30 +737,47 @@ write_files:
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
-            return_value="202608.14.1",
+            return_value="202611.22.1",
         ):
             self.assertEqual(
-                ("", "202608.14.1"),
+                ("", "202611.22.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202608.14.0",
+                    "202611.22.0",
                     anc_changed=False,
                     script_hotfix_changed=True,
                     use_anc_for_scripts=False,
                 ),
             )
 
-    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
+    def test_resolve_hotfix_versions_gates_script_anc_delivery_by_vhd_base(self):
+        for base, enabled in (
+            ("202607.10", False),
+            ("202611.21", False),
+            ("202611.22", True),
+            ("202611.23", True),
+            ("202701.01", True),
+        ):
+            with self.subTest(base=base), mock.patch.object(
+                hotfix_generate, "bump_version", return_value=f"{base}.1"
+            ):
+                self.assertEqual(
+                    (f"{base}.1" if enabled else "", f"{base}.1"),
+                    hotfix_generate.resolve_hotfix_versions(
+                        f"{base}.0",
+                        anc_changed=False,
+                        script_hotfix_changed=True,
+                        use_anc_for_scripts=True,
+                    ),
+                )
+
+    def test_old_vhd_keeps_independent_anc_hotfix_with_scripts(self):
         with mock.patch.object(
-            hotfix_generate,
-            "bump_version",
-            return_value="202608.14.1",
+            hotfix_generate, "bump_version", return_value="202611.21.1"
         ):
             self.assertEqual(
-                ("202608.14.1", "202608.14.1"),
+                ("202611.21.1", "202611.21.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202608.14.0",
-                    anc_changed=False,
-                    script_hotfix_changed=True,
+                    "202611.21.0", anc_changed=True, script_hotfix_changed=True,
                     use_anc_for_scripts=True,
                 ),
             )

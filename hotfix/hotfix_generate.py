@@ -17,9 +17,9 @@ Auto-detects what needs a hotfix and generates the version numbers for it:
    Mariner with AgentBaker's canonical Go-template renderer. Diffing against the
    frozen baseline keeps both delivery paths cumulative.
 
-3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts, also
-   writes the `hotfixes` map to activate the embedded ANC payload. Independent ANC
-   code changes always write `hotfixes`.
+3. Writes `scripts_version` for script hotfixes. With --use-anc-for-scripts,
+   VHD bases from 202611.22 onward also write the `hotfixes` map to activate the
+   embedded ANC payload. Independent ANC code changes always write `hotfixes`.
 
 Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   base_ref: git ref for the PR base branch, used only to detect ANC Go-module
@@ -29,7 +29,7 @@ Usage: python3 hotfix/hotfix_generate.py <base_ref> [options]
   --baseline-ref: optional testing override for changed-script detection. Payloads
                   generated with this option are not necessarily cumulative.
   --use-anc-for-scripts: additionally activate generated script payloads through
-                         the ANC hotfixes map.
+                         the ANC hotfixes map for VHD bases from 202611.22 onward.
 
 This script is called by the hotfix-generate GH Action.
 """
@@ -50,6 +50,7 @@ ANC_DIR = "aks-node-controller/"
 GENERATED_DIR = os.path.join(ANC_DIR, "generated")
 
 VERSION_RE = re.compile(r'^\d{6}\.\d{2}\.\d+$')
+ANC_SCRIPTS_MIN_BASE = "202611.22"
 
 # Marker comments for idempotent injection of the selected script blocks.
 SCRIPTS_BEGIN = "# ---- hotfix-scripts: auto-generated ----"
@@ -252,6 +253,7 @@ def resolve_hotfix_versions(
     hotfix_version = bump_version(base_version)
     version = hotfix_version if anc_changed or (
         script_hotfix_changed and use_anc_for_scripts
+        and base_version.rsplit(".", 1)[0] >= ANC_SCRIPTS_MIN_BASE
     ) else ""
     scripts_version = hotfix_version if script_hotfix_changed else ""
     return version, scripts_version
@@ -564,7 +566,7 @@ def main():
         action="store_true",
         help=(
             "also set hotfixes for script hotfixes to activate the embedded ANC "
-            "payload"
+            "payload for VHD bases from 202611.22 onward"
         ),
     )
     args = parser.parse_args()
@@ -622,7 +624,8 @@ def main():
 
     if version:
         reason = "ANC production files changed"
-        if script_hotfix_changed and args.use_anc_for_scripts:
+        if (script_hotfix_changed and args.use_anc_for_scripts
+                and base_version.rsplit(".", 1)[0] >= ANC_SCRIPTS_MIN_BASE):
             reason = "ANC production files or generated script payloads changed"
         print(f"{reason} vs {base_ref}; hotfixes={version}", file=sys.stderr)
     else:

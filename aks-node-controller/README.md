@@ -266,9 +266,12 @@ ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 
 The hotfix workflow runs `hotfix/hotfix_generate.py` with
-`--use-anc-for-scripts` to deliver script hotfixes through both paths: it retains
-the legacy CustomData entries and `scripts_version`, and sets the `hotfixes` map
-to the same version so the patched ANC package carries the embedded payloads.
+`--use-anc-for-scripts`. For VHD bases from `202611.22` onward, script hotfixes
+set the `hotfixes` map to activate embedded delivery. All bases retain legacy
+CustomData entries and `scripts_version`. Earlier bases do not get an ANC map
+entry solely for script changes, although payloads are still rendered.
+Independent ANC code changes still set `hotfixes` for any base; if scripts also
+changed, that ANC package can apply the embedded payload even on an earlier base.
 Running the generator manually without the flag retains legacy pointer behavior
 (script changes set only `scripts_version`); embedded payloads are still rendered.
 Both payloads include all selected scripts changed since the immutable VHD
