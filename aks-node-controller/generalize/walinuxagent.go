@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -24,14 +23,15 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
-// The pinned agent is installed after "waagent -deprovision", which removes /var/lib/waagent. The
-// daemon then starts this version from disk, so a new node does not download the agent.
+// The pinned agent is downloaded before "waagent -deprovision", while DNS still works, and extracted
+// after it, because deprovision removes /var/lib/waagent. The daemon then starts this version from
+// disk, so a new node does not download the agent.
 const (
-	walinuxagentStateDir = "/var/lib/waagent"
-	wireServerIP         = "168.63.129.16"
+	walinuxagentStateDir    = "/var/lib/waagent"
+	walinuxagentDownloadDir = "/opt/walinuxagent/downloads"
+	wireServerIP            = "168.63.129.16"
 
 	walinuxagentFetchAttempts = 10
-	walinuxagentMaxZipEntry   = 256 << 20
 )
 
 var (
@@ -58,37 +58,29 @@ func defaultWALinuxAgentInstaller() *walinuxagentInstaller {
 	}
 }
 
-// installPinnedWALinuxAgent installs the WALinuxAgent version from components.json.
-// Flatcar, ACL, and OSGuard use the agent that their OS package provides.
-func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease map[string]string) (err error) {
-	id := strings.ToLower(osRelease["ID"])
-	variant := strings.ToLower(osRelease["VARIANT_ID"])
-	if id == config.OSReleaseIDFlatcar || id == config.OSReleaseIDAzureContainerLinux ||
-		variant == config.OSVariantIDOSGuard || variant == config.OSReleaseIDAzureContainerLinux {
-		slog.Info("skipping WALinuxAgent install; the OS provides the agent", "id", id, "variantID", variant)
-		return nil
-	}
-
-	version, err := g.pinnedWALinuxAgentVersion()
-	if err != nil {
+// downloadPinnedWALinuxAgent saves the pinned agent zip. A failed download stops the build before
+// any other step changes the VM.
+func (g *Generalizer) downloadPinnedWALinuxAgent(ctx context.Context, osRelease map[string]string) error {
+	version, err := g.pinnedWALinuxAgentVersion(osRelease)
+	if err != nil || version == "" {
 		return err
 	}
-	slog.Info("installing pinned WALinuxAgent", "version", version)
-
-	restore, err := g.ensureWireserverDNS()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Join(err, restore())
-	}()
-
 	installer := g.installer
 	if installer == nil {
 		installer = defaultWALinuxAgentInstaller()
 	}
-	if err = installer.install(ctx, version, g.path(walinuxagentStateDir), g.path("/opt/walinuxagent/downloads")); err != nil {
+	return installer.download(ctx, version, g.walinuxagentZipPath(version))
+}
+
+// installPinnedWALinuxAgent extracts the zip that downloadPinnedWALinuxAgent saved.
+func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease map[string]string) error {
+	version, err := g.pinnedWALinuxAgentVersion(osRelease)
+	if err != nil || version == "" {
 		return err
+	}
+	installDir := g.path(filepath.Join(walinuxagentStateDir, "WALinuxAgent-"+version))
+	if err = extractZip(g.walinuxagentZipPath(version), installDir); err != nil {
+		return fmt.Errorf("extract WALinuxAgent %s: %w", version, err)
 	}
 
 	// Stop the agent so that it does not create WALinuxAgent-* directories again during the prune.
@@ -113,7 +105,20 @@ func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease m
 	return nil
 }
 
-func (g *Generalizer) pinnedWALinuxAgentVersion() (string, error) {
+func (g *Generalizer) walinuxagentZipPath(version string) string {
+	return g.path(filepath.Join(walinuxagentDownloadDir, "WALinuxAgent-"+version+".zip"))
+}
+
+// pinnedWALinuxAgentVersion returns the WALinuxAgent version from components.json. It returns "" on
+// Flatcar, ACL, and OSGuard, which use the agent that their OS package provides.
+func (g *Generalizer) pinnedWALinuxAgentVersion(osRelease map[string]string) (string, error) {
+	id := strings.ToLower(osRelease["ID"])
+	variant := strings.ToLower(osRelease["VARIANT_ID"])
+	if id == config.OSReleaseIDFlatcar || id == config.OSReleaseIDAzureContainerLinux ||
+		variant == config.OSVariantIDOSGuard || variant == config.OSReleaseIDAzureContainerLinux {
+		slog.Info("skipping pinned WALinuxAgent; the OS provides the agent", "id", id, "variantID", variant)
+		return "", nil
+	}
 	componentsPath := g.path(config.ComponentsFilePath)
 	data, err := os.ReadFile(componentsPath)
 	if err != nil {
@@ -156,88 +161,7 @@ func (g *Generalizer) pinnedWALinuxAgentVersion() (string, error) {
 	return "", fmt.Errorf("could not read walinuxagent version from %s", componentsPath)
 }
 
-// ensureWireserverDNS points DNS at the Azure resolver if resolv.conf has no nameserver.
-// "waagent -deprovision" clears resolv.conf on some distributions, and the manifest is on Azure Storage.
-// The returned function restores the exact earlier state, so the image does not ship the change.
-func (g *Generalizer) ensureWireserverDNS() (func() error, error) {
-	noop := func() error { return nil }
-	conf := g.path("/etc/resolv.conf")
-	content, err := os.ReadFile(conf)
-	if err == nil && bytes.Contains(content, []byte("nameserver")) {
-		return noop, nil
-	}
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("read %s: %w", conf, err)
-	}
-	nameserver := []byte("nameserver " + wireServerIP + "\n")
-
-	info, err := os.Lstat(conf)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		//nolint:gosec // resolv.conf must be world-readable
-		if err = os.WriteFile(conf, nameserver, 0o644); err != nil {
-			return nil, fmt.Errorf("write %s: %w", conf, err)
-		}
-		slog.Info("temporarily set DNS to Azure DNS", "path", conf)
-		return func() error { return removeIfExists(conf) }, nil
-	case err != nil:
-		return nil, fmt.Errorf("stat %s: %w", conf, err)
-	case info.Mode()&fs.ModeSymlink != 0:
-		return g.ensureWireserverDNSInSymlinkTarget(conf, nameserver)
-	default:
-		if err = os.WriteFile(conf, nameserver, info.Mode().Perm()); err != nil {
-			return nil, fmt.Errorf("write %s: %w", conf, err)
-		}
-		slog.Info("temporarily set DNS to Azure DNS", "path", conf)
-		return func() error { return writeFileKeepMode(conf, content, info.Mode().Perm()) }, nil
-	}
-}
-
-// ensureWireserverDNSInSymlinkTarget writes to the symlink target, so the link stays in place.
-func (g *Generalizer) ensureWireserverDNSInSymlinkTarget(conf string, nameserver []byte) (func() error, error) {
-	raw, err := os.Readlink(conf)
-	if err != nil {
-		return nil, fmt.Errorf("read link %s: %w", conf, err)
-	}
-	target := raw
-	if filepath.IsAbs(target) {
-		target = g.path(target)
-	} else {
-		target = filepath.Join(filepath.Dir(conf), target)
-	}
-	targetInfo, statErr := os.Stat(target)
-	original, readErr := os.ReadFile(target)
-	targetExists := statErr == nil && readErr == nil
-	if statErr != nil && !errors.Is(statErr, fs.ErrNotExist) {
-		return nil, fmt.Errorf("stat %s: %w", target, statErr)
-	}
-	if statErr == nil && readErr != nil {
-		return nil, fmt.Errorf("read %s: %w", target, readErr)
-	}
-	mode := fs.FileMode(0o644)
-	if targetExists {
-		mode = targetInfo.Mode().Perm()
-	}
-	if err = os.WriteFile(target, nameserver, mode); err != nil {
-		return nil, fmt.Errorf("write %s: %w", target, err)
-	}
-	slog.Info("temporarily set DNS to Azure DNS", "path", target)
-	return func() error {
-		var restoreErr error
-		if targetExists {
-			restoreErr = writeFileKeepMode(target, original, mode)
-		} else {
-			restoreErr = removeIfExists(target)
-		}
-		// Recreate the link with its raw value in case a tool replaced it during the install.
-		if current, linkErr := os.Readlink(conf); linkErr != nil || current != raw {
-			restoreErr = errors.Join(restoreErr, removeIfExists(conf), os.Symlink(raw, conf))
-		}
-		return restoreErr
-	}, nil
-}
-
-func (w *walinuxagentInstaller) install(ctx context.Context, version, stateDir, downloadDir string) error {
+func (w *walinuxagentInstaller) download(ctx context.Context, version, zipPath string) error {
 	wireHeaders := map[string]string{"x-ms-agent-name": "WALinuxAgent", "x-ms-version": "2012-11-30"}
 
 	goalStateURL := w.wireserverURL + "/machine/?comp=goalstate"
@@ -282,20 +206,18 @@ func (w *walinuxagentInstaller) install(ctx context.Context, version, stateDir, 
 	if err != nil {
 		return err
 	}
-	installDir := filepath.Join(stateDir, "WALinuxAgent-"+version)
-	if err = extractZip(zipData, installDir); err != nil {
-		return fmt.Errorf("extract WALinuxAgent %s: %w", version, err)
+	if _, err = zip.NewReader(bytes.NewReader(zipData), int64(len(zipData))); err != nil {
+		return fmt.Errorf("open WALinuxAgent %s zip: %w", version, err)
 	}
-	// The zip copy records which artifact the image ships.
-	if err = os.MkdirAll(downloadDir, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", downloadDir, err)
+	// The zip copy also records which artifact the image ships.
+	if err = os.MkdirAll(filepath.Dir(zipPath), 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", filepath.Dir(zipPath), err)
 	}
-	zipPath := filepath.Join(downloadDir, "WALinuxAgent-"+version+".zip")
 	//nolint:gosec // matches the mode of the other image artifacts
 	if err = os.WriteFile(zipPath, zipData, 0o644); err != nil {
 		return fmt.Errorf("write %s: %w", zipPath, err)
 	}
-	slog.Info("installed WALinuxAgent", "version", version, "path", installDir)
+	slog.Info("downloaded WALinuxAgent", "version", version, "path", zipPath)
 	return nil
 }
 
@@ -365,65 +287,18 @@ func findWALinuxAgentZipURL(manifest []byte, version string) (string, error) {
 	return "", fmt.Errorf("version %s not found in WALinuxAgent manifest", version)
 }
 
-// extractZip writes files 0644 and directories 0755, and writes symlink entries as regular files.
-// os.Root rejects entries that resolve outside dir.
-func extractZip(data []byte, dir string) error {
-	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+// extractZip replaces dir with the zip content. zip.Reader exposes only local names, and os.CopyFS
+// rejects symlink entries, so nothing is written outside dir.
+func extractZip(zipPath, dir string) error {
+	zr, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return err
 	}
-	for _, f := range zr.File {
-		if !filepath.IsLocal(filepath.FromSlash(f.Name)) {
-			return fmt.Errorf("zip entry %q would extract outside %s", f.Name, dir)
-		}
-	}
-	if err = os.MkdirAll(dir, 0o755); err != nil {
+	defer zr.Close()
+	if err = os.RemoveAll(dir); err != nil {
 		return err
 	}
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	for _, f := range zr.File {
-		name := path.Clean(f.Name)
-		if strings.HasSuffix(f.Name, "/") {
-			if err = root.MkdirAll(name, 0o755); err != nil {
-				return err
-			}
-			continue
-		}
-		if parent := path.Dir(name); parent != "." {
-			if err = root.MkdirAll(parent, 0o755); err != nil {
-				return err
-			}
-		}
-		if err = extractZipFile(root, f, name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func extractZipFile(root *os.Root, f *zip.File, name string) error {
-	src, err := f.Open()
-	if err != nil {
-		return fmt.Errorf("open zip entry %s: %w", f.Name, err)
-	}
-	defer src.Close()
-	dst, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return err
-	}
-	n, err := io.CopyN(dst, src, walinuxagentMaxZipEntry+1)
-	closeErr := dst.Close()
-	if err != nil && !errors.Is(err, io.EOF) {
-		return fmt.Errorf("extract zip entry %s: %w", f.Name, err)
-	}
-	if n > walinuxagentMaxZipEntry {
-		return fmt.Errorf("zip entry %s is larger than %d bytes", f.Name, walinuxagentMaxZipEntry)
-	}
-	return closeErr
+	return os.CopyFS(dir, zr)
 }
 
 // pruneStaleWALinuxAgentDirs removes top-level WALinuxAgent-* directories, except the pinned version.
