@@ -373,14 +373,17 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		} else {
 			return "", fmt.Errorf("existing firewall %s has no public IP configuration", SharedFirewallName)
 		}
-		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
+		err = reconcileFirewallRules(ctx, &existing.AzureFirewall, getFirewall(ctx, location, firewallSubnetID, publicIPID))
 		if err != nil {
-			return "", fmt.Errorf("updating shared firewall rules: %w", err)
+			return "", fmt.Errorf("reconciling shared firewall rules: %w", err)
 		}
-		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
-		if err != nil {
-			return "", fmt.Errorf("waiting for shared firewall update: %w", err)
+		fwPoller, updateErr := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, existing.AzureFirewall, nil)
+		if updateErr != nil {
+			return "", fmt.Errorf("updating shared firewall rules: %w", updateErr)
+		}
+		fwResp, updateErr := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
+		if updateErr != nil {
+			return "", fmt.Errorf("waiting for shared firewall update: %w", updateErr)
 		}
 		return getFirewallPrivateIP(fwResp.AzureFirewall)
 	}
@@ -425,6 +428,90 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	}
 
 	return getFirewallPrivateIP(fwResp.AzureFirewall)
+}
+
+func reconcileFirewallRules(ctx context.Context, existing, desired *armnetwork.AzureFirewall) error {
+	var err error
+	existing.Properties.ApplicationRuleCollections, err = mergeFirewallCollections(
+		existing.Properties.ApplicationRuleCollections, desired.Properties.ApplicationRuleCollections,
+		func(coll *armnetwork.AzureFirewallApplicationRuleCollection) *string { return coll.Name },
+		func(coll, expected *armnetwork.AzureFirewallApplicationRuleCollection) error {
+			if coll.Properties == nil {
+				coll.Properties = expected.Properties
+				return nil
+			}
+			rules, mergeErr := mergeFirewallRules(coll.Properties.Rules, expected.Properties.Rules,
+				func(rule *armnetwork.AzureFirewallApplicationRule) *string { return rule.Name }, coll.Properties.Action)
+			if mergeErr != nil {
+				return mergeErr
+			}
+			coll.Properties.Rules, coll.Properties.Action = rules, expected.Properties.Action
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("application rules: %w", err)
+	}
+	existing.Properties.NetworkRuleCollections, err = mergeFirewallCollections(
+		existing.Properties.NetworkRuleCollections, desired.Properties.NetworkRuleCollections,
+		func(coll *armnetwork.AzureFirewallNetworkRuleCollection) *string { return coll.Name },
+		func(coll, expected *armnetwork.AzureFirewallNetworkRuleCollection) error {
+			if coll.Properties == nil {
+				coll.Properties = expected.Properties
+				return nil
+			}
+			rules, mergeErr := mergeFirewallRules(coll.Properties.Rules, expected.Properties.Rules,
+				func(rule *armnetwork.AzureFirewallNetworkRule) *string { return rule.Name }, coll.Properties.Action)
+			if mergeErr != nil {
+				return mergeErr
+			}
+			coll.Properties.Rules, coll.Properties.Action = rules, expected.Properties.Action
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("network rules: %w", err)
+	}
+	logging.Logf(ctx, "reconciled managed firewall rules while preserving existing configuration")
+	return nil
+}
+
+func mergeFirewallCollections[T any](existing, desired []*T, name func(*T) *string, merge func(*T, *T) error) ([]*T, error) {
+	for _, expected := range desired {
+		index := slices.IndexFunc(existing, func(coll *T) bool {
+			return coll != nil && name(coll) != nil && *name(coll) == *name(expected)
+		})
+		if index < 0 {
+			existing = append(existing, expected)
+		} else if err := merge(existing[index], expected); err != nil {
+			return nil, fmt.Errorf("collection %s: %w", *name(expected), err)
+		}
+	}
+	return existing, nil
+}
+
+func mergeFirewallRules[T any](existing, desired []*T, name func(*T) *string, action *armnetwork.AzureFirewallRCAction) ([]*T, error) {
+	isAllow := action != nil && action.Type != nil && *action.Type == armnetwork.AzureFirewallRCActionTypeAllow
+	for _, rule := range existing {
+		if rule == nil {
+			continue
+		}
+		owned := slices.ContainsFunc(desired, func(expected *T) bool {
+			return name(rule) != nil && *name(rule) == *name(expected)
+		})
+		if !owned && !isAllow {
+			return nil, fmt.Errorf("cannot change collection action to Allow with unrelated rules")
+		}
+	}
+	for _, expected := range desired {
+		index := slices.IndexFunc(existing, func(rule *T) bool {
+			return rule != nil && name(rule) != nil && *name(rule) == *name(expected)
+		})
+		if index < 0 {
+			existing = append(existing, expected)
+		} else {
+			existing[index] = expected
+		}
+	}
+	return existing, nil
 }
 
 func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {

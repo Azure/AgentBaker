@@ -62,9 +62,11 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 	config.Config = &config.Configuration{SubscriptionID: "test"}
 
 	for _, tt := range []struct {
-		name       string
-		mutate     func(*armnetwork.AzureFirewall)
-		wantUpdate bool
+		name              string
+		mutate            func(*armnetwork.AzureFirewall)
+		wantUpdate        bool
+		preserveUnrelated bool
+		wantError         string
 	}{
 		{name: "current rules"},
 		{
@@ -151,6 +153,32 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 				fw.Properties.ApplicationRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
 			},
 		},
+		{
+			name: "CVM migration preserves unrelated configuration", wantUpdate: true, preserveUnrelated: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = fw.Properties.ApplicationRuleCollections[0].Properties.Rules[:4]
+			},
+		},
+		{
+			name: "NTP repair preserves unrelated configuration", wantUpdate: true, preserveUnrelated: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.NetworkRuleCollections[0].Properties.Rules[0].DestinationPorts = []*string{to.Ptr("443")}
+			},
+		},
+		{
+			name: "unrelated application deny rules are not changed to allow", preserveUnrelated: true,
+			wantError: "cannot change collection action to Allow with unrelated rules",
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
+			},
+		},
+		{
+			name: "unrelated network deny rules are not changed to allow", preserveUnrelated: true,
+			wantError: "cannot change collection action to Allow with unrelated rules",
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.NetworkRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
+			},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := logging.WithLogger(t.Context(), t)
@@ -160,6 +188,60 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			fw.Properties.IPConfigurations[0].Properties.PrivateIPAddress = to.Ptr("10.0.1.4")
 			if tt.mutate != nil {
 				tt.mutate(fw)
+			}
+			var checkPreserved func(armnetwork.AzureFirewall)
+			if tt.preserveUnrelated {
+				appRule := &armnetwork.AzureFirewallApplicationRule{
+					Name: to.Ptr("unrelated-app"), SourceAddresses: []*string{to.Ptr("10.1.0.0/16")},
+					TargetFqdns: []*string{to.Ptr("example.com")},
+				}
+				netRule := &armnetwork.AzureFirewallNetworkRule{
+					Name: to.Ptr("unrelated-network"), DestinationPorts: []*string{to.Ptr("8443")},
+				}
+				appCollection := &armnetwork.AzureFirewallApplicationRuleCollection{
+					Name: to.Ptr("unrelated-app-collection"),
+					Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
+						Priority: to.Ptr[int32](300),
+						Action:   &armnetwork.AzureFirewallRCAction{Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)},
+						Rules:    []*armnetwork.AzureFirewallApplicationRule{appRule},
+					},
+				}
+				netCollection := &armnetwork.AzureFirewallNetworkRuleCollection{
+					Name: to.Ptr("unrelated-network-collection"),
+					Properties: &armnetwork.AzureFirewallNetworkRuleCollectionPropertiesFormat{
+						Priority: to.Ptr[int32](400),
+						Action:   &armnetwork.AzureFirewallRCAction{Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)},
+						Rules:    []*armnetwork.AzureFirewallNetworkRule{netRule},
+					},
+				}
+				natCollection := &armnetwork.AzureFirewallNatRuleCollection{
+					Name: to.Ptr("unrelated-nat"),
+					Properties: &armnetwork.AzureFirewallNatRuleCollectionProperties{
+						Priority: to.Ptr[int32](500),
+						Rules: []*armnetwork.AzureFirewallNatRule{{
+							Name: to.Ptr("unrelated-nat"), TranslatedAddress: to.Ptr("10.2.0.4"), TranslatedPort: to.Ptr("443"),
+						}},
+					},
+				}
+				fw.Tags = map[string]*string{"owner": to.Ptr("another-test")}
+				fw.Properties.ThreatIntelMode = to.Ptr(armnetwork.AzureFirewallThreatIntelModeDeny)
+				fw.Properties.ApplicationRuleCollections[0].Properties.Priority = to.Ptr[int32](150)
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = append(fw.Properties.ApplicationRuleCollections[0].Properties.Rules, appRule)
+				fw.Properties.NetworkRuleCollections[0].Properties.Rules = append(fw.Properties.NetworkRuleCollections[0].Properties.Rules, netRule)
+				fw.Properties.ApplicationRuleCollections = append(fw.Properties.ApplicationRuleCollections, appCollection)
+				fw.Properties.NetworkRuleCollections = append(fw.Properties.NetworkRuleCollections, netCollection)
+				fw.Properties.NatRuleCollections = []*armnetwork.AzureFirewallNatRuleCollection{natCollection}
+				checkPreserved = func(updated armnetwork.AzureFirewall) {
+					require.Equal(t, fw.Tags, updated.Tags)
+					require.Equal(t, fw.Properties.IPConfigurations, updated.Properties.IPConfigurations)
+					require.Equal(t, armnetwork.AzureFirewallThreatIntelModeDeny, *updated.Properties.ThreatIntelMode)
+					require.Equal(t, int32(150), *updated.Properties.ApplicationRuleCollections[0].Properties.Priority)
+					require.Contains(t, updated.Properties.ApplicationRuleCollections[0].Properties.Rules, appRule)
+					require.Contains(t, updated.Properties.NetworkRuleCollections[0].Properties.Rules, netRule)
+					require.Contains(t, updated.Properties.ApplicationRuleCollections, appCollection)
+					require.Contains(t, updated.Properties.NetworkRuleCollections, netCollection)
+					require.Equal(t, []*armnetwork.AzureFirewallNatRuleCollection{natCollection}, updated.Properties.NatRuleCollections)
+				}
 			}
 
 			updates := 0
@@ -174,6 +256,9 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 					require.True(t, firewallAppRulesUpToDate(updated))
 					require.True(t, firewallNetworkRulesUpToDate(updated))
 					require.Equal(t, publicIPID, *updated.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID)
+					if checkPreserved != nil {
+						checkPreserved(updated)
+					}
 					updated.ID = fw.ID
 					updated.Properties.ProvisioningState = to.Ptr(armnetwork.ProvisioningStateSucceeded)
 					updated.Properties.IPConfigurations[0].Properties.PrivateIPAddress = to.Ptr("10.0.1.4")
@@ -191,6 +276,11 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			config.Azure = &config.AzureClient{AzureFirewall: client}
 
 			ip, err := ensureSharedFirewall(ctx, "rg", "westus3")
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				require.Zero(t, updates)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, "10.0.1.4", ip)
 			if tt.wantUpdate {
