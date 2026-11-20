@@ -284,7 +284,7 @@ an ACL build job fails without one. The release pipeline's two CVM builds follow
 candidate run publishes nothing: the pipelines set `GENERATE_PUBLISHING_INFO`
 to `False`, and the release pipeline leaves out the COSI jobs, which upload to PMC.
 Its ACL jobs also tag the images they save to the test gallery `abe2e-ignore`,
-which every tag-based E2E lookup skips, the default `branch=refs/heads/main` and
+which every tag-based E2E lookup skips, the default `branch` tag and
 `buildId` included. To rerun a candidate's E2E, set `E2E_VHD_METADATA_FILE` to
 the run's `e2e-vhd-metadata-*` artifacts, merged into one file as the E2E stage
 does. A candidate run's E2E stage skips all GPU scenarios, since a candidate's

@@ -281,7 +281,7 @@ steps:
 
   # A candidate ACL image (ACL_BASE_IMAGE_SOURCE aclstaging) isn't released, so
   # hide it from every tag-based E2E lookup, such as the default
-  # branch=refs/heads/main or a buildId (noSelectionTagName in
+  # branch tag or a buildId (noSelectionTagName in
   # e2e/config/vhd.go). The tag goes on through the image version itself, which
   # packer created, tags included, under this same connection, so the step needs
   # no permission the build doesn't already use. This run's own E2E stage takes
