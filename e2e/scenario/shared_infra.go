@@ -349,8 +349,7 @@ const (
 
 // ensureSharedFirewall creates or retrieves the shared Azure Firewall and returns its private IP.
 // The firewall is shared across all clusters in the RG, so its rules persist beyond the lifetime
-// of any single cluster. Reconcile the per-sub blob storage FQDN and NTP network rule so existing
-// firewalls allow CSE artifact downloads and public NTP synchronization.
+// of any single cluster. Reconcile CSE and CVM validation destinations and the NTP network rule.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
 	if err == nil {
@@ -374,14 +373,17 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 		} else {
 			return "", fmt.Errorf("existing firewall %s has no public IP configuration", SharedFirewallName)
 		}
-		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
+		err = reconcileFirewallRules(ctx, &existing.AzureFirewall, getFirewall(ctx, location, firewallSubnetID, publicIPID))
 		if err != nil {
-			return "", fmt.Errorf("updating shared firewall rules: %w", err)
+			return "", fmt.Errorf("reconciling shared firewall rules: %w", err)
 		}
-		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
-		if err != nil {
-			return "", fmt.Errorf("waiting for shared firewall update: %w", err)
+		fwPoller, updateErr := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, existing.AzureFirewall, nil)
+		if updateErr != nil {
+			return "", fmt.Errorf("updating shared firewall rules: %w", updateErr)
+		}
+		fwResp, updateErr := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
+		if updateErr != nil {
+			return "", fmt.Errorf("waiting for shared firewall update: %w", updateErr)
 		}
 		return getFirewallPrivateIP(fwResp.AzureFirewall)
 	}
@@ -428,6 +430,90 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 	return getFirewallPrivateIP(fwResp.AzureFirewall)
 }
 
+func reconcileFirewallRules(ctx context.Context, existing, desired *armnetwork.AzureFirewall) error {
+	var err error
+	existing.Properties.ApplicationRuleCollections, err = mergeFirewallCollections(
+		existing.Properties.ApplicationRuleCollections, desired.Properties.ApplicationRuleCollections,
+		func(coll *armnetwork.AzureFirewallApplicationRuleCollection) *string { return coll.Name },
+		func(coll, expected *armnetwork.AzureFirewallApplicationRuleCollection) error {
+			if coll.Properties == nil {
+				coll.Properties = expected.Properties
+				return nil
+			}
+			rules, mergeErr := mergeFirewallRules(coll.Properties.Rules, expected.Properties.Rules,
+				func(rule *armnetwork.AzureFirewallApplicationRule) *string { return rule.Name }, coll.Properties.Action)
+			if mergeErr != nil {
+				return mergeErr
+			}
+			coll.Properties.Rules, coll.Properties.Action = rules, expected.Properties.Action
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("application rules: %w", err)
+	}
+	existing.Properties.NetworkRuleCollections, err = mergeFirewallCollections(
+		existing.Properties.NetworkRuleCollections, desired.Properties.NetworkRuleCollections,
+		func(coll *armnetwork.AzureFirewallNetworkRuleCollection) *string { return coll.Name },
+		func(coll, expected *armnetwork.AzureFirewallNetworkRuleCollection) error {
+			if coll.Properties == nil {
+				coll.Properties = expected.Properties
+				return nil
+			}
+			rules, mergeErr := mergeFirewallRules(coll.Properties.Rules, expected.Properties.Rules,
+				func(rule *armnetwork.AzureFirewallNetworkRule) *string { return rule.Name }, coll.Properties.Action)
+			if mergeErr != nil {
+				return mergeErr
+			}
+			coll.Properties.Rules, coll.Properties.Action = rules, expected.Properties.Action
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("network rules: %w", err)
+	}
+	logging.Logf(ctx, "reconciled managed firewall rules while preserving existing configuration")
+	return nil
+}
+
+func mergeFirewallCollections[T any](existing, desired []*T, name func(*T) *string, merge func(*T, *T) error) ([]*T, error) {
+	for _, expected := range desired {
+		index := slices.IndexFunc(existing, func(coll *T) bool {
+			return coll != nil && name(coll) != nil && *name(coll) == *name(expected)
+		})
+		if index < 0 {
+			existing = append(existing, expected)
+		} else if err := merge(existing[index], expected); err != nil {
+			return nil, fmt.Errorf("collection %s: %w", *name(expected), err)
+		}
+	}
+	return existing, nil
+}
+
+func mergeFirewallRules[T any](existing, desired []*T, name func(*T) *string, action *armnetwork.AzureFirewallRCAction) ([]*T, error) {
+	isAllow := action != nil && action.Type != nil && *action.Type == armnetwork.AzureFirewallRCActionTypeAllow
+	for _, rule := range existing {
+		if rule == nil {
+			continue
+		}
+		owned := slices.ContainsFunc(desired, func(expected *T) bool {
+			return name(rule) != nil && *name(rule) == *name(expected)
+		})
+		if !owned && !isAllow {
+			return nil, fmt.Errorf("cannot change collection action to Allow with unrelated rules")
+		}
+	}
+	for _, expected := range desired {
+		index := slices.IndexFunc(existing, func(rule *T) bool {
+			return rule != nil && name(rule) != nil && *name(rule) == *name(expected)
+		})
+		if index < 0 {
+			existing = append(existing, expected)
+		} else {
+			existing[index] = expected
+		}
+	}
+	return existing, nil
+}
+
 func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {
 	if fw.Properties != nil && fw.Properties.IPConfigurations != nil && len(fw.Properties.IPConfigurations) > 0 {
 		if fw.Properties.IPConfigurations[0].Properties != nil && fw.Properties.IPConfigurations[0].Properties.PrivateIPAddress != nil {
@@ -437,34 +523,50 @@ func getFirewallPrivateIP(fw armnetwork.AzureFirewall) (string, error) {
 	return "", fmt.Errorf("firewall has no private IP address")
 }
 
-// firewallAppRulesUpToDate returns true when the existing firewall already allows the current
-// per-sub blob storage FQDN. We only check the blob-storage-fqdn rule because that's the only
-// rule whose target depends on dynamic config — the rest (aks-fqdn, mooncake-mar, dmc) use
-// static values. If the storage FQDN changed (e.g. sub-suffix added), the rule is stale.
+// Check both the per-sub blob storage FQDN and CVM destinations so shared firewalls
+// created before CVM validation was added are updated.
 func firewallAppRulesUpToDate(fw armnetwork.AzureFirewall) bool {
 	if fw.Properties == nil {
 		return false
 	}
 	expectedFqdn := config.Config.BlobStorageAccount() + ".blob.core.windows.net"
+	expectedCVMRule := getCVMFirewallRule()
+	var hasBlobRule, hasCVMRule bool
 	for _, coll := range fw.Properties.ApplicationRuleCollections {
-		if coll == nil || coll.Properties == nil {
+		if coll == nil || coll.Properties == nil || coll.Properties.Action == nil || coll.Properties.Action.Type == nil ||
+			*coll.Properties.Action.Type != armnetwork.AzureFirewallRCActionTypeAllow {
 			continue
 		}
 		for _, rule := range coll.Properties.Rules {
-			if rule == nil || rule.Name == nil || *rule.Name != "blob-storage-fqdn" {
+			if rule == nil || rule.Name == nil {
 				continue
 			}
-			// Found the dynamic rule; match means firewall is current.
-			for _, fqdn := range rule.TargetFqdns {
-				if fqdn != nil && *fqdn == expectedFqdn {
-					return true
+			if *rule.Name == "blob-storage-fqdn" {
+				hasBlobRule = hasBlobRule || slices.ContainsFunc(rule.TargetFqdns, func(s *string) bool {
+					return s != nil && *s == expectedFqdn
+				})
+			}
+			if *rule.Name != *expectedCVMRule.Name {
+				continue
+			}
+			hasSource := slices.ContainsFunc(rule.SourceAddresses, func(s *string) bool {
+				return s != nil && *s == SharedVNetCIDR
+			})
+			hasHTTPS := slices.ContainsFunc(rule.Protocols, func(p *armnetwork.AzureFirewallApplicationRuleProtocol) bool {
+				return p != nil && p.ProtocolType != nil && *p.ProtocolType == armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS &&
+					p.Port != nil && *p.Port == 443
+			})
+			hasFqdns := true
+			for _, expected := range expectedCVMRule.TargetFqdns {
+				if !slices.ContainsFunc(rule.TargetFqdns, func(s *string) bool { return s != nil && *s == *expected }) {
+					hasFqdns = false
+					break
 				}
 			}
-			return false
+			hasCVMRule = hasCVMRule || (hasSource && hasHTTPS && hasFqdns)
 		}
 	}
-	// Rule not found at all → firewall predates this rule, treat as stale.
-	return false
+	return hasBlobRule && hasCVMRule
 }
 
 func firewallNetworkRulesUpToDate(fw armnetwork.AzureFirewall) bool {
