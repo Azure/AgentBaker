@@ -270,14 +270,14 @@ the steps below in order, and stops at the first failed step.
 
 | Step | Image mode | `--keep-agent` |
 | --- | --- | --- |
+| Download the WALinuxAgent version pinned in `components.json`, before any change (skipped on Flatcar, ACL, and OSGuard) | yes | no |
 | Disable and stop containerd | yes | no |
-| Remove VHD build leftovers (SSH keys, cloud-init logs, stunnel4 logs, image-fetcher, IMDS cache, CustomScript logs) | yes | no |
+| Remove VHD build leftovers (`buildArtifactPaths`, and boot-loader copies of the systemd NvPCR anchor) | yes | no |
 | Empty `/etc/machine-id` in place | yes | yes |
 | Remove per-node outputs (`provision.complete`, `provision.json`, AKSNodeConfig, `nbc-cmd.sh`, boothook scripts) | yes | yes |
 | ACL only: restore the UKI `firstboot.addon.efi` and create `/boot/flatcar/first_boot`, so clones run Ignition | yes | yes |
 | `waagent -force -deprovision+user` | yes | no |
-| Install the WALinuxAgent version pinned in `components.json` (skipped on Flatcar, ACL, and OSGuard) | yes | no |
-| Remove systemd NvPCR anchors | yes | no |
+| Install the downloaded WALinuxAgent | yes | no |
 | `sync` | yes | yes |
 
 - **Image mode** (no flag) is for Packer and Azure Image Builder builds.

@@ -233,7 +233,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					if len(cmd.Args().Slice()) > 0 {
 						return fmt.Errorf("unexpected generalize arguments: %s", strings.Join(cmd.Args().Slice(), " "))
 					}
-					return (&generalize.Generalizer{KeepAgent: cmd.Bool("keep-agent"), RunCmd: a.cmdRun}).Run(ctx)
+					return (&generalize.Generalizer{KeepAgent: cmd.Bool("keep-agent")}).Run(ctx)
 				},
 			},
 		},

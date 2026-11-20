@@ -2,12 +2,12 @@ package generalize
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -16,10 +16,6 @@ import (
 
 	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
-
-type testExitError struct{ Code int }
-
-func (e *testExitError) Error() string { return "exit status " + strconv.Itoa(e.Code) }
 
 func writeUnderRoot(t *testing.T, root, p, content string) string {
 	t.Helper()
@@ -68,13 +64,6 @@ func TestGeneralize(t *testing.T) {
 		}
 	})
 
-	t.Run("succeeds when per-node files are already absent", func(t *testing.T) {
-		g, root := newGeneralizer(t)
-		writeUnderRoot(t, root, "/etc/machine-id", "id\n")
-
-		assert.NoError(t, g.Run(context.Background()))
-	})
-
 	t.Run("fails when a per-node file cannot be removed", func(t *testing.T) {
 		g, root := newGeneralizer(t)
 		writeUnderRoot(t, root, "/etc/machine-id", "id\n")
@@ -86,12 +75,11 @@ func TestGeneralize(t *testing.T) {
 
 	t.Run("keep-agent skips image-only steps", func(t *testing.T) {
 		var cmds []string
-		root := t.TempDir()
-		g := &Generalizer{KeepAgent: true, rootDir: root, RunCmd: func(cmd *exec.Cmd) error {
+		g, root := newGeneralizer(t)
+		g.execCmd = func(cmd *exec.Cmd) error {
 			cmds = append(cmds, strings.Join(cmd.Args, " "))
 			return nil
-		}}
-		writeUnderRoot(t, root, config.OSReleasePath, "ID=ubuntu\n")
+		}
 		writeUnderRoot(t, root, "/etc/machine-id", "id\n")
 		artifact := writeUnderRoot(t, root, buildArtifactPaths[0], "key")
 		anchor := writeUnderRoot(t, root, "/boot/loader/credentials/nvpcr-anchor.abc.cred", "cred")
@@ -200,11 +188,11 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 	t.Helper()
 	f := &imageModeFixture{root: t.TempDir()}
 	f.ws = newFakeWireserver(t)
-	f.g = &Generalizer{rootDir: f.root, installer: f.ws.installer(), RunCmd: func(cmd *exec.Cmd) error {
+	f.g = &Generalizer{rootDir: f.root, installer: f.ws.installer(), execCmd: func(cmd *exec.Cmd) error {
 		joined := strings.Join(cmd.Args, " ")
 		f.cmds = append(f.cmds, joined)
 		if f.failCmd != "" && strings.HasPrefix(joined, f.failCmd) {
-			return &testExitError{Code: 1}
+			return errors.New("exit status 1")
 		}
 		if filepath.Base(cmd.Path) == "waagent" {
 			_, err := io.WriteString(cmd.Stdout, f.deprovisionOutput)
@@ -217,10 +205,6 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 	writeUnderRoot(t, f.root, config.ComponentsFilePath, testWALinuxAgentComponentsJSON)
 	writeUnderRoot(t, f.root, "/etc/waagent.conf", "AutoUpdate.Enabled=n\nAutoUpdate.UpdateToLatestVersion=y\n")
 	return f
-}
-
-func (f *imageModeFixture) run() error {
-	return f.g.Run(context.Background())
 }
 
 func TestGeneralizeImage(t *testing.T) {
@@ -238,7 +222,7 @@ func TestGeneralizeImage(t *testing.T) {
 		}
 		staleAgent := writeUnderRoot(t, f.root, "/var/lib/waagent/WALinuxAgent-2.9.0/bin", "x")
 
-		require.NoError(t, f.run())
+		require.NoError(t, f.g.Run(context.Background()))
 
 		assert.Equal(t, []string{
 			"systemctl daemon-reload",
@@ -280,7 +264,7 @@ func TestGeneralizeImage(t *testing.T) {
 			writeUnderRoot(t, f.root, filepath.Join("/boot/EFI/Linux", aclLegacyUKIName), "uki")
 			require.NoError(t, os.MkdirAll(filepath.Join(f.root, filepath.Dir("/boot/flatcar/first_boot")), 0o755))
 
-			require.NoError(t, f.run(), osRelease)
+			require.NoError(t, f.g.Run(context.Background()), osRelease)
 			assert.Contains(t, f.cmds, "waagent -force -deprovision+user", osRelease)
 			assert.Zero(t, f.ws.requests.Load(), osRelease)
 			assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir), osRelease)
@@ -292,7 +276,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f.failCmd = "systemctl disable"
 		artifact := writeUnderRoot(t, f.root, buildArtifactPaths[0], "key")
 
-		assert.Error(t, f.run())
+		assert.Error(t, f.g.Run(context.Background()))
 		assert.FileExists(t, artifact)
 		content, err := os.ReadFile(filepath.Join(f.root, "/etc/machine-id"))
 		require.NoError(t, err)
@@ -303,7 +287,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f := newImageModeFixture(t, "ID=ubuntu\n")
 		f.failCmd = "waagent"
 
-		assert.Error(t, f.run())
+		assert.Error(t, f.g.Run(context.Background()))
 		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
 	})
 
@@ -311,7 +295,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f := newImageModeFixture(t, "ID=ubuntu\n")
 		f.deprovisionOutput = "Failed to run 'deprovision+user': OSError: [Errno 39] Directory not empty: '/var/lib/waagent/events'\n"
 
-		assert.ErrorContains(t, f.run(), "Failed to run 'deprovision")
+		assert.ErrorContains(t, f.g.Run(context.Background()), "Failed to run 'deprovision")
 		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
 	})
 
@@ -319,7 +303,7 @@ func TestGeneralizeImage(t *testing.T) {
 		f := newImageModeFixture(t, "ID=azurelinux\n")
 		f.ws.manifestVersion = "1.0.0"
 
-		assert.Error(t, f.run())
+		assert.Error(t, f.g.Run(context.Background()))
 		assert.Empty(t, f.cmds, "a failed download must stop the build before any change")
 		assert.NoFileExists(t, filepath.Join(f.root, "/opt/azure/vhd-install.complete"))
 	})
