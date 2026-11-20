@@ -740,6 +740,38 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+func removeProvisioningInputs(flags ProvisionFlags) error {
+	var errs []error
+	for _, path := range []string{flags.NBCCmd, flags.ProvisionConfig} {
+		if path == "" {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, fmt.Errorf("remove provisioning input %s: %w", path, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Persist cleanup failures atomically so status readers never see partial JSON.
+func writeProvisioningFile(path string, content []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".aks-node-controller-input-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+	}()
+	if _, err := file.Write(content); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
+}
+
 func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
 	markerPath := a.readyReportMarkerPath
 	if markerPath == "" {
@@ -805,6 +837,25 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		a.cmdRun = cmdRunnerDryRun
 	}
 	provisionResult, provisionErr = a.Provision(ctx, flags)
+	if dryRun || provisionErr != nil || provisionResult.ExitCode != "0" {
+		return provisionResult, provisionErr
+	}
+	// Environment comparison is the last consumer of provisioning inputs.
+	// PIS receives fresh inputs for nodePrep, so bake-time copies can also be removed.
+	if err := removeProvisioningInputs(flags); err != nil {
+		provisionErr = fmt.Errorf("clean up provisioning inputs: %w", err)
+		provisionResult.ExitCode = "240"
+		provisionResult.Error = provisionErr.Error()
+		data, persistErr := json.Marshal(provisionResult)
+		if persistErr == nil {
+			persistErr = writeProvisioningFile(osCfg.provisionJSONFilePath, data)
+		}
+		if persistErr != nil {
+			provisionErr = errors.Join(provisionErr, fmt.Errorf("write cleanup failure status: %w", persistErr))
+		}
+		return provisionResult, provisionErr
+	}
+	slog.Info("Removed provisioning input files")
 
 	return provisionResult, provisionErr
 }
