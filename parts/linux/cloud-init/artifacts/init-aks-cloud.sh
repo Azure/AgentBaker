@@ -115,8 +115,9 @@ WIRESERVER_ENDPOINT="http://168.63.129.16"
 function make_request_with_retry {
     local url="$1"
     local max_retries=10
-    local retry_delay=3
-    local attempt=1
+    # Optional attempt/delay resume retries after a batched first request.
+    local retry_delay=${3:-3}
+    local attempt=${2:-1}
 
     local response
     local http_code
@@ -126,8 +127,8 @@ function make_request_with_retry {
         # curl stderr (connection errors) flows to the script's log naturally.
         # http_code is 000 when wireserver is unreachable (connection refused/timeout).
         curl_output=$(curl --no-progress-meter --connect-timeout 10 --max-time 30 -w '\n%{http_code}' "$url") || true
-        http_code=$(echo "$curl_output" | tail -1)
-        response=$(echo "$curl_output" | sed '$d')
+        http_code=${curl_output##*$'\n'}
+        response=${curl_output%$'\n'*}
 
         if echo "$response" | grep -q "RequestRateLimitExceeded" && [ "$http_code" = "403" ]; then
             echo "wireserver rate limited (HTTP ${http_code}) on attempt ${attempt}/${max_retries}: ${url}" >&2
@@ -219,6 +220,93 @@ function retrieve_legacy_certs {
     done <<< "$certs"
 }
 
+# Download RCV1P certificates to $1; remaining arguments are validated filenames.
+# Run up to four transfers concurrently, then retry failures sequentially within
+# the ten-attempt budget per certificate, preserving rate-limit backoff.
+# Keep successful files and skip empty/exhausted responses; batch bookkeeping or
+# local file errors return nonzero. The subshell cleans up temporary batch files.
+download_cert_batch() (
+    local destination="$1"
+    shift
+    [ "$#" -gt 0 ] || return 0
+    local work_dir
+    work_dir=$(mktemp -d) || return 1
+    trap 'rm -f -- "$work_dir/"*.body "$work_dir/status"; rmdir -- "$work_dir"' EXIT
+
+    local -a cert_filenames=("$@") http_codes=() args=()
+    local index cert_filename filename extension output http_code cert_content url
+    local curl_status=0 retry_delay
+    args=(--no-progress-meter --connect-timeout 10 --max-time 30
+        --parallel --parallel-max 4
+        --write-out '%{filename_effective}\t%{http_code}\n')
+    for index in "${!cert_filenames[@]}"; do
+        cert_filename=${cert_filenames[index]}
+        filename=${cert_filename%.*}
+        extension=${cert_filename##*.}
+        args+=(--output "$work_dir/$index.body"
+            --url "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
+    done
+    # A batch exit status describes only one transfer; inspect every HTTP result.
+    curl "${args[@]}" > "$work_dir/status" || curl_status=$?
+    while IFS=$'\t' read -r output http_code; do
+        index=${output##*/}
+        index=${index%.body}
+        case "$index" in
+            ''|*[!0-9]*)
+                echo "ERROR: invalid curl batch result filename" >&2
+                return 1
+                ;;
+        esac
+        if [ "$output" != "$work_dir/$index.body" ] || [ "$index" -ge "${#cert_filenames[@]}" ]; then
+            echo "ERROR: unexpected curl batch result filename" >&2
+            return 1
+        fi
+        http_codes[index]=$http_code
+    done < "$work_dir/status"
+
+    for index in "${!cert_filenames[@]}"; do
+        if [ -z "${http_codes[index]:-}" ]; then
+            echo "ERROR: curl batch did not report every transfer (exit $curl_status)" >&2
+            return 1
+        fi
+        cert_filename=${cert_filenames[index]}
+        filename=${cert_filename%.*}
+        extension=${cert_filename##*.}
+        url="${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
+        http_code=${http_codes[index]}
+        cert_content=
+        if [ -f "$work_dir/$index.body" ]; then
+            cert_content=$(< "$work_dir/$index.body")
+        fi
+        retry_delay=3
+        case "$http_code:$cert_content" in
+            2[0-9][0-9]:*) ;;
+            *)
+                case "$http_code:$cert_content" in
+                    403:*RequestRateLimitExceeded*)
+                        echo "wireserver rate limited (HTTP 403) on attempt 1/10: ${url}" >&2
+                        retry_delay=6
+                        ;;
+                    *)
+                        echo "wireserver request failed (HTTP ${http_code}) on attempt 1/10: ${url}" >&2
+                        ;;
+                esac
+                # Retry failures sequentially, preserving the ten-attempt budget and backoff.
+                sleep 3
+                cert_content=$(make_request_with_retry "$url" 2 "$retry_delay") || {
+                    echo "Warning: No response received or request failed for: ${url}"
+                    continue
+                }
+                ;;
+        esac
+        if [ -z "$cert_content" ]; then
+            echo "Warning: No response received or request failed for: ${url}"
+            continue
+        fi
+        printf '%s\n' "$cert_content" > "$destination/$cert_filename" || return 1
+    done
+)
+
 function process_cert_operations {
     local endpoint_type="$1"
     local operation_response
@@ -230,39 +318,30 @@ function process_cert_operations {
         return 1
     fi
 
-    local cert_filenames
-    mapfile -t cert_filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
+    local filenames
+    mapfile -t filenames < <(echo "$operation_response" | grep -oP '(?<="ResouceFileName": ")[^"]*')
 
-    if [ ${#cert_filenames[@]} -eq 0 ]; then
+    if [ ${#filenames[@]} -eq 0 ]; then
         echo "No certificate filenames found in response for $endpoint_type"
         return 1
     fi
 
-    for cert_filename in "${cert_filenames[@]}"; do
+    local -a cert_filenames=()
+    local cert_filename sanitized_filename
+    for cert_filename in "${filenames[@]}"; do
         # Defense-in-depth: reject filenames containing path separators or ".." to
         # prevent path traversal via a malformed wireserver ResouceFileName value.
         # Windows performs the equivalent sanitization via [IO.Path]::GetFileName.
-        local sanitized_filename
-        sanitized_filename=$(basename -- "$cert_filename")
+        sanitized_filename=${cert_filename##*/}
         if [ "$sanitized_filename" != "$cert_filename" ] || [ -z "$sanitized_filename" ] || \
            [ "$sanitized_filename" = "." ] || [ "$sanitized_filename" = ".." ]; then
             echo "Warning: rejecting certificate filename with path separators or traversal: '$cert_filename'"
             continue
         fi
 
-        local filename="${sanitized_filename%.*}"
-        local extension="${sanitized_filename##*.}"
-        local cert_content
-
-        cert_content=$(make_request_with_retry "${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension")
-        local request_status=$?
-        if [ -z "$cert_content" ] || [ $request_status -ne 0 ]; then
-            echo "Warning: No response received or request failed for: ${WIRESERVER_ENDPOINT}/machine?comp=acmspackage&type=$filename&ext=$extension"
-            continue
-        fi
-
-        echo "$cert_content" > "/root/AzureCACertificates/$sanitized_filename"
+        cert_filenames+=("$sanitized_filename")
     done
+    download_cert_batch /root/AzureCACertificates "${cert_filenames[@]}"
 }
 
 function retrieve_rcv1p_certs {
