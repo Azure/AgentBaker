@@ -135,6 +135,128 @@ Describe 'VHD deprovision'
     End
   End
 
+  Describe 'deprovisionWALinuxAgent'
+    # WAAGENT_OUTPUT, WAAGENT_STATUS, WAAGENT_LEFTOVER and SYSTEMCTL_STATUS control the fakes.
+    sudo() {
+      case "$1" in
+        systemctl)
+          printf '%s\n' "$*" >> "${TEST_ROOT}/calls"
+          return "${SYSTEMCTL_STATUS:-0}"
+          ;;
+        waagent)
+          printf '%s\n' "$*" >> "${TEST_ROOT}/calls"
+          if [ -n "${WAAGENT_OUTPUT:-}" ]; then
+            printf '%s\n' "${WAAGENT_OUTPUT}"
+          fi
+          if [ -n "${WAAGENT_LEFTOVER:-}" ]; then
+            touch "${TEST_ROOT}/lib/${WAAGENT_LEFTOVER}"
+          else
+            rm -rf "${TEST_ROOT:?}/lib/"*
+          fi
+          return "${WAAGENT_STATUS:-0}"
+          ;;
+        *) "$@" ;;
+      esac
+    }
+
+    seed_lib_dir() {
+      mkdir -p "${TEST_ROOT}/lib/events"
+      touch "${TEST_ROOT}/lib/ovf-env.xml"
+    }
+
+    It 'kills Guest Configuration and stops agent units before deprovision'
+      seed_lib_dir
+      WAAGENT_OUTPUT='WARNING! The waagent service will be stopped.'
+
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
+      The status should be success
+      The output should equal 'WARNING! The waagent service will be stopped.'
+      The contents of file "${TEST_ROOT}/calls" should equal "systemctl disable gcd.service
+systemctl kill --signal=SIGKILL gcd.service
+systemctl stop gcd.service walinuxagent.service waagent.service azure-walinuxagent-logcollector.slice azure-vmextensions.slice
+waagent -force -deprovision+user"
+    End
+
+    It 'succeeds when the lib dir is absent'
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/missing"
+      The status should be success
+      The output should equal ''
+    End
+
+    It 'continues when gcd.service and agent units do not exist'
+      seed_lib_dir
+      SYSTEMCTL_STATUS=5
+
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
+      The status should be success
+      The output should equal ''
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 4
+    End
+
+    It 'fails when waagent exits nonzero'
+      seed_lib_dir
+      WAAGENT_STATUS=7
+
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
+      The status should equal 1
+      The output should equal ''
+      The stderr should equal "waagent deprovision failed with exit code 7"
+    End
+
+    It 'fails when waagent reports a failed deprovision but exits 0 with an empty lib dir'
+      seed_lib_dir
+      WAAGENT_OUTPUT="2026/01/01 00:00:00 ERROR Failed to run 'deprovision+user': [Errno 2] No such file or directory: 'userdel'"
+
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
+      The status should equal 1
+      The output should include "Failed to run 'deprovision+user'"
+      The stderr should equal "waagent deprovision failed but exited 0: it logged \"Failed to run 'deprovision\" (see its output above)"
+      The contents of file "${TEST_ROOT}/calls" should include 'waagent -force -deprovision+user'
+      The lines of contents of file "${TEST_ROOT}/calls" should equal 4
+    End
+
+    It 'fails when the lib dir is not empty after a silent deprovision'
+      seed_lib_dir
+      WAAGENT_LEFTOVER=late-event
+
+      When call deprovisionWALinuxAgent "${TEST_ROOT}/lib"
+      The status should equal 1
+      The output should equal ''
+      The stderr should equal "waagent deprovision failed but exited 0: ${TEST_ROOT}/lib is not empty"
+    End
+  End
+
+  Describe 'Packer templates'
+    check_template() {
+      local template="$1" helper="$2"
+      # Every deprovision must go through the verified helper, never waagent directly,
+      # and must not pass a waagent path: the helper resolves waagent through PATH.
+      ! grep -F -- '-deprovision+user' "${template}" &&
+        grep -F -- "'. ${helper} && deprovisionWALinuxAgent" "${template}" >/dev/null &&
+        ! grep -E -- 'deprovisionWALinuxAgent [^&]' "${template}" &&
+        jq -e '[.provisioners[] | select(.type == "file" and
+          .source == "vhdbuilder/packer/deprovision.sh" and
+          .destination == "/home/packer/deprovision.sh")] | length == 1' "${template}" >/dev/null
+    }
+
+    Parameters
+      base /opt/azure/containers/deprovision.sh
+      cvm /opt/azure/containers/deprovision.sh
+      arm64-gen2 /opt/azure/containers/deprovision.sh
+      arm64-gb /opt/azure/containers/deprovision.sh
+      mariner /opt/azure/containers/deprovision.sh
+      mariner-cvm /opt/azure/containers/deprovision.sh
+      mariner-arm64 /opt/azure/containers/deprovision.sh
+      acl /home/packer/deprovision.sh
+      acl-arm64 /home/packer/deprovision.sh
+    End
+
+    It "deprovisions $1 through the verified helper"
+      When call check_template "vhdbuilder/packer/vhd-image-builder-$1.json" "$2"
+      The status should be success
+    End
+  End
+
   Describe 'installPinnedWALinuxAgent'
     It 'invokes the shared installer through Bash'
       sudo() { printf '%s\n' "$*"; }
@@ -173,6 +295,7 @@ Describe 'VHD deprovision'
         fi
       }
       sudo() { record_step sudo "$@"; }
+      deprovisionWALinuxAgent() { record_step deprovisionWALinuxAgent "$@"; }
       installPinnedWALinuxAgent() { record_step installPinnedWALinuxAgent "$@"; }
       cleanupNvPCRCredentials() { record_step cleanupNvPCRCredentials "$@"; }
       rm() { record_step rm "$@"; }
@@ -189,7 +312,7 @@ Describe 'VHD deprovision'
       It "generalizes, reinstalls the agent, cleans credentials and removes helpers with CVM=$1"
         When run run_hook "" "$1"
         The status should be success
-        The output should equal "sudo waagent -force -deprovision+user
+        The output should equal "deprovisionWALinuxAgent
 installPinnedWALinuxAgent /
 cleanupNvPCRCredentials $1 /
 rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh /opt/azure/containers/install_walinuxagent.py /opt/azure/containers/deprovision.sh /opt/azure/containers/aib-deprovision.sh /tmp/DeprovisioningScript.sh
@@ -213,7 +336,7 @@ sync"
 
     Describe 'failure propagation'
       Parameters
-        sudo 1
+        deprovisionWALinuxAgent 1
         installPinnedWALinuxAgent 2
         cleanupNvPCRCredentials 3
         rm 4
