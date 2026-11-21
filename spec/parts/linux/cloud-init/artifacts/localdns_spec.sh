@@ -24,6 +24,7 @@ Describe 'localdns.sh'
             LOCALDNS_SCRIPT_PATH="${TEST_DIR}/opt/azure/containers/localdns"
             LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/localdns.corefile"
             UPDATED_LOCALDNS_CORE_FILE="${LOCALDNS_SCRIPT_PATH}/updated.localdns.corefile"
+            EXPECTED_UPDATED_LOCALDNS_CORE_FILE="${TEST_DIR}/expected.updated.localdns.corefile"
             mkdir -p "$LOCALDNS_SCRIPT_PATH"
             # Use production-realistic corefile format with brace syntax
             cat > "$LOCALDNS_CORE_FILE" <<'EOF'
@@ -40,6 +41,7 @@ EOF
     }
 }
 EOF
+            cp "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
 
             LOCALDNS_SLICE_PATH="${TEST_DIR}/etc/systemd/system"
             LOCALDNS_SLICE_FILE="${LOCALDNS_SLICE_PATH}/localdns.slice"
@@ -68,9 +70,22 @@ EOF
         }
         cleanup() {
             rm -rf "$LOCALDNS_SCRIPT_PATH"
+            rm -f "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
             rm -rf "$LOCALDNS_SLICE_PATH"
             rm -rf "$COREDNS_BINARY_PATH"
             rm -rf "$RESOLV_CONF"
+        }
+        assert_updated_localdns_corefile_unchanged() {
+            cmp -s "$UPDATED_LOCALDNS_CORE_FILE" "$EXPECTED_UPDATED_LOCALDNS_CORE_FILE"
+        }
+        run_replace_azurednsip_and_verify_unchanged() {
+            replace_azurednsip_in_corefile
+            local status=$?
+            if ! assert_updated_localdns_corefile_unchanged; then
+                echo "Updated localdns corefile changed unexpectedly."
+                return 1
+            fi
+            return "$status"
         }
         BeforeEach 'setup'
         AfterEach 'cleanup'
@@ -401,7 +416,7 @@ EOF
 
         It 'should fail if resolv.conf not found'
             rm -f "$RESOLV_CONF"
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The stdout should include ""$RESOLV_CONF" not found."
         End
@@ -410,7 +425,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 invalid
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -421,7 +436,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver ""
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -432,7 +447,7 @@ EOF
 cat <<EOF > "$RESOLV_CONF"
 nameserver
 EOF
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The stdout should include "No Upstream VNET DNS servers found in "$RESOLV_CONF"."
@@ -448,23 +463,169 @@ EOF
             The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
             The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
             The stdout should include "Found upstream VNET DNS servers: 168.63.129.16"
-            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (168.63.129.16) already match Azure DNS IP (168.63.129.16)."
         End
 
-        It 'should not replace 168.63.129.16 with UpstreamDNSIP if it is same as localdns node listener IP'
+        It 'should fail if upstream DNS is the localdns node listener IP'
 cat <<EOF > "$RESOLV_CONF"
 nameserver 169.254.10.10
 EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should fail if upstream DNS is the localdns cluster listener IP'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+        End
+
+        It 'should fail if a listener IP is mixed into an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 169.254.10.10
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should fail if a listener IP precedes an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should report a listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.10
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report a listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should fail if the cluster listener is mixed into an otherwise valid upstream DNS list'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+        End
+
+        It 'should fail if both localdns listener IPs are upstream DNS servers'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.10
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.10"
+        End
+
+        It 'should report the cluster listener before an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+nameserver 169.254.10.11
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should report the cluster listener after an invalid upstream entry'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 169.254.10.11
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Upstream VNET DNS servers contain localdns listener IP 169.254.10.11"
+            The stdout should not include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should fail if an upstream entry is not an address'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1/24
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '10.0.0.1/24'"
+        End
+
+        It 'should reject the unspecified IPv6 address'
+cat <<EOF > "$RESOLV_CONF"
+nameserver ::
+EOF
+            When run run_replace_azurednsip_and_verify_unchanged
+            The status should be failure
+            The stdout should include "Invalid upstream VNET DNS server '::'"
+        End
+
+        It 'should replace Azure DNS with multiple valid upstream DNS servers'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+nameserver 10.0.0.2
+EOF
             When run replace_azurednsip_in_corefile
             The status should be success
-            The file "${UPDATED_LOCALDNS_CORE_FILE}" should be exist
-            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16"
-            The stdout should include "Skipping DNS IP replacement. Upstream VNET DNS servers (169.254.10.10) match either Azure DNS IP (168.63.129.16) or localdns node listener IP (169.254.10.10)"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1 10.0.0.2"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.10"
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should not include "169.254.10.11"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1 10.0.0.2"
+        End
+
+        It 'should replace Azure DNS with a single valid non-Azure upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 10.0.0.1"
+        End
+
+        It 'should replace Azure DNS when it is mixed with another valid upstream DNS server'
+cat <<EOF > "$RESOLV_CONF"
+nameserver 168.63.129.16
+nameserver 10.0.0.1
+EOF
+            When run replace_azurednsip_in_corefile
+            The status should be success
+            The contents of file "${UPDATED_LOCALDNS_CORE_FILE}" should include "forward . 168.63.129.16 10.0.0.1"
+            The stdout should include "Successfully updated ${UPDATED_LOCALDNS_CORE_FILE}"
+            The stdout should include "Persisted upstream DNS servers to /etc/localdns/upstream-dns: 168.63.129.16 10.0.0.1"
         End
 
         It 'should return failure if AZURE_DNS_IP is unset'
             unset AZURE_DNS_IP
-            When run replace_azurednsip_in_corefile
+            When run run_replace_azurednsip_and_verify_unchanged
             The status should be failure
             The stdout should include "AZURE_DNS_IP is not set or is empty."
         End
