@@ -336,16 +336,29 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       fi
       add-apt-repository --remove ppa:canonical-kernel-team/ppa
     else
+      # Vera Rubin (Standard_ND*isr_VR_NVL72_v7) GPUs need the 7.3 azure-64k kernel as the
+      # dual-kernel "NVIDIA" kernel. On 6.14/7.0 azure-nvidia and the official 7.0 azure-64k,
+      # the GPU driver fails probe-time init with a GSP-RM RPC timeout:
+      #   NVRM: *** GSP Timeout: GSP-RM is slow (origin=RPC) *** -> NV_ERR_INVALID_STATE
+      #   -> GPU failed probe-time init, open returning -EIO   (verified on a VR72 0.8-CRD node).
+      # 7.3 restores the NVIDIA ATS/SMMU + arm64 memory-attribute patches that were dropped in
+      # the earlier azure-64k rebase (confirmed by Canonical); VR GPUs init on it.
+      # NOTE: sourced from the canonical-kernel-team PPA (linux-azure-64k-edge, 7.3.0-rcN) until
+      # 7.3 promotes to the released Azure kernel -- pin the released version before merging.
+      add-apt-repository ppa:canonical-kernel-team/ppa
       apt-get update
-      if apt-cache show "${NVIDIA_KERNEL_PACKAGE}" &> /dev/null; then
-        echo "ARM64 image. Installing NVIDIA kernel and its packages alongside LTS kernel"
+      NVIDIA_KERNEL_PACKAGE="linux-image-7.3.0-1003-azure-64k linux-modules-7.3.0-1003-azure-64k linux-headers-7.3.0-1003-azure-64k"
+      if apt-cache show linux-image-7.3.0-1003-azure-64k &> /dev/null; then
+        echo "ARM64 image. Installing 7.3 azure-64k kernel (Vera Rubin) alongside LTS kernel"
         wait_for_apt_locks
-        apt install --no-install-recommends -y "${NVIDIA_KERNEL_PACKAGE}"
+        # shellcheck disable=SC2086 # NVIDIA_KERNEL_PACKAGE is an intentional multi-package list
+        apt install --no-install-recommends -y ${NVIDIA_KERNEL_PACKAGE}
         echo "after installation:"
-        dpkg -l | grep "linux-.*-azure-nvidia" || true
+        dpkg -l | grep "linux-.*-azure-64k" || true
       else
-        echo "ARM64 image. NVIDIA kernel not available, skipping installation."
+        echo "ARM64 image. 7.3 azure-64k kernel not available, skipping installation."
       fi
+      add-apt-repository --remove ppa:canonical-kernel-team/ppa
     fi
   fi
   wait_for_apt_locks
