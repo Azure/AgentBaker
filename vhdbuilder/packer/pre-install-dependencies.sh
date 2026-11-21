@@ -347,6 +347,47 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
         echo "ARM64 image. NVIDIA kernel not available, skipping installation."
       fi
     fi
+  elif [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "26.04" ]]; then
+    # 26.04 (resolute) arm64 image: Vera Rubin (Standard_ND*isr_VR_NVL72_v7) GPUs need the 7.3
+    # azure-64k kernel as the dual-kernel "NVIDIA" kernel. On 6.14/7.0 azure-nvidia and the
+    # official 7.0 azure-64k the GPU driver fails probe-time init with a GSP-RM RPC timeout:
+    #   NVRM: *** GSP Timeout: GSP-RM is slow (origin=RPC) *** -> NV_ERR_INVALID_STATE
+    #   -> GPU failed probe-time init, open returning -EIO   (verified on a VR72 0.8-CRD node).
+    # 7.3 restores the NVIDIA ATS/SMMU + arm64 memory-attribute patches dropped in the earlier
+    # azure-64k rebase (confirmed by Canonical). 7.3 azure-64k is published for 26.04 (resolute),
+    # not 24.04 -- which is why the VR GPU kernel lives on the 26.04 arm64 image.
+    # NOTE: sourced from the canonical-kernel-team PPA (linux-azure-64k-edge, 7.3.0-rcN) until
+    # 7.3 promotes to the released Azure kernel -- pin the released version before merging.
+    # The 2604 arm64 image is a minimal image, which does not ship software-properties-common
+    # (add-apt-repository); install it on demand so the PPA can be added, then remove it below to
+    # keep the minimal footprint (post-install only purges it on non-minimal images).
+    INSTALLED_SPC=false
+    if ! command -v add-apt-repository &> /dev/null; then
+      apt-get update
+      apt install --no-install-recommends -y software-properties-common
+      INSTALLED_SPC=true
+    fi
+    add-apt-repository ppa:canonical-kernel-team/ppa
+    apt-get update
+    NVIDIA_KERNEL_PACKAGE="linux-image-7.3.0-1003-azure-64k linux-modules-7.3.0-1003-azure-64k linux-headers-7.3.0-1003-azure-64k"
+    # Dry-run resolve to confirm the kernel + deps are actually installable, not merely indexed.
+    # shellcheck disable=SC2086 # NVIDIA_KERNEL_PACKAGE is an intentional multi-package list
+    if apt-get install -s --no-install-recommends ${NVIDIA_KERNEL_PACKAGE} &> /dev/null; then
+      echo "ARM64 26.04 image. Installing 7.3 azure-64k kernel (Vera Rubin) alongside LTS kernel"
+      wait_for_apt_locks
+      # shellcheck disable=SC2086
+      apt install --no-install-recommends -y ${NVIDIA_KERNEL_PACKAGE}
+      echo "after installation:"
+      dpkg -l | grep "linux-.*-azure-64k" || true
+    else
+      # This GPU kernel is required on the 26.04 arm64 GPU image; fail the build loudly rather
+      # than silently shipping a GPU-less image (post-install asserts the dual-kernel invariant).
+      echo "ERROR: 7.3 azure-64k kernel not installable from the PPA, cannot continue!" && exit 1
+    fi
+    add-apt-repository --remove ppa:canonical-kernel-team/ppa
+    if [ "$INSTALLED_SPC" = "true" ]; then
+      apt-get purge --auto-remove -y software-properties-common
+    fi
   fi
   wait_for_apt_locks
   if grep -q "cvm" <<< "$FEATURE_FLAGS"; then
