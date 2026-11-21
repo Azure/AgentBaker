@@ -593,7 +593,7 @@ copyPackerFiles() {
     cpAndMode $NPD_UPDATE_SH_SRC $NPD_UPDATE_SH_DEST 544
     cpAndMode $USU_SH_SRC $USU_SH_DEST 544
 
-    if [ "$UBUNTU_RELEASE" = "24.04" ] && [ "$CPU_ARCH" = "arm64" ]; then
+    if { [ "$UBUNTU_RELEASE" = "24.04" ] || [ "$UBUNTU_RELEASE" = "26.04" ]; } && [ "$CPU_ARCH" = "arm64" ]; then
       GRUB_AZ_NV_SCRIPT_SRC=/home/packer/10_azure_nvidia
       GRUB_AZ_NV_SCRIPT_DEST=/etc/grub.d/10_azure_nvidia
       cpAndMode $GRUB_AZ_NV_SCRIPT_SRC $GRUB_AZ_NV_SCRIPT_DEST 755
