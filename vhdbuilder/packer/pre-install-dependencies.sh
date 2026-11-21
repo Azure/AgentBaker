@@ -361,14 +361,17 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
     # The 2604 arm64 image is a minimal image, which does not ship software-properties-common
     # (add-apt-repository); install it on demand so the PPA can be added, then remove it below to
     # keep the minimal footprint (post-install only purges it on non-minimal images).
+    # This script does not run under 'set -e', so guard each setup step explicitly: a failed
+    # add-apt-repository or apt-get update here must fail the build loudly and distinctly,
+    # rather than falling through to the generic "kernel not installable" message below.
     INSTALLED_SPC=false
     if ! command -v add-apt-repository &> /dev/null; then
-      apt-get update
-      apt install --no-install-recommends -y software-properties-common
+      apt-get update || { echo "ERROR: apt-get update failed before installing software-properties-common!" && exit 1; }
+      apt install --no-install-recommends -y software-properties-common || { echo "ERROR: failed to install software-properties-common (needed for add-apt-repository)!" && exit 1; }
       INSTALLED_SPC=true
     fi
-    add-apt-repository ppa:canonical-kernel-team/ppa
-    apt-get update
+    add-apt-repository ppa:canonical-kernel-team/ppa || { echo "ERROR: failed to add ppa:canonical-kernel-team/ppa!" && exit 1; }
+    apt-get update || { echo "ERROR: apt-get update failed after adding ppa:canonical-kernel-team/ppa!" && exit 1; }
     NVIDIA_KERNEL_PACKAGE="linux-image-7.3.0-1003-azure-64k linux-modules-7.3.0-1003-azure-64k linux-headers-7.3.0-1003-azure-64k"
     # Dry-run resolve to confirm the kernel + deps are actually installable, not merely indexed.
     # shellcheck disable=SC2086 # NVIDIA_KERNEL_PACKAGE is an intentional multi-package list
