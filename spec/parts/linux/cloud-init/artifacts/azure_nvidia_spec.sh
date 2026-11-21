@@ -75,6 +75,20 @@ EOF
         The stderr should include 'Default NVIDIA image: 3.0.10-azure-nvidia, non-NVIDIA image: 3.0.10-azure'
     End
 
+    It 'selects the azure-64k kernel as the NVIDIA image (Vera Rubin)'
+        rm -f "${BOOT_DIR}"/vmlinuz-*
+        cat > "$GRUB_LINUX_SCRIPT" <<'EOF'
+boot_device_id=test-device
+reverse_sorted_list='/boot/vmlinuz-7.3.0-1003-azure-64k /boot/vmlinuz-6.8.0-azure'
+EOF
+        When run script "$SCRIPT"
+        The status should be success
+        The output should include 'set default="gnulinux-7.3.0-1003-azure-64k-advanced-test-device"'
+        The output should include 'set default="gnulinux-6.8.0-azure-advanced-test-device"'
+        The output should include 'insmod smbios'
+        The stderr should include 'Default NVIDIA image: 7.3.0-1003-azure-64k, non-NVIDIA image: 6.8.0-azure'
+    End
+
     It 'loads package-owned modules from their filesystem and restores GRUB state'
         When run script "$SCRIPT"
         The status should be success

@@ -348,15 +348,21 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
       add-apt-repository ppa:canonical-kernel-team/ppa
       apt-get update
       NVIDIA_KERNEL_PACKAGE="linux-image-7.3.0-1003-azure-64k linux-modules-7.3.0-1003-azure-64k linux-headers-7.3.0-1003-azure-64k"
-      if apt-cache show linux-image-7.3.0-1003-azure-64k &> /dev/null; then
+      # Dry-run resolve (like the GB path above) to confirm the kernel + deps are actually
+      # installable, not merely present in the index.
+      # shellcheck disable=SC2086 # NVIDIA_KERNEL_PACKAGE is an intentional multi-package list
+      if apt-get install -s --no-install-recommends ${NVIDIA_KERNEL_PACKAGE} &> /dev/null; then
         echo "ARM64 image. Installing 7.3 azure-64k kernel (Vera Rubin) alongside LTS kernel"
         wait_for_apt_locks
-        # shellcheck disable=SC2086 # NVIDIA_KERNEL_PACKAGE is an intentional multi-package list
+        # shellcheck disable=SC2086
         apt install --no-install-recommends -y ${NVIDIA_KERNEL_PACKAGE}
         echo "after installation:"
         dpkg -l | grep "linux-.*-azure-64k" || true
       else
-        echo "ARM64 image. 7.3 azure-64k kernel not available, skipping installation."
+        # This GPU kernel is required on the arm64 GPU image; fail the build loudly rather than
+        # silently shipping a GPU-less image that would boot the LTS kernel on Vera Rubin nodes
+        # (post-install-dependencies.sh also asserts the dual-kernel invariant).
+        echo "ERROR: 7.3 azure-64k kernel not installable from the PPA, cannot continue!" && exit "$ERR_APT_INSTALL_TIMEOUT"
       fi
       add-apt-repository --remove ppa:canonical-kernel-team/ppa
     fi
