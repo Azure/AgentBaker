@@ -17,8 +17,8 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	if cfg == nil {
 		return fmt.Errorf("AKSNodeConfig is required")
 	}
-	if cfg.Version != "v0" && cfg.Version != "v1" {
-		return fmt.Errorf("unsupported version: %s", cfg.Version)
+	if cfg.GetVersion() != "v0" && cfg.GetVersion() != "v1" {
+		return fmt.Errorf("unsupported version: %s", cfg.GetVersion())
 	}
 	if err := validateCustomLinuxOSConfig(cfg.GetCustomLinuxOsConfig()); err != nil {
 		return err
@@ -31,16 +31,16 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	if kubelet == nil {
 		return nil
 	}
-	version, err := semver.NewVersion(cfg.KubernetesVersion)
+	version, err := semver.NewVersion(cfg.GetKubernetesVersion())
 	if err != nil {
 		return fmt.Errorf("invalid kubernetes_version: %w", err)
 	}
-	gates, err := parseFeatureGates(kubelet.KubeletFlags["--feature-gates"])
+	gates, err := parseFeatureGates(kubelet.GetKubeletFlags()["--feature-gates"])
 	if err != nil {
 		return err
 	}
 
-	flags := kubelet.KubeletFlags
+	flags := kubelet.GetKubeletFlags()
 	if flags == nil {
 		flags = make(map[string]string)
 		kubelet.KubeletFlags = flags
@@ -58,7 +58,7 @@ func validateAndNormalize(cfg *aksnodeconfigv1.Configuration) error {
 	_, fileSetsRuntimeClass := kubelet.GetKubeletConfigFileConfig().GetFeatureGates()["RuntimeClassInImageCriApi"]
 	// A config file that kubelet never loads doesn't count. "Already set" includes a default added by an earlier
 	// Validate run, such as RP's before it sends the config, which keeps normalization idempotent.
-	runtimeClassSet := cliSetsRuntimeClass || (kubelet.EnableKubeletConfigFile && fileSetsRuntimeClass)
+	runtimeClassSet := cliSetsRuntimeClass || (kubelet.GetEnableKubeletConfigFile() && fileSetsRuntimeClass)
 	// defaultRuntimeClass tells normalizeFeatureGates to add RuntimeClassInImageCriApi=true, on 1.29+ where the gate
 	// exists, to each gate map it normalizes: the command-line flags and/or the config file.
 	defaultRuntimeClass := cfg.GetIsKata() && !runtimeClassSet
@@ -102,7 +102,7 @@ func validateCustomLinuxOSConfig(osConfig *aksnodeconfigv1.CustomLinuxOsConfig) 
 
 func parseFeatureGates(raw string) (map[string]bool, error) {
 	gates := make(map[string]bool)
-	for _, entry := range strings.Split(raw, ",") {
+	for entry := range strings.SplitSeq(raw, ",") {
 		if strings.TrimSpace(entry) == "" {
 			continue
 		}
@@ -117,15 +117,15 @@ func parseFeatureGates(raw string) (map[string]bool, error) {
 }
 
 func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[string]bool, version *semver.Version, defaultRuntimeClass bool) {
-	flags := kubelet.KubeletFlags
-	servingRotation := kubelet.EnableKubeletConfigFile && kubelet.GetKubeletConfigFileConfig().GetServerTlsBootstrap()
+	flags := kubelet.GetKubeletFlags()
+	servingRotation := kubelet.GetEnableKubeletConfigFile() && kubelet.GetKubeletConfigFileConfig().GetServerTlsBootstrap()
 	rotationFlag, hasRotationFlag := flags["--rotate-server-certificates"]
 	if hasRotationFlag {
 		servingRotation = rotationFlag == "true"
 	}
 	_, hasGateFlag := flags["--feature-gates"]
 	// Do not introduce a CLI map that could override an existing config-file map.
-	if hasGateFlag || hasRotationFlag || !kubelet.EnableKubeletConfigFile {
+	if hasGateFlag || hasRotationFlag || !kubelet.GetEnableKubeletConfigFile() {
 		normalizeFeatureGates(gates, version, servingRotation, defaultRuntimeClass)
 	}
 	keys := make([]string, 0, len(gates))
@@ -145,9 +145,9 @@ func normalizeFeatureGateFlag(kubelet *aksnodeconfigv1.KubeletConfig, gates map[
 }
 
 func normalizeReservedCgroupFlags(kubelet *aksnodeconfigv1.KubeletConfig) (string, string) {
-	flags := kubelet.KubeletFlags
+	flags := kubelet.GetKubeletFlags()
 	var enforced []string
-	if kubelet.EnableKubeletConfigFile {
+	if kubelet.GetEnableKubeletConfigFile() {
 		enforced = kubelet.GetKubeletConfigFileConfig().GetEnforceNodeAllocatable()
 	}
 	// Command-line enforcement overrides the config file when both are provided.
@@ -158,7 +158,7 @@ func normalizeReservedCgroupFlags(kubelet *aksnodeconfigv1.KubeletConfig) (strin
 	kubeReserved, systemReserved := reservedCgroups(enforced)
 	delete(flags, "--kube-reserved-cgroup")
 	delete(flags, "--system-reserved-cgroup")
-	if _, ok := flags["--enforce-node-allocatable"]; ok || !kubelet.EnableKubeletConfigFile {
+	if _, ok := flags["--enforce-node-allocatable"]; ok || !kubelet.GetEnableKubeletConfigFile() {
 		if kubeReserved != "" {
 			flags["--kube-reserved-cgroup"] = kubeReserved
 			flags["--system-reserved-cgroup"] = systemReserved
@@ -175,7 +175,7 @@ func normalizeKubeletConfigFile(fileConfig *aksnodeconfigv1.KubeletConfigFileCon
 	if fileConfig.FeatureGates == nil {
 		fileConfig.FeatureGates = make(map[string]bool)
 	}
-	normalizeFeatureGates(fileConfig.FeatureGates, version, fileConfig.ServerTlsBootstrap, defaultRuntimeClass)
+	normalizeFeatureGates(fileConfig.GetFeatureGates(), version, fileConfig.GetServerTlsBootstrap(), defaultRuntimeClass)
 	fileConfig.KubeReservedCgroup = kubeReserved
 	fileConfig.SystemReservedCgroup = systemReserved
 	if version.GreaterThanEqual(semver.MustParse("1.34.0")) {

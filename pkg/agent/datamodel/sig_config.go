@@ -80,14 +80,12 @@ func GetCloudTargetEnv(location string) string {
 	}
 }
 
-//nolint:gochecknoglobals
 var AvailableUbuntu2004Distros = []Distro{
 	AKSUbuntuContainerd2004CVMGen2,
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuContainerd2204,
 	AKSUbuntuContainerd2204Gen2,
@@ -100,7 +98,6 @@ var AvailableUbuntu2204Distros = []Distro{
 	AKSUbuntuFipsContainerd2204TLGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuContainerd2404,
 	AKSUbuntuContainerd2404Gen2,
@@ -112,14 +109,12 @@ var AvailableUbuntu2404Distros = []Distro{
 	AKSUbuntuEdgeZoneContainerd2404Gen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableUbuntu2604Distros = []Distro{
 	AKSUbuntuMinimalContainerd2604Gen2,
 	AKSUbuntuMinimalArm64Containerd2604Gen2,
 	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableUbuntuDistros = slices.Concat(
 	AvailableUbuntu2004Distros,
 	AvailableUbuntu2204Distros,
@@ -127,7 +122,6 @@ var AvailableUbuntuDistros = slices.Concat(
 	AvailableUbuntu2604Distros,
 )
 
-//nolint:gochecknoglobals
 var AvailableContainerdDistros = []Distro{
 	AKSUbuntuFipsContainerd2004,
 	AKSUbuntuFipsContainerd2004Gen2,
@@ -192,7 +186,6 @@ var AvailableContainerdDistros = []Distro{
 	AKSUbuntuMinimalContainerd2604CVMGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableGen2Distros = []Distro{
 	AKSUbuntuFipsContainerd2004Gen2,
 	AKSUbuntuFipsContainerd2204Gen2,
@@ -243,7 +236,6 @@ var AvailableGen2Distros = []Distro{
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 }
 
-//nolint:gochecknoglobals
 var AvailableAzureLinuxDistros = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
@@ -276,7 +268,6 @@ var AvailableAzureLinuxDistros = []Distro{
 	AKSAzureLinuxV3EdgeZoneGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV2,
 	AKSAzureLinuxV3,
@@ -301,7 +292,6 @@ var AvailableAzureLinuxCgroupV2Distros = []Distro{
 	AKSAzureLinuxV3EdgeZoneGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableAzureLinuxV3Distros = []Distro{
 	AKSAzureLinuxV3,
 	AKSAzureLinuxV3Gen2,
@@ -318,18 +308,15 @@ var AvailableAzureLinuxV3Distros = []Distro{
 	AKSAzureLinuxV3EdgeZoneGen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableAzureLinuxOSGuardDistros = []Distro{
 	AKSAzureLinuxV3OSGuardGen2FIPSTL,
 }
 
-//nolint:gochecknoglobals
 var AvailableFlatcarDistros = []Distro{
 	AKSFlatcarGen2,
 	AKSFlatcarArm64Gen2,
 }
 
-//nolint:gochecknoglobals
 var AvailableACLDistros = []Distro{
 	AKSACLGen2TL,
 	AKSACLArm64Gen2TL,
@@ -342,37 +329,17 @@ var AvailableACLDistros = []Distro{
 
 // IsContainerdSKU returns true if distro type is containerd-enabled.
 func (d Distro) IsContainerdDistro() bool {
-	for _, distro := range AvailableContainerdDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableContainerdDistros, d)
 }
 
 func (d Distro) IsGen2Distro() bool {
-	for _, distro := range AvailableGen2Distros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableGen2Distros, d)
 }
 func (d Distro) IsAzureLinuxDistro() bool {
-	for _, distro := range AvailableAzureLinuxDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableAzureLinuxDistros, d)
 }
 func (d Distro) IsWindowsSIGDistro() bool {
-	for _, distro := range AvailableWindowsSIGDistros {
-		if d == distro {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(AvailableWindowsSIGDistros, d)
 }
 
 func (d Distro) IsWindowsDistro() bool {
@@ -381,16 +348,16 @@ func (d Distro) IsWindowsDistro() bool {
 
 // SigImageConfigTemplate represents the SIG image configuration template.
 type SigImageConfigTemplate struct {
-	ResourceGroup string
-	Gallery       string
-	Definition    string
-	Version       string
+	ResourceGroup string `json:"ResourceGroup"`
+	Gallery       string `json:"Gallery"`
+	Definition    string `json:"Definition"`
+	Version       string `json:"Version"`
 }
 
 // SigImageConfig represents the SIG image configuration.
 type SigImageConfig struct {
 	SigImageConfigTemplate
-	SubscriptionID string
+	SubscriptionID string `json:"SubscriptionID"`
 }
 
 // WithOptions converts a SigImageConfigTemplate to SigImageConfig instance via function opts.
@@ -404,7 +371,6 @@ func (template SigImageConfigTemplate) WithOptions(options ...SigImageConfigOpt)
 	return *config
 }
 
-//nolint:gochecknoglobals
 var AvailableWindowsSIGDistros = []Distro{
 	AKSWindows2019,
 	AKSWindows2019Containerd,
@@ -481,7 +447,6 @@ type sigVersion struct {
 //go:embed linux_sig_version.json
 var linuxSIGVersionJSONContent []byte
 
-//nolint:gochecknoglobals
 var LinuxSIGImageVersion = mustGetSIGVersionFromJSONContent(linuxSIGVersionJSONContent)
 
 // mustGetSIGVersionFromJSONContent returns the SIG image version from within the specified SON content string.
@@ -500,8 +465,6 @@ func mustGetSIGVersionFromJSONContent(contents []byte) string {
 }
 
 // SIG config Template.
-//
-//nolint:gochecknoglobals
 var (
 	SIGUbuntuFipsContainerd2004ImageConfigTemplate = SigImageConfigTemplate{
 		ResourceGroup: AKSUbuntuResourceGroup,
@@ -1270,7 +1233,7 @@ func withAzureLinuxEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 	}
 }
 
-//nolint:unparam //subscriptionID only receives AzurePublicCloudSigSubscription
+// subscriptionID only receives AzurePublicCloudSigSubscription
 func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID

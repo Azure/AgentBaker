@@ -98,7 +98,7 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 
 	t.Run("empty config resolves to empty", func(t *testing.T) {
 		cfg := hotfixConfig{}
-		assert.Equal(t, "", cfg.resolveVersion("202604.01.0"))
+		assert.Empty(t, cfg.resolveVersion("202604.01.0"))
 	})
 
 	t.Run("map hit returns matching base entry", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 
 	t.Run("map miss returns empty (default deny for unlisted base)", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("202606.09.0"))
+		assert.Empty(t, cfg.resolveVersion("202606.09.0"))
 	})
 
 	t.Run("map preserves leading-zero day matching", func(t *testing.T) {
@@ -130,7 +130,7 @@ func TestHotfixConfigResolveVersion(t *testing.T) {
 
 	t.Run("unparseable current version with map returns empty (fail-open)", func(t *testing.T) {
 		cfg := hotfixConfig{Hotfixes: map[string]string{"202604.01": "202604.01.1"}}
-		assert.Equal(t, "", cfg.resolveVersion("dev"))
+		assert.Empty(t, cfg.resolveVersion("dev"))
 	})
 }
 

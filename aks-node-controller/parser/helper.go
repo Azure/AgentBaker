@@ -43,33 +43,28 @@ var (
 	kubenetTemplateContent []byte
 	//go:embed  templates/containerd.toml.gtpl
 	containerdConfigTemplateText string
-	//nolint:gochecknoglobals
-	containerdConfigTemplate = template.Must(
+	containerdConfigTemplate     = template.Must(
 		template.New("containerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigTemplateText),
 	)
 	//go:embed  templates/containerd_no_GPU.toml.gtpl
 	containerdConfigNoGPUTemplateText string
-	//nolint:gochecknoglobals
-	containerdConfigNoGPUTemplate = template.Must(
+	containerdConfigNoGPUTemplate     = template.Must(
 		template.New("nogpucontainerdconfig").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdConfigNoGPUTemplateText),
 	)
 	//go:embed  templates/containerd_v2.toml.gtpl
 	containerdV2ConfigTemplateText string
-	//nolint:gochecknoglobals
-	containerdV2ConfigTemplate = template.Must(
+	containerdV2ConfigTemplate     = template.Must(
 		template.New("containerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigTemplateText),
 	)
 	//go:embed  templates/containerd_v2_no_GPU.toml.gtpl
 	containerdV2ConfigNoGPUTemplateText string
-	//nolint:gochecknoglobals
-	containerdV2ConfigNoGPUTemplate = template.Must(
+	containerdV2ConfigNoGPUTemplate     = template.Must(
 		template.New("nogpucontainerdv2config").Funcs(getFuncMapForContainerdConfigTemplate()).Parse(containerdV2ConfigNoGPUTemplateText),
 	)
 
 	//go:embed templates/localdns.toml.gtpl
 	localDnsCorefileTemplateText string
-	//nolint:gochecknoglobals
-	localDnsCorefileTemplate = template.Must(
+	localDnsCorefileTemplate     = template.Must(
 		template.New("localdnscorefile").Funcs(getFuncMapForLocalDnsCorefileTemplate()).Parse(localDnsCorefileTemplateText),
 	)
 )
@@ -139,7 +134,7 @@ func getStringFromNetworkPolicyType(enum aksnodeconfigv1.NetworkPolicy) string {
 	return ""
 }
 
-//nolint:exhaustive // Default and LoadBalancerConfig_UNSPECIFIED should both return ""
+// Default and LoadBalancerConfig_UNSPECIFIED should both return ""
 func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerSku) string {
 	switch enum {
 	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_BASIC:
@@ -152,7 +147,7 @@ func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerSku) stri
 }
 
 // deref is a helper function to dereference a pointer of any type to its value.
-func deref[T interface{}](p *T) T {
+func deref[T any](p *T) T {
 	if p == nil {
 		var zeroValue T
 		return zeroValue
@@ -332,7 +327,6 @@ func getDHCPV6ConfigFilepath() string {
 // getSysctlContent converts aksnodeconfigv1.SysctlConfig to a string with key=value pairs, with default values.
 //
 //gocyclo:ignore
-//nolint:funlen,gocognit // This function is long because it has to handle all the sysctl values.
 func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 	// This is a partial workaround to this upstream Kubernetes issue:
 	// https://github.com/kubernetes/kubernetes/issues/41916#issuecomment-312428731
@@ -342,7 +336,7 @@ func getSysctlContent(s *aksnodeconfigv1.SysctlConfig) string {
 		s = &aksnodeconfigv1.SysctlConfig{}
 	}
 
-	m := make(map[string]interface{})
+	m := make(map[string]any)
 	m["net.ipv4.tcp_retries2"] = defaultNetIpv4TcpRetries2
 	if s.NetIpv4TcpRetries2 != nil {
 		m["net.ipv4.tcp_retries2"] = s.GetNetIpv4TcpRetries2()
@@ -510,7 +504,7 @@ func reservedPortsContain(ports string, port int) bool {
 	if ports == "" {
 		return false
 	}
-	for _, entry := range strings.Split(ports, ",") {
+	for entry := range strings.SplitSeq(ports, ",") {
 		startText, endText, isRange := strings.Cut(strings.TrimSpace(entry), "-")
 		start, err := strconv.Atoi(startText)
 		if err != nil {
@@ -874,10 +868,7 @@ func getGPUNeedsFabricManager(vmSize string) bool {
 }
 
 func getEnableNvidia(config *aksnodeconfigv1.Configuration) bool {
-	if config.GpuConfig != nil && config.GpuConfig.EnableNvidia != nil {
-		return *config.GpuConfig.EnableNvidia
-	}
-	return false
+	return config.GetGpuConfig().GetEnableNvidia()
 }
 
 func removeNewlines(str string) string {

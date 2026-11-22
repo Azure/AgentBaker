@@ -1,164 +1,89 @@
 version: "2"
+
+# Prefer fixing findings or a //nolint with a reason over new settings.
 linters:
-  default: none
   enable:
     - asasalint
     - asciicheck
     - bidichk
     - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
     - dupl
     - durationcheck
-    - errcheck
-    - errname
+    - errchkjson
     - errorlint
-    - exhaustive
-    - forbidigo
-    - funlen
-    - gocheckcompilerdirectives
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - goconst
+    - exptostd
+    - fatcontext
+    - forcetypeassert
     - gocritic
-    - godot
-    - gomodguard_v2
+    - gomoddirectives
     - goprintffuncname
     - gosec
-    - govet
-    - ineffassign
-    - lll
-    - loggercheck
     - makezero
-    - nakedret
-    - nestif
+    - modernize
+    - musttag
     - nilerr
-    - nilnesserr
     - nilnil
     - noctx
     - nolintlint
-    - nonamedreturns
-    - nosprintfhostport
-    - predeclared
-    - promlinter
+    - protogetter
     - reassign
     - revive
-    - rowserrcheck
-    - sqlclosecheck
-    - staticcheck
-    - testableexamples
-    - testpackage
-    - tparallel
-    - unconvert
-    - unparam
-    - unused
-    - usestdlibvars
-    - wastedassign
-    - whitespace
+    - testifylint
+    - usetesting
   settings:
-    errcheck:
-      check-type-assertions: true
-    exhaustive:
-      check:
-        - switch
-    funlen:
-      lines: 100
-      statements: 50
-    gocognit:
-      min-complexity: 20
-    goconst:
-      ignore-string-values:
-        - "true"
-        - "false"
-    gocritic:
-      settings:
-        captLocal:
-          paramsOnly: false
-        underef:
-          skipRecvDeref: false
-    gomodguard_v2:
-      blocked:
-        - module: github.com/golang/protobuf
-          recommendations:
-            - google.golang.org/protobuf
-          reason: see https://developers.google.com/protocol-buffers/docs/reference/go/faq#modules
-        - module: github.com/satori/go.uuid
-          recommendations:
-            - github.com/google/uuid
-          reason: satori's package is not maintained
-        - module: github.com/gofrs/uuid
-          recommendations:
-            - github.com/google/uuid
-          reason: gofrs' package is not go module
-    govet:
+    modernize:
       disable:
-        - fieldalignment
-      enable-all: true
-      settings:
-        shadow:
-          strict: false
-    lll:
-      line-length: 180
-      tab-width: 1
+        # Suggests changing json tags; keep the existing wire format as written.
+        - omitzero
+    revive:
+      enable-default-rules: true
+      rules:
+        # Naming style only; renames churn code and break importers of exported names.
+        - name: var-naming
+          disabled: true
+        - name: exported
+          disabled: true
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/coreos/ignition/v2 # Flatcar fork
+    govet:
+      enable:
+        - nilness
+        - shadow
+    gosec:
+      excludes:
+        - G104 # duplicates errcheck
+      # Node directories are read by other services; flag only modes wider than this.
+      config:
+        G301: "0755"
     nolintlint:
       require-explanation: true
       require-specific: true
-      allow-no-explanation:
-        - funlen
-        - gocognit
-        - lll
-        - gochecknoinits
-        - gochecknoglobals
-        - nestif
-    revive:
-      rules:
-        - name: dot-imports
-          disabled: true
-    rowserrcheck:
-      packages:
-        - github.com/jmoiron/sqlx
+    testifylint:
+      disable:
+        - require-error # too noisy for tests
   exclusions:
-    generated: lax
     presets:
       - comments
       - common-false-positives
-      - legacy
       - std-error-handling
     rules:
-      - linters:
-          - lll
-        source: ^//\s*go:generate\s
-      - linters:
-          - godot
-        source: (noinspection|TODO)
-      - linters:
-          - gocritic
-        source: //noinspection
-      - linters:
-          - errorlint
-        source: ^\s+if _, ok := err\.\([^.]+\.InternalError\); ok {
-      - linters:
-          - bodyclose
+      # Keep test linting low-noise.
+      - path: _test\.go
+        linters:
           - dupl
-          - funlen
-          - gochecknoglobals
-          - goconst
           - gosec
           - noctx
-          - testpackage
-          - tparallel
-        path: _test\.go
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+          - protogetter
+          - revive
+
 issues:
-  max-same-issues: 50
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 formatters:
   enable:
     - goimports
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$

@@ -130,8 +130,8 @@ func goalStateRequest(ctx context.Context, client *http.Client, method, url stri
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("x-ms-agent-name", "WALinuxAgent")
-	req.Header.Set("x-ms-version", "2012-11-30")
+	req.Header.Set("X-Ms-Agent-Name", "WALinuxAgent")
+	req.Header.Set("X-Ms-Version", "2012-11-30")
 	if method == http.MethodPost {
 		req.Header.Set("Content-Type", "text/xml; charset=utf-8")
 	}
@@ -255,7 +255,7 @@ func writeKVPRecord(path, key, value string) error {
 	record := make([]byte, kvpKeySize+kvpValueSize)
 	copy(record[:kvpKeySize], key)
 	copy(record[kvpKeySize:], value)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644) //nolint:gosec // KVP pool is read by the Hyper-V KVP daemon
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,9 @@
 package datamodel
 
 import (
+	"fmt"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,27 +27,27 @@ func TestValidateDNSPrefix(t *testing.T) {
 		{
 			"empty string",
 			"",
-			errors.New("DNSPrefix '' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 0)"), //nolint:lll
+			errors.New("DNSPrefix '' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 0)"),
 		},
 		{
 			"one char",
 			"a",
-			errors.New("DNSPrefix 'a' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 1)"), //nolint:lll
+			errors.New("DNSPrefix 'a' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 1)"),
 		},
 		{
 			"numbers",
 			"1234",
-			errors.New("DNSPrefix '1234' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 4)"), //nolint:lll
+			errors.New("DNSPrefix '1234' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 4)"),
 		},
 		{
 			"too many chars",
 			"verylongdnsprefixthatismorethan45characterslong",
-			errors.New("DNSPrefix 'verylongdnsprefixthatismorethan45characterslong' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 47)"), //nolint:lll
+			errors.New("DNSPrefix 'verylongdnsprefixthatismorethan45characterslong' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 47)"),
 		},
 		{
 			"invalid special character",
 			"dnswith_special?char",
-			errors.New("DNSPrefix 'dnswith_special?char' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 20)"), //nolint:lll
+			errors.New("DNSPrefix 'dnswith_special?char' is invalid. The DNSPrefix must contain between 3 and 45 characters and can contain only letters, numbers, and hyphens.  It must start with a letter and must end with a letter or a number. (length was 20)"),
 		},
 		{
 			"valid with numbers",
@@ -54,7 +57,6 @@ func TestValidateDNSPrefix(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			err := ValidateDNSPrefix(c.dnsPrefix)
@@ -153,7 +155,6 @@ func TestIsSGXEnabledSKU(t *testing.T) {
 	cases := getCSeriesVMCasesForTesting()
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := IsSgxEnabledSKU(c.VMSKU)
@@ -195,7 +196,6 @@ func TestGetOrderedEscapedKeyValsString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := GetOrderedEscapedKeyValsString(c.input)
@@ -266,7 +266,6 @@ func TestSliceIntIsNonEmpty(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			ret := SliceIntIsNonEmpty(c.input)
@@ -296,7 +295,6 @@ func TestWrapAsVerbatim(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			ret := WrapAsVerbatim(test.s)
@@ -335,7 +333,6 @@ func TestIndentString(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got := IndentString(test.input, test.count)
@@ -369,7 +366,6 @@ func TestGetContainerImageNameFromURL(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := getContainerImageNameFromURL(test.downloadURL)
@@ -408,7 +404,6 @@ func TestGetComponentNameFromURL(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got, err := getComponentNameFromURL(test.downloadURL)
@@ -423,4 +418,34 @@ func TestGetComponentNameFromURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func getContainerImageNameFromURL(downloadURL string) (string, error) {
+	// example URL "downloadURL": "mcr.microsoft.com/oss/kubernetes/autoscaler/addon-resizer:*",
+	// getting the data between the last / and the last :
+	parts := strings.Split(downloadURL, "/")
+	if len(parts) == 0 || len(parts[len(parts)-1]) == 0 {
+		return "", fmt.Errorf("container image component URL is not in the expected format: %s", downloadURL)
+	}
+	lastPart := parts[len(parts)-1]
+	component := strings.TrimSuffix(lastPart, ":*")
+	return component, nil
+}
+
+func getComponentNameFromURL(downloadURL string) (string, error) {
+	// example URL "downloadURL": "https://acs-mirror.azureedge.net/cni-plugins/v*/binaries",
+	url, err := url.Parse(downloadURL) // /cni-plugins/v*/binaries
+	if err != nil {
+		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
+	}
+	urlSplit := strings.Split(url.Path, "/") // ["", cni-plugins, v*, binaries]
+	componentIndx, minURLSplit := 1, 2
+	if len(urlSplit) < minURLSplit {
+		return "", fmt.Errorf("download file image URL is not in the expected format: %s", downloadURL)
+	}
+	componentName := urlSplit[componentIndx]
+	if componentName == "" {
+		return "", fmt.Errorf("component name is empty in the URL: %s", downloadURL)
+	}
+	return componentName, nil
 }

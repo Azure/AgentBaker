@@ -515,11 +515,11 @@ func cloudInitToButane(customData cloudInit, butaneYamlPath string) flatcar1_1.C
 
 	tarFile := base0_5.File{
 		Path:      ignitionFilesTarPath,
-		Mode:      to.IntPtr(0o600),
-		Overwrite: to.BoolPtr(true),
+		Mode:      new(0o600),
+		Overwrite: new(true),
 		Contents: base0_5.Resource{
-			Source:      to.StringPtr(dataURL),
-			Compression: to.StringPtr(encodingGZIP),
+			Source:      new(dataURL),
+			Compression: new(encodingGZIP),
 		},
 	}
 	butaneconfig.Storage.Files = append(butaneconfig.Storage.Files, tarFile)
@@ -603,9 +603,8 @@ func (t *TemplateGenerator) getNodeBootstrappingCmd(config *datamodel.NodeBootst
 		if config.ScriptlessCSEProvisionMode {
 			cseCmd := getBase64EncodedGzippedCustomScriptFromStr(t.getScriptlessNBCCmd(config))
 			return fmt.Sprintf(cseScriptlessPhase2Template, cseCmd)
-		} else {
-			return "/opt/azure/containers/aks-node-controller provision-wait"
 		}
+		return "/opt/azure/containers/aks-node-controller provision-wait"
 	}
 	return t.getLinuxNodeCSECommand(config)
 }
@@ -661,7 +660,7 @@ func (t *TemplateGenerator) getWindowsNodeCSECommand(config *datamodel.NodeBoots
 }
 
 // getSingleLineForTemplate returns the file as a single line for embedding in an arm template.
-func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
+func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profile any, funcMap template.FuncMap, isLinux bool) (string, error) {
 	expandedTemplate, err := t.getSingleLine(textFilename, profile, funcMap, isLinux)
 	if err != nil {
 		return "", err
@@ -673,7 +672,7 @@ func (t *TemplateGenerator) getSingleLineForTemplate(textFilename string, profil
 }
 
 // getSingleLine returns the file as a single line.
-func (t *TemplateGenerator) getSingleLine(textFilename string, profile interface{}, funcMap template.FuncMap, isLinux bool) (string, error) {
+func (t *TemplateGenerator) getSingleLine(textFilename string, profile any, funcMap template.FuncMap, isLinux bool) (string, error) {
 	b, err := parts.Templates.ReadFile(textFilename)
 	if err != nil {
 		return "", fmt.Errorf("yaml file %s does not exist", textFilename)
@@ -759,7 +758,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return getCloudInitFileContent(config, content)
 	}
 
-	funcMap["GetParameter"] = func(s string) interface{} {
+	funcMap["GetParameter"] = func(s string) any {
 		v, ok := params[s].(paramsMap)
 		if !ok || v["value"] == nil {
 			// return empty string so we don't get <no value> from go template
@@ -769,20 +768,23 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	// TODO: GetParameterPropertyLower
-	funcMap["GetParameterProperty"] = func(s, p string) interface{} {
+	funcMap["GetParameterProperty"] = func(s, p string) (any, error) {
 		if v, ok := params[s].(paramsMap); ok && v != nil {
-			//nolint:errcheck // this code been writen before linter was added
-			param := v["value"].(paramsMap)[p]
+			value, ok := v["value"].(paramsMap)
+			if !ok {
+				return nil, fmt.Errorf("parameter %q value is %T, not paramsMap", s, v["value"])
+			}
+			param := value[p]
 			if param == nil {
 				// return empty string so we don't get <no value> from go template
-				return ""
+				return "", nil
 			}
-			return param
+			return param, nil
 		}
-		return ""
+		return "", nil
 	}
 
-	funcMap["GetVariable"] = func(s string) interface{} {
+	funcMap["GetVariable"] = func(s string) any {
 		if variables[s] == nil {
 			// return empty string so we don't get <no value> from go template
 			return ""
@@ -794,7 +796,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 		return supportsScriptlessProvisioning(config)
 	}
 
-	funcMap["GetVariableProperty"] = func(v, p string) interface{} {
+	funcMap["GetVariableProperty"] = func(v, p string) any {
 		if v, ok := variables[v].(paramsMap); ok && v != nil {
 			if v[p] == nil {
 				// return empty string so we don't get <no value> from go template
@@ -825,27 +827,6 @@ concat(take(variables('truncatedResourceGroup'), 62), 'z'), variables('truncated
 the "truncatedResourceGroup" is defined as:
 
 [take(replace(replace(resourceGroup().name, '(', '-'), ')', '-'), 63)]*/
-
-// This function does the same processing.
-func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
-	truncated := resourceGroupName
-	truncated = strings.ReplaceAll(truncated, "(", "-")
-	truncated = strings.ReplaceAll(truncated, ")", "-")
-	const maxKubernetesLabelLength = 63
-	if len(truncated) > maxKubernetesLabelLength {
-		truncated = truncated[0:maxKubernetesLabelLength]
-	}
-
-	if strings.HasSuffix(truncated, "-") ||
-		strings.HasSuffix(truncated, "_") ||
-		strings.HasSuffix(truncated, ".") {
-		if len(truncated) > maxKubernetesLabelLength-1 {
-			return truncated[0:len(truncated)-1] + "z"
-		}
-		return truncated + "z"
-	}
-	return truncated
-}
 
 // ValidateAndSetLinuxNodeBootstrappingConfiguration is exported only for temporary usage in e2e testing of new config.
 func ValidateAndSetLinuxNodeBootstrappingConfiguration(config *datamodel.NodeBootstrappingConfiguration) {
@@ -1021,7 +1002,6 @@ func validateAndSetWindowsNodeBootstrappingConfiguration(config *datamodel.NodeB
 // getContainerServiceFuncMap returns all functions used in template generation.
 /* These funcs are a thin wrapper for template generation operations,
 all business logic is implemented in the underlying func. */
-//nolint:gocognit, funlen
 func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration) template.FuncMap {
 	cs := config.ContainerService
 	profile := config.AgentPoolProfile
@@ -1129,7 +1109,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
 		},
-		"GetCustomSysctlConfigByName": func(fn string) interface{} {
+		"GetCustomSysctlConfigByName": func(fn string) any {
 			if profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil {
 				v := reflect.ValueOf(*profile.CustomLinuxOSConfig.Sysctls)
 				return v.FieldByName(fn).Interface()

@@ -21,7 +21,7 @@ type Toggles interface {
 
 type defaultToggles struct{}
 
-func (t *defaultToggles) GetLinuxNodeImageVersion(entity *Entity, distro datamodel.Distro) string {
+func (t *defaultToggles) GetLinuxNodeImageVersion(_ *Entity, _ datamodel.Distro) string {
 	return ""
 }
 

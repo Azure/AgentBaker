@@ -5,6 +5,8 @@ package datamodel
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -14,8 +16,6 @@ import (
 
 // AllKubernetesSupportedVersions is a whitelist map of all supported Kubernetes version strings.
 // The bool value indicates if creating new clusters with this version is allowed.
-//
-//nolint:gochecknoglobals
 var AllKubernetesSupportedVersions = map[string]bool{
 	"1.6.6":          false,
 	"1.6.9":          true, // need to keep 1.6.9 version support for v20160930.
@@ -368,9 +368,7 @@ func getSortedSemverVersions(versions []string, preRelease bool) []*semver.Versi
 
 func getAllKubernetesWindowsSupportedVersionsMap() map[string]bool {
 	ret := make(map[string]bool)
-	for k, v := range AllKubernetesSupportedVersions {
-		ret[k] = v
-	}
+	maps.Copy(ret, AllKubernetesSupportedVersions)
 	for _, version := range []string{
 		"1.6.6",
 		"1.6.9",
@@ -557,10 +555,5 @@ func GetLatestPatchVersion(majorMinor string, versionsList []string) string {
 
 // IsSupportedKubernetesVersion return true if the provided Kubernetes version is supported.
 func IsSupportedKubernetesVersion(version string, isUpdate, hasWindows bool) bool {
-	for _, ver := range GetAllSupportedKubernetesVersions(isUpdate, hasWindows) {
-		if ver == version {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(GetAllSupportedKubernetesVersions(isUpdate, hasWindows), version)
 }

@@ -301,16 +301,16 @@ func (a *App) parseLinuxPlatformInfo() (platformInfo, error) {
 		arch = runtime.GOARCH
 	}
 	info := platformInfo{OS: "linux", Arch: arch}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "ID=") {
-			info.ID = strings.ToLower(strings.Trim(strings.TrimPrefix(line, "ID="), `"`))
+		if after, ok := strings.CutPrefix(line, "ID="); ok {
+			info.ID = strings.ToLower(strings.Trim(after, `"`))
 		}
-		if strings.HasPrefix(line, "VARIANT_ID=") {
-			info.VariantID = strings.ToLower(strings.Trim(strings.TrimPrefix(line, "VARIANT_ID="), `"`))
+		if after, ok := strings.CutPrefix(line, "VARIANT_ID="); ok {
+			info.VariantID = strings.ToLower(strings.Trim(after, `"`))
 		}
-		if strings.HasPrefix(line, "VERSION_ID=") {
-			info.VersionID = strings.Trim(strings.TrimPrefix(line, "VERSION_ID="), `"`)
+		if after, ok := strings.CutPrefix(line, "VERSION_ID="); ok {
+			info.VersionID = strings.Trim(after, `"`)
 		}
 	}
 	if info.ID == "" {

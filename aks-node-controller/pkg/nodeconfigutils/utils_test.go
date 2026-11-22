@@ -279,7 +279,7 @@ func TestCustomDataUsesMultipartBoothookAndCloudConfig(t *testing.T) {
 	require.Len(t, sections, 2)
 
 	message := textproto.MIMEHeader{}
-	for _, line := range strings.Split(sections[0], "\r\n") {
+	for line := range strings.SplitSeq(sections[0], "\r\n") {
 		if line == "" {
 			continue
 		}
@@ -351,7 +351,7 @@ func decodeBoothook(t *testing.T, cfg *aksnodeconfigv1.Configuration) string {
 	sections := strings.SplitN(string(decoded), "\r\n\r\n", 2)
 	require.Len(t, sections, 2)
 	message := textproto.MIMEHeader{}
-	for _, line := range strings.Split(sections[0], "\r\n") {
+	for line := range strings.SplitSeq(sections[0], "\r\n") {
 		if line == "" {
 			continue
 		}

@@ -20,7 +20,6 @@ import (
 
 	"github.com/Azure/agentbaker/parts"
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
-	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/Masterminds/semver/v3"
 	"mvdan.cc/sh/v3/syntax"
 )
@@ -30,7 +29,6 @@ import (
 
 (if kubelet config file is enabled).
 */
-//nolint:gochecknoglobals
 var TranslatedKubeletConfigFlags = map[string]bool{
 	"--address":                           true,
 	"--anonymous-auth":                    true,
@@ -78,11 +76,11 @@ var TranslatedKubeletConfigFlags = map[string]bool{
 	"--serialize-image-pulls":             true,
 }
 
-type paramsMap map[string]interface{}
+type paramsMap map[string]any
 
 const numInPair = 2
 
-func addValue(m paramsMap, k string, v interface{}) {
+func addValue(m paramsMap, k string, v any) {
 	m[k] = paramsMap{
 		"value": v,
 	}
@@ -100,14 +98,13 @@ func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVers
 	}
 }
 
-//nolint:unparam,nolintlint
-func addSecret(m paramsMap, k string, v interface{}, encode bool) {
+func addSecret(m paramsMap, k string, v any, encode bool) {
 	str, ok := v.(string)
 	if !ok {
 		addValue(m, k, v)
 		return
 	}
-	keyvaultSecretPathRe := regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`) //nolint:lll
+	keyvaultSecretPathRe := regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
 	parts := keyvaultSecretPathRe.FindStringSubmatch(str)
 	if parts == nil || len(parts) != 5 {
 		if encode {
@@ -168,7 +165,7 @@ func makeWindowsExtensionScriptCommands(extension *datamodel.Extension, extensio
 		extensionProfile.URLQuery)
 	scriptFileDir := fmt.Sprintf("$env:SystemDrive:/AzureData/extensions/%s", extensionProfile.Name)
 	scriptFilePath := fmt.Sprintf("%s/%s", scriptFileDir, extensionProfile.Script)
-	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name) //nolint:lll
+	return fmt.Sprintf("New-Item -ItemType Directory -Force -Path \"%s\" ; curl.exe --retry 5 --retry-delay 0 -L \"%s\" -o \"%s\" ; powershell \"%s `\"',parameters('%sParameters'),'`\"\"\n", scriptFileDir, scriptURL, scriptFilePath, scriptFilePath, extensionProfile.Name)
 }
 
 func escapeSingleLine(escapedStr string) string {
@@ -178,11 +175,6 @@ func escapeSingleLine(escapedStr string) string {
 	escapedStr = strings.ReplaceAll(escapedStr, "\n", "\\n")
 	escapedStr = strings.ReplaceAll(escapedStr, "\"", "\\\"")
 	return escapedStr
-}
-
-// getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
-func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
-	return getBase64EncodedGzippedCustomScriptFromStr(getCustomScript(csFilename, config))
 }
 
 func getCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
@@ -238,8 +230,8 @@ func minifyShellScript(name, script string) (string, error) {
 // This is "best-effort" - removes MOST of the comments with obvious formats, to lower the space required by CustomData component.
 func removeComments(b []byte) []byte {
 	var contentWithoutComments []string
-	lines := strings.Split(string(b), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(b), "\n")
+	for line := range lines {
 		lineNoWhitespace := strings.TrimSpace(line)
 		if lineStartsWithComment(lineNoWhitespace) {
 			// ignore entire line that is a comment
@@ -281,9 +273,8 @@ func isCommentAtTheEndOfLine(lastHashIndex int, trimmedToCheck string) bool {
 	return getSlice(lastHashIndex-1, lastHashIndex+1, trimmedToCheck) != "<#" && getSlice(lastHashIndex, lastHashIndex+tailingCommentSegmentLen, trimmedToCheck) == "# "
 }
 
-//nolint:gochecknoglobals
 var gzipWriterPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		writer, err := gzip.NewWriterLevel(io.Discard, gzip.BestCompression)
 		if err != nil {
 			panic(fmt.Sprintf("BUG: %s", err.Error()))
@@ -344,17 +335,17 @@ func getExtensionURL(rootURL, extensionName, version, fileName, query string) st
 }
 
 func getSSHPublicKeysPowerShell(linuxProfile *datamodel.LinuxProfile) string {
-	str := ""
+	var str strings.Builder
 	if linuxProfile != nil {
 		lastItem := len(linuxProfile.SSH.PublicKeys) - 1
 		for i, publicKey := range linuxProfile.SSH.PublicKeys {
-			str += encodePowerShellBase64Literal(strings.TrimSpace(publicKey.KeyData))
+			str.WriteString(encodePowerShellBase64Literal(strings.TrimSpace(publicKey.KeyData)))
 			if i < lastItem {
-				str += ", "
+				str.WriteString(", ")
 			}
 		}
 	}
-	return str
+	return str.String()
 }
 
 // encodePowerShellBase64Literal returns a PowerShell expression that decodes
@@ -653,10 +644,9 @@ func getAKSKubeletConfiguration(kc map[string]string) *datamodel.AKSKubeletConfi
 	return kubeletConfig
 }
 
-//nolint:gocognit
 func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 	kubeletConfig *datamodel.AKSKubeletConfiguration) {
-	if customKc != nil { //nolint:nestif
+	if customKc != nil {
 		if customKc.CPUManagerPolicy != "" {
 			kubeletConfig.CPUManagerPolicy = customKc.CPUManagerPolicy
 		}
@@ -690,7 +680,7 @@ func setCustomKubeletConfig(customKc *datamodel.CustomKubeletConfig,
 			kubeletConfig.ContainerLogMaxFiles = customKc.ContainerLogMaxFiles
 		}
 		if customKc.PodMaxPids != nil {
-			kubeletConfig.PodPidsLimit = to.Int64Ptr(int64(*customKc.PodMaxPids))
+			kubeletConfig.PodPidsLimit = new(int64(*customKc.PodMaxPids))
 		}
 		if customKc.SeccompDefault != nil {
 			kubeletConfig.SeccompDefault = customKc.SeccompDefault
@@ -757,7 +747,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 	// Settings from customKubeletConfig, only take if it's set.
 	setCustomKubeletConfig(customKc, kubeletConfig)
 
-	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ")
+	configStringByte, _ := json.MarshalIndent(kubeletConfig, "", "    ") //nolint:errchkjson // plain string/map fields cannot fail
 	return string(configStringByte)
 }
 
@@ -805,8 +795,8 @@ func strToInt64Ptr(str string) *int64 {
 
 func strKeyValToMap(str string, pairDelim string) map[string]string {
 	m := make(map[string]string)
-	pairs := strings.Split(str, ",")
-	for _, pairRaw := range pairs {
+	pairs := strings.SplitSeq(str, ",")
+	for pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
 			key := strings.TrimSpace(pair[0])
@@ -855,11 +845,11 @@ func filterEvictionSignals(signals map[string]string) map[string]string {
 	return validSignals
 }
 
-//nolint:unparam // generic key/value parser; every current caller parses feature gates
+// generic key/value parser; every current caller parses feature gates
 func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
 	m := make(map[string]bool)
-	pairs := strings.Split(str, strDelim)
-	for _, pairRaw := range pairs {
+	pairs := strings.SplitSeq(str, strDelim)
+	for pairRaw := range pairs {
 		pair := strings.Split(pairRaw, pairDelim)
 		if len(pair) == numInPair {
 			key := strings.TrimSpace(pair[0])

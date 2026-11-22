@@ -108,7 +108,7 @@ func (api *APIServer) ListenAndServe(ctx context.Context) error {
 	log.Printf("Starting APIServer at %s\n", api.Options.Addr)
 	select {
 	case <-ctx.Done():
-		return svr.Shutdown(context.Background())
+		return svr.Shutdown(context.WithoutCancel(ctx))
 	case err := <-errors:
 		return err
 	}

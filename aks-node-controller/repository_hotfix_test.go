@@ -350,7 +350,7 @@ func TestParseAptRepositoryFormats(t *testing.T) {
 			"microsoft-prod.list", "amd64")
 		require.Error(t, err)
 		var unsupported *unsupportedRepositoryError
-		assert.True(t, errors.As(err, &unsupported))
+		assert.ErrorAs(t, err, &unsupported)
 	})
 
 	t.Run("deb822", func(t *testing.T) {
@@ -384,7 +384,7 @@ Signed-By:
 `, "microsoft-prod.sources", "amd64")
 		require.Error(t, err)
 		var unsupported *unsupportedRepositoryError
-		assert.True(t, errors.As(err, &unsupported))
+		assert.ErrorAs(t, err, &unsupported)
 	})
 }
 
@@ -404,7 +404,7 @@ func TestPrepareGPGVKeyringsDearmorsArmoredKeys(t *testing.T) {
 					break
 				}
 			}
-			require.Greater(t, outputIndex, 0)
+			require.Positive(t, outputIndex)
 			return os.WriteFile(cmd.Args[outputIndex], []byte("binary-keyring"), 0o600)
 		},
 	}).App
@@ -1711,9 +1711,13 @@ func TestDownloadRepositoryFileRetriesDroppedConnection(t *testing.T) {
 		if requests.Add(1) == 1 {
 			// Drop the connection without a response, as a reset/stalled PMC edge would.
 			hijacker, ok := w.(http.Hijacker)
-			require.True(t, ok)
+			if !assert.True(t, ok) {
+				return
+			}
 			conn, _, err := hijacker.Hijack()
-			require.NoError(t, err)
+			if !assert.NoError(t, err) {
+				return
+			}
 			_ = conn.Close()
 			return
 		}

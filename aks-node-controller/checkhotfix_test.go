@@ -73,7 +73,7 @@ func TestParseHotfixConfig(t *testing.T) {
 			cfg, err := parseHotfixConfig([]byte(body))
 			require.NoError(t, err)
 			assert.Nil(t, cfg.Hotfixes)
-			assert.Equal(t, "", cfg.resolveVersion("202604.01.1"))
+			assert.Empty(t, cfg.resolveVersion("202604.01.1"))
 		}
 	})
 

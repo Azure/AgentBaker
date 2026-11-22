@@ -199,7 +199,7 @@ func parseAptLineOptions(fields []string, index int) (map[string]string, int, bo
 		return nil, 0, false, nil
 	}
 	optionText := strings.Trim(strings.Join(fields[index:end+1], " "), "[]")
-	for _, option := range strings.Fields(optionText) {
+	for option := range strings.FieldsSeq(optionText) {
 		keyValue := strings.SplitN(option, "=", 2)
 		if len(keyValue) != 2 {
 			return nil, 0, false, newUnsupportedRepositoryError(
@@ -245,7 +245,7 @@ func parseOneLineAptEntry(line, path, arch string) (aptRepository, bool, error) 
 }
 
 func parseOneLineAptRepository(contents, path, arch string) (aptRepository, error) {
-	for _, rawLine := range strings.Split(contents, "\n") {
+	for rawLine := range strings.SplitSeq(contents, "\n") {
 		line := strings.TrimSpace(strings.SplitN(rawLine, "#", 2)[0])
 		repo, ok, err := parseOneLineAptEntry(line, path, arch)
 		if err != nil {
@@ -306,7 +306,7 @@ func splitParagraphs(contents string) []string {
 	contents = strings.ReplaceAll(contents, "\r\n", "\n")
 	var paragraphs []string
 	var current []string
-	for _, line := range strings.Split(contents, "\n") {
+	for line := range strings.SplitSeq(contents, "\n") {
 		if strings.TrimSpace(line) == "" {
 			if len(current) > 0 {
 				paragraphs = append(paragraphs, strings.Join(current, "\n"))
@@ -325,7 +325,7 @@ func splitParagraphs(contents string) []string {
 func parseDeb822Fields(paragraph string) map[string]string {
 	fields := map[string]string{}
 	var currentKey string
-	for _, line := range strings.Split(paragraph, "\n") {
+	for line := range strings.SplitSeq(paragraph, "\n") {
 		if strings.HasPrefix(line, " ") || strings.HasPrefix(line, "\t") {
 			if currentKey != "" {
 				fields[currentKey] += " " + strings.TrimSpace(line)
@@ -345,7 +345,7 @@ func parseDeb822Fields(paragraph string) map[string]string {
 
 func splitConfiguredPaths(value string) ([]string, error) {
 	var paths []string
-	for _, field := range strings.Fields(strings.ReplaceAll(value, ",", " ")) {
+	for field := range strings.FieldsSeq(strings.ReplaceAll(value, ",", " ")) {
 		if !strings.HasPrefix(field, "/") {
 			return nil, newUnsupportedRepositoryError("APT Signed-By contains unsupported non-path constraint %q", field)
 		}
@@ -521,7 +521,7 @@ func readClearSignedPayload(path string) ([]byte, error) {
 	}
 	payload := text[headerEnd+2 : signatureStart]
 	var unescaped []string
-	for _, line := range strings.Split(payload, "\n") {
+	for line := range strings.SplitSeq(payload, "\n") {
 		unescaped = append(unescaped, strings.TrimPrefix(line, "- "))
 	}
 	return []byte(strings.Join(unescaped, "\n")), nil

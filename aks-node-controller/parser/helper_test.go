@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"reflect"
 	"regexp"
@@ -178,9 +179,9 @@ net.ipv4.tcp_retries2=8
 			args: args{
 				// The kernel caps fs.file-max at LONG_MAX, which is MaxInt64 on 64-bit nodes.
 				s: &aksnodeconfigv1.SysctlConfig{
-					NetIpv4TcpMaxSynBacklog: to.Ptr(int32(9999)),
-					NetCoreRmemDefault:      to.Ptr(int32(9999)),
-					NetIpv4IpLocalPortRange: to.Ptr("32768 62535"),
+					NetIpv4TcpMaxSynBacklog: new(int32(9999)),
+					NetCoreRmemDefault:      new(int32(9999)),
+					NetIpv4IpLocalPortRange: new("32768 62535"),
 					FsFileMax:               to.Ptr(int64(math.MaxInt64)),
 				},
 			},
@@ -346,11 +347,9 @@ func TestSysctlSettingsRoundTrip(t *testing.T) {
 				"net.ipv4.tcp_max_syn_backlog":      "16384",
 				"net.ipv4.tcp_retries2":             "8",
 			}
-			for key, value := range test.want {
-				want[key] = value
-			}
+			maps.Copy(want, test.want)
 			got := make(map[string]string)
-			for _, line := range strings.Split(strings.TrimSuffix(string(content), "\n"), "\n") {
+			for line := range strings.SplitSeq(strings.TrimSuffix(string(content), "\n"), "\n") {
 				key, value, ok := strings.Cut(line, "=")
 				require.True(t, ok, "expected key=value: %q", line)
 				require.NotContains(t, got, key, "duplicate sysctl key")
@@ -421,7 +420,7 @@ func Test_getUlimitContent(t *testing.T) {
 
 func Test_createSortedKeyValueStringPairs(t *testing.T) {
 	type args struct {
-		m         map[string]interface{}
+		m         map[string]any
 		delimiter string
 	}
 	tests := []struct {
@@ -432,7 +431,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Empty map",
 			args: args{
-				m:         map[string]interface{}{},
+				m:         map[string]any{},
 				delimiter: ",",
 			},
 			want: "",
@@ -440,7 +439,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Single key-value pair",
 			args: args{
-				m:         map[string]interface{}{"key1": "value1"},
+				m:         map[string]any{"key1": "value1"},
 				delimiter: " ",
 			},
 			want: "key1=value1",
@@ -448,7 +447,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Multiple key-value pairs with delimiter ,",
 			args: args{
-				m:         map[string]interface{}{"key1": "value1", "key2": "value2"},
+				m:         map[string]any{"key1": "value1", "key2": "value2"},
 				delimiter: ",",
 			},
 			want: "key1=value1,key2=value2",
@@ -456,7 +455,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Multiple key-value pairs with delimiter space",
 			args: args{
-				m:         map[string]interface{}{"key1": "value1", "key2": "value2"},
+				m:         map[string]any{"key1": "value1", "key2": "value2"},
 				delimiter: " ",
 			},
 			want: "key1=value1 key2=value2",
@@ -464,7 +463,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Sorting key-value pairs",
 			args: args{
-				m:         map[string]interface{}{"b": "valb", "a": "vala", "c": "valc"},
+				m:         map[string]any{"b": "valb", "a": "vala", "c": "valc"},
 				delimiter: ",",
 			},
 			want: "a=vala,b=valb,c=valc",
@@ -472,7 +471,7 @@ func Test_createSortedKeyValueStringPairs(t *testing.T) {
 		{
 			name: "Multiple key-value pairs with delimiter line breaker \\n where values are a combination of strings and integers",
 			args: args{
-				m:         map[string]interface{}{"key1": "value1", "key2": "value2", "key3": 3, "key4": 4},
+				m:         map[string]any{"key1": "value1", "key2": "value2", "key3": 3, "key4": 4},
 				delimiter: "\n",
 			},
 			want: "key1=value1\nkey2=value2\nkey3=3\nkey4=4",
@@ -556,10 +555,10 @@ func TestContainerdImagePullTemplates(t *testing.T) {
 			}{
 				{"absent", nil},
 				{"empty", &aksnodeconfigv1.ContainerdConfig{}},
-				{"false", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(false)}},
-				{"true", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true)}},
-				{"zero timeout", &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String("0s")}},
-				{"both", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: proto.Bool(true), ImagePullProgressTimeout: proto.String("1m30s")}},
+				{"false", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: new(false)}},
+				{"true", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: new(true)}},
+				{"zero timeout", &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: new("0s")}},
+				{"both", &aksnodeconfigv1.ContainerdConfig{ImagePullWithSyncFs: new(true), ImagePullProgressTimeout: new("1m30s")}},
 			} {
 				t.Run(fmt.Sprintf("%s/noGPU=%t/%s", version, noGPU, tc.name), func(t *testing.T) {
 					assertContainerdImagePullTemplate(t, tc.settings, noGPU, version)
@@ -573,7 +572,7 @@ func assertContainerdImagePullTemplate(t *testing.T, settings *aksnodeconfigv1.C
 	t.Helper()
 	cfg := &aksnodeconfigv1.Configuration{
 		KubernetesVersion: "1.34.0",
-		GpuConfig:         &aksnodeconfigv1.GpuConfig{EnableNvidia: proto.Bool(true)},
+		GpuConfig:         &aksnodeconfigv1.GpuConfig{EnableNvidia: new(true)},
 		ContainerdConfig:  settings,
 	}
 	rendered, err := containerdConfigFromAKSNodeConfig(cfg, noGPU, version)
@@ -623,7 +622,7 @@ func Test_getContainerdConfig(t *testing.T) {
 			name: "Default Containerd Configurations",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
+					NeedsCgroupv2: new(true),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
@@ -652,7 +651,7 @@ oom_score = -999
 			name: "Default Containerd Configurations with NeedsCgroupv2 unset",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(false),
+					NeedsCgroupv2: new(false),
 				},
 			},
 			want: base64.StdEncoding.EncodeToString([]byte(`version = 2
@@ -680,9 +679,9 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to false",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
+					NeedsCgroupv2: new(true),
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
-						EnableNvidia: to.Ptr(true),
+						EnableNvidia: new(true),
 					},
 				},
 				noGpu: false,
@@ -713,7 +712,7 @@ oom_score = -999
 			name: "Containerd Configurations with bool noGpu set to true",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
+					NeedsCgroupv2: new(true),
 				},
 				noGpu: true,
 			},
@@ -827,12 +826,12 @@ oom_score = -999
 			name: "Containerd v2 with GPU",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
+					NeedsCgroupv2: new(true),
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 						ContainerdVersion: "2.0.1",
 					},
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
-						EnableNvidia: to.Ptr(true),
+						EnableNvidia: new(true),
 					},
 				},
 				noGpu: false,
@@ -867,7 +866,7 @@ oom_score = -999
 						ContainerdVersion: "2.0.0",
 					},
 					GpuConfig: &aksnodeconfigv1.GpuConfig{
-						EnableNvidia: to.Ptr(true),
+						EnableNvidia: new(true),
 					},
 				},
 				noGpu: true,
@@ -898,7 +897,7 @@ oom_score = -999
 			name: "Containerd v1 still uses old templates",
 			args: args{
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
-					NeedsCgroupv2: to.Ptr(true),
+					NeedsCgroupv2: new(true),
 					ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
 						ContainerdVersion: "1.7.22",
 					},
@@ -1243,22 +1242,22 @@ func Test_getStringifiedStringArray(t *testing.T) {
 
 func Test_deref(t *testing.T) {
 	type args struct {
-		p *interface{}
+		p *any
 	}
-	var s interface{} = "test"
-	var i interface{} = 123
-	var b interface{} = true
+	var s any = "test"
+	var i any = 123
+	var b any = true
 	tests := []struct {
 		name string
 		args args
-		want interface{}
+		want any
 	}{
 		{
 			name: "Dereference nil pointer should not panic and should return interface{}(nil)",
 			args: args{
 				p: nil,
 			},
-			want: interface{}(nil),
+			want: any(nil),
 		},
 		{
 			name: "Dereference pointer to string should return the string",
@@ -1899,21 +1898,21 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 						Authorization: &aksnodeconfigv1.KubeletAuthorization{
 							Mode: "Webhook",
 						},
-						EventRecordQps: to.Ptr(int32(0)),
+						EventRecordQps: new(int32(0)),
 						ClusterDomain:  "cluster.local",
 						ClusterDns: []string{
 							"10.0.0.10",
 						},
 						NodeStatusUpdateFrequency:   "10s",
-						ImageGcHighThresholdPercent: to.Ptr(int32(90)),
-						ImageGcLowThresholdPercent:  to.Ptr(int32(70)),
-						CgroupsPerQos:               to.Ptr(true),
+						ImageGcHighThresholdPercent: new(int32(90)),
+						ImageGcLowThresholdPercent:  new(int32(70)),
+						CgroupsPerQos:               new(true),
 						CpuManagerPolicy:            "static",
 						TopologyManagerPolicy:       "best-effort",
-						MaxPods:                     to.Ptr(int32(110)),
-						PodPidsLimit:                to.Ptr(int32(12345)),
+						MaxPods:                     new(int32(110)),
+						PodPidsLimit:                new(int32(12345)),
 						ResolvConf:                  "/etc/resolv.conf",
-						CpuCfsQuota:                 to.Ptr(false),
+						CpuCfsQuota:                 new(false),
 						CpuCfsQuotaPeriod:           "200ms",
 						EvictionHard: map[string]string{
 							"memory.available":  "750Mi",
@@ -1926,9 +1925,9 @@ func Test_getKubeletConfigFileContent(t *testing.T) {
 							"RotateKubeletServerCertificate": true,
 							"DynamicKubeletConfig":           false,
 						},
-						FailSwapOn:           to.Ptr(false),
+						FailSwapOn:           new(false),
 						ContainerLogMaxSize:  "1000M",
-						ContainerLogMaxFiles: to.Ptr(int32(99)),
+						ContainerLogMaxFiles: new(int32(99)),
 						SystemReserved: map[string]string{
 							"cpu":    "2",
 							"memory": "1Gi",
@@ -1993,7 +1992,7 @@ func Test_getKubeletFlags(t *testing.T) {
 						"--cgroups-per-qos":              "true",
 						"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
 						"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
-						"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 						"--max-pods":                     "110",
 						"--node-status-update-frequency": "10s",
 						"--image-gc-high-threshold":      "85",
@@ -2011,7 +2010,7 @@ func Test_getKubeletFlags(t *testing.T) {
 						"--authentication-token-webhook": "true",
 						"--authorization-mode":           "Webhook",
 						"--eviction-hard":                "memory.available<750Mi,nodefs.available<10%,nodefs.inodesFree<5%",
-						"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", //nolint:lll // what if you turn off dynamic kubelet using dynamic kubelet?
+						"--feature-gates":                "RotateKubeletServerCertificate=true,DynamicKubeletConfig=false", // what if you turn off dynamic kubelet using dynamic kubelet?
 						"--system-reserved":              "cpu=2,memory=1Gi",
 						"--kube-reserved":                "cpu=100m,memory=1638Mi",
 					},
@@ -2255,17 +2254,17 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 						EnableLocalDns:       true,
-						CpuLimitInMilliCores: to.Ptr(int32(2008)),
-						MemoryLimitInMb:      to.Ptr(int32(512)),
+						CpuLimitInMilliCores: new(int32(2008)),
+						MemoryLimitInMb:      new(int32(512)),
 						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
 							".": {
 								QueryLogging:                "Log",
 								Protocol:                    "PreferUDP",
 								ForwardDestination:          "VnetDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(1000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								MaxConcurrent:               new(int32(1000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(3600)),
 								ServeStale:                  "Immediate",
 							},
 							"cluster.local": {
@@ -2273,9 +2272,9 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 								Protocol:                    "ForceTCP",
 								ForwardDestination:          "ClusterCoreDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(1000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								MaxConcurrent:               new(int32(1000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(3600)),
 								ServeStale:                  "Disable",
 							},
 							"testdomain456.com": {
@@ -2283,9 +2282,9 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 								Protocol:                    "PreferUDP",
 								ForwardDestination:          "ClusterCoreDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(1000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								MaxConcurrent:               new(int32(1000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(3600)),
 								ServeStale:                  "Verify",
 							},
 						},
@@ -2295,9 +2294,9 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 								Protocol:                    "PreferUDP",
 								ForwardDestination:          "ClusterCoreDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(2000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								MaxConcurrent:               new(int32(2000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(72000)),
 								ServeStale:                  "Verify",
 							},
 						},
@@ -2313,17 +2312,17 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 				aksnodeconfig: &aksnodeconfigv1.Configuration{
 					LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 						EnableLocalDns:       true,
-						CpuLimitInMilliCores: to.Ptr(int32(2008)),
-						MemoryLimitInMb:      to.Ptr(int32(512)),
+						CpuLimitInMilliCores: new(int32(2008)),
+						MemoryLimitInMb:      new(int32(512)),
 						VnetDnsOverrides: map[string]*aksnodeconfigv1.LocalDnsOverrides{
 							".": {
 								QueryLogging:                "Log",
 								Protocol:                    "PreferUDP",
 								ForwardDestination:          "VnetDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(1000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+								MaxConcurrent:               new(int32(1000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(3600)),
 								ServeStale:                  "Immediate",
 							},
 						},
@@ -2333,9 +2332,9 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 								Protocol:                    "PreferUDP",
 								ForwardDestination:          "ClusterCoreDNS",
 								ForwardPolicy:               "Sequential",
-								MaxConcurrent:               to.Ptr(int32(2000)),
-								CacheDurationInSeconds:      to.Ptr(int32(3600)),
-								ServeStaleDurationInSeconds: to.Ptr(int32(72000)),
+								MaxConcurrent:               new(int32(2000)),
+								CacheDurationInSeconds:      new(int32(3600)),
+								ServeStaleDurationInSeconds: new(int32(72000)),
 								ServeStale:                  "Verify",
 							},
 						},
@@ -2366,7 +2365,7 @@ func Test_getLocalDNSCorefileBase64(t *testing.T) {
 
 func assertLocalDNSLoadBalanceBlocks(t *testing.T, corefile string) {
 	t.Helper()
-	for _, block := range strings.Split(corefile, "\n}\n") {
+	for block := range strings.SplitSeq(corefile, "\n}\n") {
 		if strings.Contains(block, "\n    forward . ") && strings.Count(block, "\n    loadbalance\n") != 1 {
 			t.Errorf("expected loadbalance in every forwarding server block:\n%s", block)
 		}
@@ -2394,28 +2393,28 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "empty duration omits health_check",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr(""),
+				Duration: new(""),
 			},
 			wantNotContains: []string{"health_check"},
 		},
 		{
 			name: "no_rec without duration omits health_check",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				NoRec: to.Ptr(true),
+				NoRec: new(true),
 			},
 			wantNotContains: []string{"health_check", "no_rec"},
 		},
 		{
 			name: "domain without duration omits health_check",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Domain: to.Ptr("health.local."),
+				Domain: new("health.local."),
 			},
 			wantNotContains: []string{"health_check", "domain health.local."},
 		},
 		{
 			name: "duration only relies on CoreDNS default recursive domain",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
+				Duration: new("1s"),
 			},
 			wantContains: "health_check 1s",
 			wantNotContains: []string{
@@ -2427,8 +2426,8 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration with explicit no_rec false omits no_rec",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				NoRec:    to.Ptr(false),
+				Duration: new("1s"),
+				NoRec:    new(false),
 			},
 			wantContains:    "health_check 1s",
 			wantNotContains: []string{"no_rec"},
@@ -2436,17 +2435,17 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration with explicit failfast false omits failfast",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
+				Duration: new("1s"),
 			},
-			failfast:        to.Ptr(false),
+			failfast:        new(false),
 			wantContains:    "health_check 1s",
 			wantNotContains: []string{"failfast_all_unhealthy_upstreams"},
 		},
 		{
 			name: "duration and no_rec",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				NoRec:    to.Ptr(true),
+				Duration: new("1s"),
+				NoRec:    new(true),
 			},
 			wantContains:    "health_check 1s no_rec",
 			wantNotContains: []string{"domain health.local."},
@@ -2454,8 +2453,8 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration and domain",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				Domain:   to.Ptr("health.local."),
+				Duration: new("1s"),
+				Domain:   new("health.local."),
 			},
 			wantContains:    "health_check 1s domain health.local.",
 			wantNotContains: []string{"no_rec"},
@@ -2463,8 +2462,8 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration with empty domain omits domain",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				Domain:   to.Ptr(""),
+				Duration: new("1s"),
+				Domain:   new(""),
 			},
 			wantContains:    "health_check 1s",
 			wantNotContains: []string{"domain "},
@@ -2472,7 +2471,7 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration renders in KubeDNS overrides",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
+				Duration: new("1s"),
 			},
 			kubeDNS:      true,
 			wantContains: "health_check 1s",
@@ -2480,11 +2479,11 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 		{
 			name: "duration no_rec domain and failfast",
 			healthCheck: &aksnodeconfigv1.LocalDnsHealthCheck{
-				Duration: to.Ptr("1s"),
-				NoRec:    to.Ptr(true),
-				Domain:   to.Ptr("health.local."),
+				Duration: new("1s"),
+				NoRec:    new(true),
+				Domain:   new("health.local."),
 			},
-			failfast: to.Ptr(true),
+			failfast: new(true),
 			wantContains: strings.Join([]string{
 				"health_check 1s no_rec domain health.local.",
 				"failfast_all_unhealthy_upstreams",
@@ -2499,9 +2498,9 @@ func Test_getLocalDNSCorefileBase64ForwardHealthCheckAndFailfast(t *testing.T) {
 				Protocol:                      "PreferUDP",
 				ForwardDestination:            "VnetDNS",
 				ForwardPolicy:                 "Sequential",
-				MaxConcurrent:                 to.Ptr(int32(1000)),
-				CacheDurationInSeconds:        to.Ptr(int32(3600)),
-				ServeStaleDurationInSeconds:   to.Ptr(int32(3600)),
+				MaxConcurrent:                 new(int32(1000)),
+				CacheDurationInSeconds:        new(int32(3600)),
+				ServeStaleDurationInSeconds:   new(int32(3600)),
 				ServeStale:                    "Immediate",
 				FailfastAllUnhealthyUpstreams: tt.failfast,
 				HealthCheck:                   tt.healthCheck,
@@ -2647,9 +2646,9 @@ func Test_getLocalDNSCorefileBase64ServeStalePolicy(t *testing.T) {
 				Protocol:                    "PreferUDP",
 				ForwardDestination:          "VnetDNS",
 				ForwardPolicy:               "Sequential",
-				MaxConcurrent:               to.Ptr(int32(1000)),
-				CacheDurationInSeconds:      to.Ptr(int32(3600)),
-				ServeStaleDurationInSeconds: to.Ptr(int32(3600)),
+				MaxConcurrent:               new(int32(1000)),
+				CacheDurationInSeconds:      new(int32(3600)),
+				ServeStaleDurationInSeconds: new(int32(3600)),
 				ServeStale:                  tt.serveStale,
 				ServeStalePolicy:            tt.policy,
 			}
@@ -2803,7 +2802,7 @@ func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
 			name: "zero CPU limit",
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
-					CpuLimitInMilliCores: to.Ptr(int32(0))},
+					CpuLimitInMilliCores: new(int32(0))},
 			}},
 			want: defaultLocalDnsCpuLimitInPercentage,
 		},
@@ -2812,7 +2811,7 @@ func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:       true,
-					CpuLimitInMilliCores: to.Ptr(int32(1000))},
+					CpuLimitInMilliCores: new(int32(1000))},
 			}},
 			want: "100.0%",
 		},
@@ -2821,7 +2820,7 @@ func Test_getLocalDnsCpuLimitInPercentage(t *testing.T) {
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:       false,
-					CpuLimitInMilliCores: to.Ptr(int32(250))},
+					CpuLimitInMilliCores: new(int32(250))},
 			}},
 			want: "200.0%",
 		},
@@ -2854,7 +2853,7 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:  true,
-					MemoryLimitInMb: to.Ptr(int32(0))},
+					MemoryLimitInMb: new(int32(0))},
 			}},
 			want: defaultLocalDnsMemoryLimitInMb,
 		},
@@ -2863,7 +2862,7 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:  true,
-					MemoryLimitInMb: to.Ptr(int32(512))},
+					MemoryLimitInMb: new(int32(512))},
 			}},
 			want: "512M",
 		},
@@ -2872,7 +2871,7 @@ func Test_getLocalDnsMemoryLimitInMb(t *testing.T) {
 			args: args{aksnodeconfig: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:  false,
-					MemoryLimitInMb: to.Ptr(int32(2048))},
+					MemoryLimitInMb: new(int32(2048))},
 			}},
 			want: "128M",
 		},
@@ -2988,7 +2987,7 @@ func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
 			name: "returns empty string when refresh interval is non-positive",
 			args: args{config: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
-					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(0)),
+					HostsPluginRefreshIntervalInSeconds: new(int32(0)),
 				},
 			}},
 			want: "",
@@ -2997,7 +2996,7 @@ func Test_getLocalDnsHostsPluginRefreshIntervalInSeconds(t *testing.T) {
 			name: "returns the refresh interval in seconds",
 			args: args{config: &aksnodeconfigv1.Configuration{
 				LocalDnsProfile: &aksnodeconfigv1.LocalDnsProfile{
-					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(45)),
+					HostsPluginRefreshIntervalInSeconds: new(int32(45)),
 				},
 			}},
 			want: "45",

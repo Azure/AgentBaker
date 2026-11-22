@@ -3,7 +3,6 @@ package agent
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -240,7 +239,7 @@ func writeMinificationDiff(t *testing.T, dir, script string, before, after []byt
 	diff, err := cmd.CombinedOutput()
 	if err != nil {
 		var exitErr *exec.ExitError
-		require.True(t, errors.As(err, &exitErr), "git diff: %v\n%s", err, diff)
+		require.ErrorAs(t, err, &exitErr, "git diff: %v\n%s", err, diff)
 		require.Equal(t, 1, exitErr.ExitCode(), "git diff: %s", diff)
 	}
 	writeMinificationArtifact(t, filepath.Join(dir, "diff", filepath.FromSlash(script)+".diff"), diff)

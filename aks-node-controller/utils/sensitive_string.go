@@ -22,7 +22,7 @@ func (s SensitiveString) MarshalJSON() ([]byte, error) {
 	return json.Marshal(s.String())
 }
 
-func (s SensitiveString) MarshalYAML() (interface{}, error) {
+func (s SensitiveString) MarshalYAML() (any, error) {
 	return s.String(), nil
 }
 

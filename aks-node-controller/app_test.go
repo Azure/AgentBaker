@@ -949,7 +949,7 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 		got := parseEnvVarsFromNBCCmdContent(content)
 		assert.Equal(t, "azureuser", got["ADMINUSER"])
 		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
-		assert.Equal(t, "", got["MOBY_VERSION"])
+		assert.Empty(t, got["MOBY_VERSION"])
 	})
 
 	t.Run("quoted values", func(t *testing.T) {
@@ -998,7 +998,7 @@ func TestParseEnvVarsFromNBCCmdContent(t *testing.T) {
 		got := parseEnvVarsFromNBCCmdContent(content)
 		assert.Equal(t, "/var/log/azure/cluster-provision-cse-output.log", got["PROVISION_OUTPUT"])
 		assert.Equal(t, "azureuser", got["ADMINUSER"])
-		assert.Equal(t, "", got["MOBY_VERSION"])
+		assert.Empty(t, got["MOBY_VERSION"])
 		assert.Equal(t, "72f988bf-86f1-41af-91ab-2d7cd011db47", got["TENANT_ID"])
 		assert.Equal(t, "1.33.7", got["KUBERNETES_VERSION"])
 		assert.Equal(t, "vmss", got["VM_TYPE"])

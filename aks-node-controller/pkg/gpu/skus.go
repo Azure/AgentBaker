@@ -1,9 +1,10 @@
 package gpu
 
-/* ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
+/*
+	ConvergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
+
 see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
 */
-//nolint:gochecknoglobals
 var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nv6ads_a10_v5":   true,
 	"standard_nv12ads_a10_v5":  true,
@@ -17,8 +18,6 @@ var ConvergedGPUDriverSizes = map[string]bool{
 }
 
 // RTXPro6000GPUDriverSizes : SKUs requiring the GRID v20 (595.x) driver.
-//
-//nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
 	"standard_nc24lds_xl_rtxpro6000bse_v6":  true,
 	"standard_nc36ds_xl_rtxpro6000bse_v6":   true,
@@ -38,7 +37,6 @@ var RTXPro6000GPUDriverSizes = map[string]bool{
 	"standard_nc320lds_xl_rtxpro6000bse_v6": true,
 }
 
-//nolint:gochecknoglobals
 var FabricManagerGPUSizes = map[string]bool{
 	// A100
 	"standard_nd96asr_v4":        true,

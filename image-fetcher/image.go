@@ -20,6 +20,7 @@ const (
 	// full pull (~200 MiB compressed ≈ ~400 MiB unpacked).
 	pullSizeThreshold = 200 * 1024 * 1024 // 200 MiB
 )
+
 // fetchImage uses client.Fetch() which:
 //   - Downloads all blobs (manifest, config, layers) into the content store
 //   - Creates an image record in the metadata database

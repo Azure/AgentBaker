@@ -3,7 +3,6 @@
 
 package datamodel
 
-//nolint:gochecknoglobals
 var (
 	AKSUbuntuContainerd2204Gen2OSImageConfig = AzureOSImageConfig{
 		ImageOffer:     "aks",

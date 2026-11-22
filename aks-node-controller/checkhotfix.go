@@ -139,8 +139,7 @@ func isLPSUnavailable(err error) bool {
 // rejection (InvalidArgument/ResourceExhausted) is not a reason to stage a possibly-stale
 // cold-start pointer. See mapGRPCError for the code -> fallbackAllowed classification.
 func shouldColdStartFallback(err error) bool {
-	var grpcErr *lpsGRPCStatusError
-	if errors.As(err, &grpcErr) {
+	if grpcErr, ok := errors.AsType[*lpsGRPCStatusError](err); ok {
 		return grpcErr.fallbackAllowed
 	}
 	return true

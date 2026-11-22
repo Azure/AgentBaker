@@ -29,14 +29,12 @@ func configureLogging() func() {
 	logPath := setupLogPath()
 
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to create log directory: %s\n", err)
 		os.Exit(1)
 	}
 
-	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644) //nolint:gosec // log is read for node diagnostics
 	if err != nil {
-		//nolint:forbidigo // there is no other way to communicate the error
 		fmt.Printf("failed to open log file: %s\n", err)
 		os.Exit(1)
 	}

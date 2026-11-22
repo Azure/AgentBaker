@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"maps"
 	"math/rand"
 	neturl "net/url"
 	"slices"
@@ -240,7 +241,6 @@ const (
 	USSecCloud = "USSecCloud"
 )
 
-//nolint:gochecknoglobals
 var AKSDistrosAvailableOnVHD = []Distro{
 	AKSCBLMarinerV1,
 	AKSCBLMarinerV2,
@@ -564,9 +564,9 @@ type WindowsProfile struct {
 	AlwaysPullWindowsPauseImage   *bool                      `json:"alwaysPullWindowsPauseImage,omitempty"`
 	ContainerdWindowsRuntimes     *ContainerdWindowsRuntimes `json:"containerdWindowsRuntimes,omitempty"`
 	WindowsCalicoPackageURL       string                     `json:"windowsCalicoPackageURL,omitempty"`
-	//nolint:stylecheck // keep field names the same as RP
+	// keep field names the same as RP
 	WindowsSecureTlsEnabled *bool `json:"windowsSecureTlsEnabled,omitempty"`
-	//nolint:stylecheck // keep field names the same as RP
+	// keep field names the same as RP
 	WindowsGmsaPackageUrl          string  `json:"windowsGmsaPackageUrl,omitempty"`
 	CseScriptsPackageURL           string  `json:"cseScriptsPackageURL,omitempty"`
 	GpuDriverURL                   string  `json:"gpuDriverUrl,omitempty"`
@@ -650,7 +650,7 @@ type KubernetesAddon struct {
 // EbpfDataplane controls the eBPF networking dataplane.
 type EbpfDataplane int32
 
-//nolint:stylecheck // underscores in constant names are used for clarity in this context
+// underscores in constant names are used for clarity in this context
 const (
 	// none means don't install an eBPF dataplane.
 	EbpfDataplane_none EbpfDataplane = 0
@@ -679,7 +679,7 @@ type KubernetesConfig struct {
 	ServiceCIDR                       string            `json:"serviceCidr,omitempty"`
 	UseManagedIdentity                bool              `json:"useManagedIdentity,omitempty"`
 	UserAssignedID                    string            `json:"userAssignedID,omitempty"`
-	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` //nolint: lll // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
+	UserAssignedClientID              string            `json:"userAssignedClientID,omitempty"` // Note: cannot be provided in config. Used *only* for transferring this to azure.json.
 	CustomHyperkubeImage              string            `json:"customHyperkubeImage,omitempty"`
 	CustomKubeProxyImage              string            `json:"customKubeProxyImage,omitempty"`
 	CustomKubeBinaryURL               string            `json:"customKubeBinaryURL,omitempty"`
@@ -820,14 +820,14 @@ type UlimitConfig struct {
 }
 
 type CustomConfiguration struct {
-	KubernetesConfigurations        map[string]*ComponentConfiguration
-	WindowsKubernetesConfigurations map[string]*ComponentConfiguration
+	KubernetesConfigurations        map[string]*ComponentConfiguration `json:"KubernetesConfigurations"`
+	WindowsKubernetesConfigurations map[string]*ComponentConfiguration `json:"WindowsKubernetesConfigurations"`
 }
 
 type ComponentConfiguration struct {
-	Image       *string
-	Config      map[string]string
-	DownloadURL *string
+	Image       *string           `json:"Image"`
+	Config      map[string]string `json:"Config"`
+	DownloadURL *string           `json:"DownloadURL"`
 }
 
 // AgentPoolProfile represents an agent pool definition.
@@ -874,7 +874,7 @@ func (a *AgentPoolProfile) GetAgentPoolWindowsProfile() *AgentPoolWindowsProfile
 
 // Properties represents the AKS cluster definition.
 type Properties struct {
-	ClusterID                      string
+	ClusterID                      string                          `json:"ClusterID"`
 	ProvisioningState              ProvisioningState               `json:"provisioningState,omitempty"`
 	OrchestratorProfile            *OrchestratorProfile            `json:"orchestratorProfile,omitempty"`
 	AgentPoolProfiles              []*AgentPoolProfile             `json:"agentPoolProfiles,omitempty"`
@@ -1427,7 +1427,7 @@ func (w *WindowsProfile) IsAlwaysPullWindowsPauseImage() bool {
 
 // IsWindowsSecureTLSEnabled returns true if secure TLS should be enabled for Windows nodes.
 //
-//nolint:stylecheck // allign func name with field name
+// align func name with field name
 func (w *WindowsProfile) IsWindowsSecureTlsEnabled() bool {
 	if w.WindowsSecureTlsEnabled != nil {
 		return *w.WindowsSecureTlsEnabled
@@ -1603,9 +1603,7 @@ func (config *NodeBootstrappingConfiguration) getWindowsKubeletConfig(customKc *
 	if config.ContainerService != nil && config.ContainerService.Properties != nil {
 		kubeletCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(Componentkubelet)
 		if kubeletCustomConfiguration != nil {
-			for k, v := range kubeletCustomConfiguration.Config {
-				kubeletConfig[k] = v
-			}
+			maps.Copy(kubeletConfig, kubeletCustomConfiguration.Config)
 		}
 	}
 
@@ -1656,13 +1654,10 @@ func (config *NodeBootstrappingConfiguration) GetOrderedKubeproxyConfigStringFor
 		kubeproxyConfig["--metrics-bind-address"] = "0.0.0.0:10249"
 	}
 
-	// override kube proxy configuration with the customzied ones.
+	// override kube proxy configuration with the customized ones.
 	kubeProxyCustomConfiguration := config.ContainerService.Properties.GetComponentWindowsKubernetesConfiguration(ComponentkubeProxy)
 	if kubeProxyCustomConfiguration != nil {
-		customConfig := kubeProxyCustomConfiguration.Config
-		for k, v := range customConfig {
-			kubeproxyConfig[k] = v
-		}
+		maps.Copy(kubeproxyConfig, kubeProxyCustomConfiguration.Config)
 	}
 	keys := []string{}
 	for key := range kubeproxyConfig {
@@ -1715,124 +1710,124 @@ func FormatProdFQDNByLocation(fqdnPrefix string, location string, cloudSpecConfi
 type K8sComponents struct {
 	// Full path to the "pause" image. Used for --pod-infra-container-image.
 	// For example: "mcr.microsoft.com/oss/v2/kubernetes/pause:3.10.2".
-	PodInfraContainerImageURL string
+	PodInfraContainerImageURL string `json:"PodInfraContainerImageURL"`
 
 	// Full path to the hyperkube image.
 	// For example: "mcr.microsoft.com/hyperkube-amd64:v1.16.13".
-	HyperkubeImageURL string
+	HyperkubeImageURL string `json:"HyperkubeImageURL"`
 
 	// Full path to the Windows package (windowszip) to use.
 	// For example: https://acs-mirror.azureedge.net/kubernetes/v1.17.8/windowszip/v1.17.8-1int.zip.
-	WindowsPackageURL string
+	WindowsPackageURL string `json:"WindowsPackageURL"`
 
 	// Full path to the Linux package (tar.gz) to use.
 	// For example: url=https://acs-mirror.azureedge.net/kubernetes/v1.25.6-hotfix.20230612/binaries/v1.25.6-hotfix.20230612.tar.gz
-	LinuxPrivatePackageURL string
+	LinuxPrivatePackageURL string `json:"LinuxPrivatePackageURL"`
 
 	// Full path to the Windows credential provider (tar.gz) to use.
 	// For example: https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-windows-amd64-v1.29.4.tar.gz
-	WindowsCredentialProviderURL string
+	WindowsCredentialProviderURL string `json:"WindowsCredentialProviderURL"`
 
 	// Full path to the Linux credential provider (tar.gz) to use.
 	// For example: "https://acs-mirror.azureedge.net/cloud-provider-azure/v1.29.4/binaries/azure-acr-credential-provider-linux-amd64-v1.29.4.tar.gz"
-	LinuxCredentialProviderURL string
+	LinuxCredentialProviderURL string `json:"LinuxCredentialProviderURL"`
 }
 
 // GetLatestSigImageConfigRequest describes the input for a GetLatestSigImageConfig HTTP request.
 // This is mostly a wrapper over existing types so RP doesn't have to manually construct JSON.
 type GetLatestSigImageConfigRequest struct {
-	SIGConfig      SIGConfig
-	SubscriptionID string
-	TenantID       string
-	Region         string
-	Distro         Distro
+	SIGConfig      SIGConfig `json:"SIGConfig"`
+	SubscriptionID string    `json:"SubscriptionID"`
+	TenantID       string    `json:"TenantID"`
+	Region         string    `json:"Region"`
+	Distro         Distro    `json:"Distro"`
 }
 
 // NodeBootstrappingConfiguration represents configurations for node bootstrapping.
 type NodeBootstrappingConfiguration struct {
-	ContainerService                *ContainerService
-	CloudSpecConfig                 *AzureEnvironmentSpecConfig
-	K8sComponents                   *K8sComponents
-	AgentPoolProfile                *AgentPoolProfile
-	TenantID                        string
-	SubscriptionID                  string
-	ResourceGroupName               string
-	UserAssignedIdentityClientID    string
-	OSSKU                           string
-	ConfigGPUDriverIfNeeded         bool
-	EnableGPUDevicePluginIfNeeded   bool
-	EnableKubeletConfigFile         bool
-	EnableNvidia                    bool
-	EnableAMDGPU                    bool
-	ManagedGPUExperienceAFECEnabled bool
-	EnableManagedGPU                bool
-	EnableManagedGPUDRA             bool
-	MigStrategy                     string
-	MIGProfileLayout                []string
-	EnableArtifactStreaming         bool
-	ContainerdVersion               string
-	RuncVersion                     string
+	ContainerService                *ContainerService           `json:"ContainerService"`
+	CloudSpecConfig                 *AzureEnvironmentSpecConfig `json:"CloudSpecConfig"`
+	K8sComponents                   *K8sComponents              `json:"K8sComponents"`
+	AgentPoolProfile                *AgentPoolProfile           `json:"AgentPoolProfile"`
+	TenantID                        string                      `json:"TenantID"`
+	SubscriptionID                  string                      `json:"SubscriptionID"`
+	ResourceGroupName               string                      `json:"ResourceGroupName"`
+	UserAssignedIdentityClientID    string                      `json:"UserAssignedIdentityClientID"`
+	OSSKU                           string                      `json:"OSSKU"`
+	ConfigGPUDriverIfNeeded         bool                        `json:"ConfigGPUDriverIfNeeded"`
+	EnableGPUDevicePluginIfNeeded   bool                        `json:"EnableGPUDevicePluginIfNeeded"`
+	EnableKubeletConfigFile         bool                        `json:"EnableKubeletConfigFile"`
+	EnableNvidia                    bool                        `json:"EnableNvidia"`
+	EnableAMDGPU                    bool                        `json:"EnableAMDGPU"`
+	ManagedGPUExperienceAFECEnabled bool                        `json:"ManagedGPUExperienceAFECEnabled"`
+	EnableManagedGPU                bool                        `json:"EnableManagedGPU"`
+	EnableManagedGPUDRA             bool                        `json:"EnableManagedGPUDRA"`
+	MigStrategy                     string                      `json:"MigStrategy"`
+	MIGProfileLayout                []string                    `json:"MIGProfileLayout"`
+	EnableArtifactStreaming         bool                        `json:"EnableArtifactStreaming"`
+	ContainerdVersion               string                      `json:"ContainerdVersion"`
+	RuncVersion                     string                      `json:"RuncVersion"`
 	// ContainerdPackageURL and RuncPackageURL are beneficial for testing non-official.
 	// containerd and runc, like the pre-released ones.
 	// Currently both configurations are for test purpose, and only deb package is supported.
-	ContainerdPackageURL string
-	RuncPackageURL       string
+	ContainerdPackageURL string `json:"ContainerdPackageURL"`
+	RuncPackageURL       string `json:"RuncPackageURL"`
 	// KubeletClientTLSBootstrapToken - kubelet client TLS bootstrap token to use.
 	/* When this feature is enabled, we skip kubelet kubeconfig generation and replace it with bootstrap
 	kubeconfig. */
 	// ref: https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet-tls-bootstrapping.
-	KubeletClientTLSBootstrapToken *string
+	KubeletClientTLSBootstrapToken *string `json:"KubeletClientTLSBootstrapToken"`
 	// RemoveBootstrapKubeconfig determines whether we will remove/cleanup kubelet's bootstrap-kubeconfig
-	// after kubelet successfuly bootstraps its initial client certificate via either form of TLS bootstrapping.
-	RemoveBootstrapKubeconfig    bool
-	SecureTLSBootstrappingConfig *SecureTLSBootstrappingConfig
-	FIPSEnabled                  bool
-	HTTPProxyConfig              *HTTPProxyConfig
-	KubeletConfig                map[string]string
-	KubeproxyConfig              map[string]string
-	EnableRuncShimV2             bool
-	GPUInstanceProfile           string
-	PrimaryScaleSetName          string
-	SIGConfig                    SIGConfig
-	IsARM64                      bool
-	CustomCATrustConfig          *CustomCATrustConfig
-	DisableUnattendedUpgrades    bool
-	SSHStatus                    SSHStatus
-	DisableCustomData            bool
-	OutboundType                 string
-	EnableIMDSRestriction        bool
+	// after kubelet successfully bootstraps its initial client certificate via either form of TLS bootstrapping.
+	RemoveBootstrapKubeconfig    bool                          `json:"RemoveBootstrapKubeconfig"`
+	SecureTLSBootstrappingConfig *SecureTLSBootstrappingConfig `json:"SecureTLSBootstrappingConfig"`
+	FIPSEnabled                  bool                          `json:"FIPSEnabled"`
+	HTTPProxyConfig              *HTTPProxyConfig              `json:"HTTPProxyConfig"`
+	KubeletConfig                map[string]string             `json:"KubeletConfig"`
+	KubeproxyConfig              map[string]string             `json:"KubeproxyConfig"`
+	EnableRuncShimV2             bool                          `json:"EnableRuncShimV2"`
+	GPUInstanceProfile           string                        `json:"GPUInstanceProfile"`
+	PrimaryScaleSetName          string                        `json:"PrimaryScaleSetName"`
+	SIGConfig                    SIGConfig                     `json:"SIGConfig"`
+	IsARM64                      bool                          `json:"IsARM64"`
+	CustomCATrustConfig          *CustomCATrustConfig          `json:"CustomCATrustConfig"`
+	DisableUnattendedUpgrades    bool                          `json:"DisableUnattendedUpgrades"`
+	SSHStatus                    SSHStatus                     `json:"SSHStatus"`
+	DisableCustomData            bool                          `json:"DisableCustomData"`
+	OutboundType                 string                        `json:"OutboundType"`
+	EnableIMDSRestriction        bool                          `json:"EnableIMDSRestriction"`
 	// InsertIMDSRestrictionRuleToMangleTable is only checked when EnableIMDSRestriction is true.
 	// When this is true, iptables rule will be inserted to `mangle` table. This is for Linux Cilium
 	// CNI, which will overwrite the `filter` table so that we can only insert to `mangle` table to avoid
 	// our added rule is overwritten by Cilium.
-	InsertIMDSRestrictionRuleToMangleTable bool
+	InsertIMDSRestrictionRuleToMangleTable bool `json:"InsertIMDSRestrictionRuleToMangleTable"`
 	// EnableKMPP enables the KMPP key isolation service on the node and exposes it through /var/run/kmpp/dbus.
 	// Set by RP when the Azure Key Vault Secrets Store addon runs in KMPP mode. Azure Linux 3.0 only.
-	EnableKMPP bool
+	EnableKMPP bool `json:"EnableKMPP"`
 	// EnabledFeatures is a generic set of feature toggles delivered to the node as KEY=VALUE
 	// lines in enabled_features.sh, which the aks-node-controller wrapper reads and exports as
 	// environment variables (e.g. "ENABLE_PROVISIONING_HOTFIX" -> "true") to gate provisioning
 	// steps such as check-hotfix. Using a map lets RP add new toggles without producer-side code
 	// changes. Empty/nil => no file is written and scriptless custom data is byte-identical to today.
-	EnabledFeatures map[string]string
+	EnabledFeatures map[string]string `json:"EnabledFeatures"`
 	// Version is required for aks-node-controller application to determine the version of the config file.
-	Version string
+	Version string `json:"Version"`
 
 	// PreProvisionOnly creates a pre-provisioned image for later node spawning.
 	// Skips kubelet and some component configuration for image capture scenarios.
-	PreProvisionOnly bool
+	PreProvisionOnly bool `json:"PreProvisionOnly"`
 
 	// CSETimeout specifies the timeout execution in seconds.
-	CSETimeout int
+	CSETimeout int `json:"CSETimeout"`
 
 	// EnableScriptlessCSECmd enables scriptless CSE command execution.
 	// EnableScriptlessCSECmd uses the CSE command to run the CSE logic without replacing scripts on the node using custom data.
 	// When EnableScriptlessCSECmd is true, the rendered CSE commands are executed directly on the node.
-	EnableScriptlessCSECmd bool
+	EnableScriptlessCSECmd bool `json:"EnableScriptlessCSECmd"`
 
 	// EnableScriptlessNBCCSECmd enables scriptless phase 2 in which the cse cmd generated from NBC is passed to
 	// AKS Node Controller and uses the NBC cmd to start provisioning.
-	EnableScriptlessNBCCSECmd bool
+	EnableScriptlessNBCCSECmd bool `json:"EnableScriptlessNBCCSECmd"`
 
 	// EnableScriptlessAKSNodeConfig enables Phase 3 provisioning using only AKSNodeConfigJSON.
 	// It takes precedence over EnableScriptlessNBCCSECmd and EnableScriptlessCSECmd:
@@ -1840,36 +1835,36 @@ type NodeBootstrappingConfiguration struct {
 	// Requires a non-empty serialized JSON object. Windows is unsupported.
 	// AKSNodeConfigJSON owns the provisioning phase and is passed through unchanged.
 	// For pre-provisioning, the caller must set PreProvisionOnly in AKSNodeConfigJSON.
-	EnableScriptlessAKSNodeConfig bool
+	EnableScriptlessAKSNodeConfig bool `json:"EnableScriptlessAKSNodeConfig"`
 
 	// ScriptlessCSEProvisionMode specifies the delivery mode for scriptless phases 2 and 3,
 	// which uses CSE to provide provision nbc or aks nc configs
-	ScriptlessCSEProvisionMode bool
+	ScriptlessCSEProvisionMode bool `json:"ScriptlessCSEProvisionMode"`
 
 	// AKSNodeConfigJSON is the serialized provisioning config required by EnableScriptlessAKSNodeConfig.
 	// Otherwise, it is optional and accompanies the NBC command for Phase 2.5 comparison.
-	AKSNodeConfigJSON string
+	AKSNodeConfigJSON string `json:"AKSNodeConfigJSON"`
 
 	// CustomDataOnlyProvisioning indicates whether the node should be provisioned using only custom data.
 	// When true, the node will not rely on CSE for reporting provisioning status.
 	// Linux validation disables this for Flatcar, ACL, and Azure Linux, including in scriptless Phase 3.
-	CustomDataOnlyProvisioning bool
+	CustomDataOnlyProvisioning bool `json:"CustomDataOnlyProvisioning"`
 
 	// StandardSecondaryNICCount is the number of Standard-type secondary network
 	// interfaces configured on the agent pool. The node bootstrapping scripts use
 	// this to detect and configure the additional NICs at the OS level.
 	// Dynamic-type secondary NICs are not included in this count as they are
 	// configured by CNS rather than the node bootstrapping scripts.
-	StandardSecondaryNICCount int
+	StandardSecondaryNICCount int `json:"StandardSecondaryNICCount"`
 
 	// RouteTableName overrides the derived CSE route table name when non-nil, including an empty value.
-	RouteTableName *string
+	RouteTableName *string `json:"RouteTableName"`
 	// SubnetName overrides the derived CSE subnet name when non-nil, including an empty value.
-	SubnetName *string
+	SubnetName *string `json:"SubnetName"`
 }
 
-func (c *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
-	return c != nil && c.CustomDataOnlyProvisioning
+func (config *NodeBootstrappingConfiguration) IsCustomDataOnlyProvisioningEnabled() bool {
+	return config != nil && config.CustomDataOnlyProvisioning
 }
 
 func (config *NodeBootstrappingConfiguration) IsAzureLinux() bool {
@@ -1898,10 +1893,10 @@ const (
 
 // NodeBootstrapping represents the custom data, CSE, and OS image info needed for node bootstrapping.
 type NodeBootstrapping struct {
-	CustomData     string
-	CSE            string
-	OSImageConfig  *AzureOSImageConfig
-	SigImageConfig *SigImageConfig
+	CustomData     string              `json:"CustomData"`
+	CSE            string              `json:"CSE"`
+	OSImageConfig  *AzureOSImageConfig `json:"OSImageConfig"`
+	SigImageConfig *SigImageConfig     `json:"SigImageConfig"`
 }
 
 // HTTPProxyConfig represents configurations of http proxy.

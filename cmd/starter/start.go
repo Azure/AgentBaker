@@ -28,21 +28,16 @@ func Execute(configurators ...apiserver.OptionConfigurator) {
 }
 
 // rootCmd represents the base command when called without any subcommands.
-//
-//nolint:gochecknoglobals
 var rootCmd = &cobra.Command{
 	Use:   "agentbaker",
 	Short: "Agent baker is responsible for generating all the data necessary to allow Nodes to join an AKS cluster.",
 }
 
-//nolint:gochecknoglobals
 var (
 	options = &apiserver.Options{}
 )
 
 // startCmd represents the start command.
-//
-//nolint:gochecknoglobals
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Starts the server that hosts agentbaker",
