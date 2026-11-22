@@ -167,9 +167,13 @@ func (g *Generalizer) disableContainerd(ctx context.Context, _ map[string]string
 func (g *Generalizer) removeBuildArtifacts(context.Context, map[string]string) error {
 	for _, p := range buildArtifactPaths {
 		path := g.path(p)
+		if _, err := os.Lstat(path); errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err := os.RemoveAll(path); err != nil {
 			return fmt.Errorf("remove %s: %w", path, err)
 		}
+		slog.Info("removed build artifact", "path", path)
 	}
 	for _, d := range nvpcrCredentialDirs {
 		if err := removeNvPCRCredentials(g.path(d)); err != nil {

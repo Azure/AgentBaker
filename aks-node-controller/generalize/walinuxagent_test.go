@@ -23,6 +23,14 @@ import (
 
 const testWALinuxAgentVersion = "2.16.0.2"
 
+func writeUnderRoot(t *testing.T, root, p, content string) string {
+	t.Helper()
+	full := filepath.Join(root, p)
+	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
+	return full
+}
+
 const testWALinuxAgentComponentsJSON = `{
 	"Packages": [
 		{"name": "other", "downloadURIs": {"default": {"current": {"versionsV2": [{"latestVersion": "9.9"}]}}}},

@@ -1,3 +1,5 @@
+//go:build !windows
+
 package generalize
 
 import (
@@ -7,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -17,19 +18,7 @@ import (
 	"github.com/Azure/agentbaker/aks-node-controller/config"
 )
 
-func writeUnderRoot(t *testing.T, root, p, content string) string {
-	t.Helper()
-	full := filepath.Join(root, p)
-	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
-	require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
-	return full
-}
-
 func TestGeneralize(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
-
 	newGeneralizer := func(t *testing.T) (*Generalizer, string) {
 		root := t.TempDir()
 		writeUnderRoot(t, root, config.OSReleasePath, "ID=ubuntu\n")
@@ -109,10 +98,6 @@ func TestGeneralize(t *testing.T) {
 }
 
 func TestGeneralizeACLFirstBoot(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
-
 	for _, tc := range []struct {
 		name        string
 		osRelease   string
@@ -208,10 +193,6 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 }
 
 func TestGeneralizeImage(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
-
 	t.Run("runs all steps in order", func(t *testing.T) {
 		f := newImageModeFixture(t, "ID=ubuntu\n")
 		for _, p := range buildArtifactPaths {
@@ -310,9 +291,6 @@ func TestGeneralizeImage(t *testing.T) {
 }
 
 func TestRemoveBuildArtifactsNvPCR(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("generalize is Linux-only")
-	}
 	root := t.TempDir()
 	g := &Generalizer{rootDir: root}
 	anchors := []string{
