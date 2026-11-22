@@ -719,11 +719,10 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
-		recreateACR := acr.Properties != nil && isFailedProvisioningState(acr.Properties.ProvisioningState)
-		if recreateACR {
+		if acr.Properties != nil && isFailedProvisioningState(acr.Properties.ProvisioningState) {
 			logging.Logf(ctx, "##vso[task.logissue type=warning;]Private ACR %s is in Failed state, deleting...", privateACRName)
 		} else {
-			err, recreateACR = shouldRecreateACR(ctx, resourceGroup, privateACRName)
+			err, recreateACR := shouldRecreateACR(ctx, resourceGroup, privateACRName)
 			if err != nil {
 				return fmt.Errorf("failed to check cache rules: %w", err)
 			}
@@ -887,7 +886,6 @@ func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpoi
 			logging.Logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
 			return &existingPE.PrivateEndpoint, nil
 		}
-		// Reapplying the endpoint is Azure's documented recovery for a Failed network resource.
 		logging.Logf(ctx, "##vso[task.logissue type=warning;]Private Endpoint %s is in Failed state; reapplying it", privateEndpointName)
 	}
 	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {

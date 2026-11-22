@@ -176,7 +176,7 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 func ensurePESubnet(ctx context.Context, rg string) error {
 	existing, err := config.Azure.Subnet.Get(ctx, rg, SharedVNetName, PESubnetName, nil)
 	if err == nil {
-		return reapplyFailedSubnet(ctx, rg, SharedVNetName, existing.Subnet)
+		return reapplyFailedSubnet(ctx, rg, SharedVNetName, PESubnetName, existing.Subnet)
 	}
 	if !isNotFoundError(err) {
 		return fmt.Errorf("checking PE subnet: %w", err)
@@ -200,7 +200,7 @@ func ensurePESubnet(ctx context.Context, rg string) error {
 func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) error {
 	existing, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
 	if err == nil {
-		return reapplyFailedSubnet(ctx, rg, vnetName, existing.Subnet)
+		return reapplyFailedSubnet(ctx, rg, vnetName, subnetName, existing.Subnet)
 	}
 	if !isNotFoundError(err) {
 		return fmt.Errorf("checking subnet %s: %w", subnetName, err)
@@ -229,7 +229,7 @@ func ensureSubnet(ctx context.Context, rg, vnetName, subnetName, cidr string) er
 func ensureDualStackSubnet(ctx context.Context, rg, vnetName, subnetName, ipv4CIDR, ipv6CIDR string) error {
 	existing, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
 	if err == nil {
-		return reapplyFailedSubnet(ctx, rg, vnetName, existing.Subnet)
+		return reapplyFailedSubnet(ctx, rg, vnetName, subnetName, existing.Subnet)
 	}
 	if !isNotFoundError(err) {
 		return fmt.Errorf("checking subnet %s: %w", subnetName, err)
@@ -287,11 +287,10 @@ func provisioningStateString[T ~string](state *T) string {
 
 // reapplyFailedSubnet PUTs a Failed subnet's current body. This is Azure's documented
 // recovery for network resources in Failed state and keeps the subnet's attachments.
-func reapplyFailedSubnet(ctx context.Context, rg, vnetName string, subnet armnetwork.Subnet) error {
-	if subnet.Properties == nil || !isFailedProvisioningState(subnet.Properties.ProvisioningState) || subnet.Name == nil {
+func reapplyFailedSubnet(ctx context.Context, rg, vnetName, subnetName string, subnet armnetwork.Subnet) error {
+	if subnet.Properties == nil || !isFailedProvisioningState(subnet.Properties.ProvisioningState) {
 		return nil
 	}
-	subnetName := *subnet.Name
 	logging.Logf(ctx, "##vso[task.logissue type=warning;]subnet %s is in Failed state; reapplying it", subnetName)
 	return retryOn409(ctx, fmt.Sprintf("reapplying failed subnet %s", subnetName), func() error {
 		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, subnet, nil)
@@ -307,29 +306,29 @@ func reapplyFailedSubnet(ctx context.Context, rg, vnetName string, subnet armnet
 
 func ensureSharedBastion(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.BastionHosts.Get(ctx, rg, SharedBastionName, nil)
+	if err != nil && !isNotFoundError(err) {
+		return "", fmt.Errorf("checking shared bastion: %w", err)
+	}
 	if err == nil {
-		if existing.Properties != nil && isFailedProvisioningState(existing.Properties.ProvisioningState) {
-			// A Bastion that failed creation has no DNS name and does not recover by itself.
-			// Delete it so the create path below can start again.
+		props := existing.Properties
+		if props == nil {
+			props = &armnetwork.BastionHostPropertiesFormat{}
+		}
+		switch {
+		case isFailedProvisioningState(props.ProvisioningState):
+			// A failed Bastion does not recover in place; delete it and use the create path.
 			logging.Logf(ctx, "##vso[task.logissue type=warning;]shared bastion %s is in Failed state; deleting and recreating it", SharedBastionName)
 			if err := deleteSharedBastion(ctx, rg); err != nil {
 				return "", err
 			}
-		} else {
-			if existing.Properties == nil || existing.Properties.DNSName == nil {
-				var state *armnetwork.ProvisioningState
-				if existing.Properties != nil {
-					state = existing.Properties.ProvisioningState
-				}
-				return "", fmt.Errorf("shared bastion %s exists in state %s but has no DNS name", SharedBastionName, provisioningStateString(state))
-			}
+		case props.DNSName == nil:
+			return "", fmt.Errorf("shared bastion %s exists in state %s but has no DNS name", SharedBastionName, provisioningStateString(props.ProvisioningState))
+		default:
 			if err := ensureBastionIPConnect(ctx, rg, existing.BastionHost); err != nil {
 				return "", err
 			}
-			return *existing.Properties.DNSName, nil
+			return *props.DNSName, nil
 		}
-	} else if !isNotFoundError(err) {
-		return "", fmt.Errorf("checking shared bastion: %w", err)
 	}
 
 	logging.Logf(ctx, "creating shared bastion public IP %s", SharedBastionPIPName)
@@ -416,14 +415,16 @@ const (
 // firewalls allow CSE artifact downloads and public NTP synchronization.
 func ensureSharedFirewall(ctx context.Context, rg, location string) (string, error) {
 	existing, err := config.Azure.AzureFirewall.Get(ctx, rg, SharedFirewallName, nil)
-	if err != nil && !isNotFoundError(err) {
-		return "", fmt.Errorf("checking shared firewall: %w", err)
-	}
 	if err == nil {
 		failed := existing.Properties != nil && isFailedProvisioningState(existing.Properties.ProvisioningState)
 		// Fast path: rules already match current config.
 		if !failed && firewallAppRulesUpToDate(existing.AzureFirewall) && firewallNetworkRulesUpToDate(existing.AzureFirewall) {
 			return getFirewallPrivateIP(existing.AzureFirewall)
+		}
+		if failed {
+			logging.Logf(ctx, "##vso[task.logissue type=warning;]shared firewall %s is in Failed state; reapplying it", SharedFirewallName)
+		} else {
+			logging.Logf(ctx, "shared firewall %s exists but rules are stale; updating", SharedFirewallName)
 		}
 		firewallSubnetID := fmt.Sprintf(
 			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/AzureFirewallSubnet",
@@ -437,31 +438,22 @@ func ensureSharedFirewall(ctx context.Context, rg, location string) (string, err
 			existing.Properties.IPConfigurations[0].Properties.PublicIPAddress != nil &&
 			existing.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID != nil {
 			publicIPID = *existing.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID
-		}
-		switch {
-		case publicIPID != "":
-			if failed {
-				logging.Logf(ctx, "##vso[task.logissue type=warning;]shared firewall %s is in Failed state; reapplying it", SharedFirewallName)
-			} else {
-				logging.Logf(ctx, "shared firewall %s exists but rules are stale; updating", SharedFirewallName)
-			}
-			updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
-			fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
-			if err != nil {
-				return "", fmt.Errorf("updating shared firewall: %w", err)
-			}
-			fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
-			if err != nil {
-				return "", fmt.Errorf("waiting for shared firewall update: %w", err)
-			}
-			return getFirewallPrivateIP(fwResp.AzureFirewall)
-		case failed:
-			// A firewall that failed before its IP configuration was stored is repaired by the
-			// create path, which re-PUTs the PIP and the firewall.
-			logging.Logf(ctx, "##vso[task.logissue type=warning;]shared firewall %s is in Failed state without a public IP; recreating it", SharedFirewallName)
-		default:
+		} else {
 			return "", fmt.Errorf("existing firewall %s has no public IP configuration", SharedFirewallName)
 		}
+		updated := getFirewall(ctx, location, firewallSubnetID, publicIPID)
+		fwPoller, err := config.Azure.AzureFirewall.BeginCreateOrUpdate(ctx, rg, SharedFirewallName, *updated, nil)
+		if err != nil {
+			return "", fmt.Errorf("updating shared firewall: %w", err)
+		}
+		fwResp, err := fwPoller.PollUntilDone(ctx, config.PollUntilDoneOptions())
+		if err != nil {
+			return "", fmt.Errorf("waiting for shared firewall update: %w", err)
+		}
+		return getFirewallPrivateIP(fwResp.AzureFirewall)
+	}
+	if !isNotFoundError(err) {
+		return "", fmt.Errorf("checking shared firewall: %w", err)
 	}
 
 	firewallSubnetID := fmt.Sprintf(
@@ -631,7 +623,7 @@ func ensureClusterSubnet(ctx context.Context, req ClusterSubnetRequest) (string,
 	// Check if this subnet already exists (idempotent)
 	existing, err := config.Azure.Subnet.Get(ctx, rg, SharedVNetName, subnetName, nil)
 	if err == nil {
-		if err := reapplyFailedSubnet(ctx, rg, SharedVNetName, existing.Subnet); err != nil {
+		if err := reapplyFailedSubnet(ctx, rg, SharedVNetName, subnetName, existing.Subnet); err != nil {
 			return "", err
 		}
 		return *existing.ID, nil
