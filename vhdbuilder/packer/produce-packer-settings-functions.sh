@@ -518,9 +518,19 @@ function ensure_sig_trusted_launch_supported() {
 	fi
 }
 
+function load_windows_image_plan() {
+	WINDOWS_IMAGE_PLAN_NAME=$(jq -r --arg sku "${WINDOWS_SKU}" '.WindowsBaseVersions[$sku].base_image_plan.name // ""' "$CDIR/windows/windows_settings.json") || return $?
+	WINDOWS_IMAGE_PLAN_PRODUCT=$(jq -r --arg sku "${WINDOWS_SKU}" '.WindowsBaseVersions[$sku].base_image_plan.product // ""' "$CDIR/windows/windows_settings.json") || return $?
+	WINDOWS_IMAGE_PLAN_PUBLISHER=$(jq -r --arg sku "${WINDOWS_SKU}" '.WindowsBaseVersions[$sku].base_image_plan.publisher // ""' "$CDIR/windows/windows_settings.json") || return $?
+}
+
 function ensure_sig_vhd_exists() {
 	echo "SIG existence checking for $MODE"
 	local supported_features="DiskControllerTypes=SCSI,NVMe SecurityType=TrustedLaunchSupported"
+	local -a purchase_plan_args=()
+	if [ "${MODE}" = "windowsVhdMode" ] && [ -n "${WINDOWS_IMAGE_PLAN_NAME:-}" ]; then
+		purchase_plan_args=(--plan-name "${WINDOWS_IMAGE_PLAN_NAME}" --plan-product "${WINDOWS_IMAGE_PLAN_PRODUCT}" --plan-publisher "${WINDOWS_IMAGE_PLAN_PUBLISHER}")
+	fi
 
 	is_need_create=true
 	state=$(az sig show --resource-group "${AZURE_RESOURCE_GROUP_NAME}" --gallery-name "${SIG_GALLERY_NAME}" | jq -r '.provisioningState') || state=""
@@ -702,7 +712,8 @@ function ensure_sig_vhd_exists() {
 					--os-type ${OS_TYPE} \
 					--hyper-v-generation ${HYPERV_GENERATION} \
 					--location ${AZURE_LOCATION} \
-					--features "${supported_features}"
+					--features "${supported_features}" \
+					"${purchase_plan_args[@]}"
 			else
 				# For vanilla Gen2, mark only NVMe
 				az sig image-definition create \

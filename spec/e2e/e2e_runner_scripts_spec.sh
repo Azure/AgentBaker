@@ -62,6 +62,9 @@ for arg in "$@"; do
   printf ' <%s>' "${arg}" >> "${COMMAND_LOG}"
 done
 printf '\n' >> "${COMMAND_LOG}"
+if [ "${1:-} ${2:-} ${3:-}" = 'vm image terms' ] && [ "${FAIL_TERMS_ACCEPT:-0}" = '1' ]; then
+  exit 1
+fi
 EOF
 
     cat > "${MOCK_BIN}/date" <<'EOF'
@@ -112,6 +115,57 @@ EOF
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
     The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
+    The contents of file "${COMMAND_LOG}" should not include 'az <vm> <image> <terms>'
+  End
+
+  It 'accepts WS2028 preview terms in the resolved E2E subscription'
+    When run env \
+      SUBSCRIPTION_ID='build-subscription' \
+      SUBSCRIPTION_ID_OVERRIDE='e2e-subscription' \
+      TAGS_TO_RUN='imageName=windows-2028-gen2' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be success
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include 'az <vm> <image> <terms> <accept> <--subscription> <e2e-subscription> <--publisher> <microsoftwindowsserver> <--offer> <microsoftserveroperatingsystems-previews> <--plan> <windows-server-vnext-azure-edition-core> <--output> <none>'
+    The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run>'
+  End
+
+  It 'stops before running scenarios if WS2028 terms acceptance fails'
+    When run env \
+      SUBSCRIPTION_ID='test-subscription' \
+      TAGS_TO_RUN='imageName=windows-2028-gen2' \
+      FAIL_TERMS_ACCEPT='1' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be failure
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include 'az <vm> <image> <terms> <accept>'
+    The contents of file "${COMMAND_LOG}" should not include 'go <run>'
+  End
+
+  Describe 'other images'
+    Parameters
+      windows-2022-containerd-gen2
+      windows-2025-gen2
+      windows-2025-gen2-tl
+      ubuntu-2204-gen2
+    End
+
+    It "does not accept preview terms for $1"
+      When run env \
+        SUBSCRIPTION_ID='test-subscription' \
+        TAGS_TO_RUN="imageName=$1" \
+        DefaultWorkingDirectory="${TEST_REPO}" \
+        BUILD_SRC_DIR="${TEST_REPO}" \
+        bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+      The status should be success
+      The output should be present
+      The contents of file "${COMMAND_LOG}" should not include 'az <vm> <image> <terms>'
+      The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run>'
+    End
   End
 
   It 'stops the pipeline before CLI execution when unit tests fail'

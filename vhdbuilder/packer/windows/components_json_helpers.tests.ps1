@@ -3,6 +3,37 @@ BeforeAll {
     . $PSCommandPath.Replace('.tests.ps1', '.ps1')
 }
 
+Describe 'WS2028 preview components' {
+    BeforeAll {
+        $components = Get-Content "$PSScriptRoot/../../../parts/common/components.json" -Raw | ConvertFrom-Json
+    }
+
+    It 'selects containerd 2.0 instead of the default 1.7 packages' {
+        $windowsSku = '2028-gen2'
+        $packages = GetPackagesFromComponentsJson $components
+        $packages['c:\akse-cache\containerd\'] | Should -Contain 'https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz'
+        $packages['c:\akse-cache\containerd\'].Count | Should -Be 1
+    }
+
+    It 'caches WS2025 LTSC base containers, not WS2022 containers' {
+        $windowsSku = '2028-gen2'
+        $images = GetComponentsFromComponentsJson $components
+        $images | Should -Contain 'mcr.microsoft.com/windows/servercore:ltsc2025'
+        $images | Should -Contain 'mcr.microsoft.com/windows/nanoserver:ltsc2025'
+        $images | Should -Contain 'mcr.microsoft.com/windows/servercore/iis:windowsservercore-ltsc2025'
+        $images | Should -Not -Contain 'mcr.microsoft.com/windows/servercore:ltsc2022'
+    }
+
+}
+
+Describe 'GetWindowsDownloadPartForPackage' {
+    It 'does not select a WS2025 override for a later Windows SKU' {
+        $windowsSku = '2028-gen2'
+        $package = [PSCustomObject]@{ downloadURIs = @{ windows = @{ default = 'default-package'; ws2025 = '2025-package' } } }
+        GetWindowsDownloadPartForPackage $package | Should -Be 'default-package'
+    }
+}
+
 Describe 'SafeReplaceString' {
     It 'given no vars are present, it returns the string' {
         SafeReplaceString "this is a string" | Should -Be "this is a string"

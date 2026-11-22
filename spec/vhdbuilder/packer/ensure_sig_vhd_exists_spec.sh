@@ -19,6 +19,9 @@ Describe 'ensure_sig_vhd_exists function'
     OS_TYPE=""
     ENABLE_TRUSTED_LAUNCH=""
     TRUSTED_LAUNCH_SUPPORTED="False"
+    WINDOWS_IMAGE_PLAN_NAME=""
+    WINDOWS_IMAGE_PLAN_PRODUCT=""
+    WINDOWS_IMAGE_PLAN_PUBLISHER=""
 
     # Mock variables to control az command behavior
     MOCK_AZ_SIG_SHOW_STATE=""
@@ -129,10 +132,11 @@ Describe 'ensure_sig_vhd_exists function'
 
   Describe 'shared Windows Gen2 image creation'
     Parameters
-      windows-2022-containerd-gen2 False True TrustedLaunchSupported
-      windows-2025-gen2 False True TrustedLaunchSupported
-      windows-2025-gen2-tl True True TrustedLaunch
-      windows-2025-gen2 False False ''
+      windows-2022-containerd-gen2 False True TrustedLaunchSupported ''
+      windows-2025-gen2 False True TrustedLaunchSupported ''
+      windows-2025-gen2-tl True True TrustedLaunch ''
+      windows-2025-gen2 False False '' ''
+      windows-2028-gen2 False True TrustedLaunchSupported windows-server-vnext-azure-edition-core
     End
 
     It "creates $1 with TL enabled=$2 supported=$3"
@@ -146,6 +150,9 @@ Describe 'ensure_sig_vhd_exists function'
       ARCHITECTURE="x64"
       ENABLE_TRUSTED_LAUNCH="$2"
       TRUSTED_LAUNCH_SUPPORTED="$3"
+      WINDOWS_IMAGE_PLAN_NAME="$5"
+      WINDOWS_IMAGE_PLAN_PRODUCT="microsoftserveroperatingsystems-previews"
+      WINDOWS_IMAGE_PLAN_PUBLISHER="microsoftwindowsserver"
       MOCK_AZ_SIG_SHOW_EXISTS="true"
       MOCK_AZ_SIG_SHOW_STATE="Succeeded"
       MOCK_AZ_SIG_IMAGE_DEFINITION_EXISTS="false"
@@ -165,6 +172,40 @@ Describe 'ensure_sig_vhd_exists function'
         The output should not include 'SecurityType='
       fi
       The output should not include 'Reconciled'
+      if [ -n "$5" ]; then
+        The output should include "--plan-name $5"
+        The output should include '--plan-product microsoftserveroperatingsystems-previews'
+        The output should include '--plan-publisher microsoftwindowsserver'
+      else
+        The output should not include '--plan-name'
+      fi
+    End
+  End
+
+  Describe 'loading Windows Marketplace plans'
+    load_and_print_plan() {
+      load_windows_image_plan || return $?
+      printf '%s|%s|%s' "$WINDOWS_IMAGE_PLAN_NAME" "$WINDOWS_IMAGE_PLAN_PRODUCT" "$WINDOWS_IMAGE_PLAN_PUBLISHER"
+    }
+
+    Parameters
+      2028-gen2 'windows-server-vnext-azure-edition-core|microsoftserveroperatingsystems-previews|microsoftwindowsserver'
+      2025-gen2 '||'
+      2022-containerd '||'
+    End
+
+    It "loads the configured plan for $1 without inheriting a previous SKU's plan"
+      CDIR="${PWD}/vhdbuilder/packer"
+      WINDOWS_SKU="$1"
+      WINDOWS_IMAGE_PLAN_NAME=stale-plan
+      WINDOWS_IMAGE_PLAN_PRODUCT=stale-product
+      WINDOWS_IMAGE_PLAN_PUBLISHER=stale-publisher
+      # Use the real settings parser rather than the gallery-command mock.
+      jq() { command jq "$@"; }
+
+      When call load_and_print_plan
+      The status should be success
+      The output should equal "$2"
     End
   End
 

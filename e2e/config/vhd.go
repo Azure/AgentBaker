@@ -313,6 +313,16 @@ var (
 		Distro:  datamodel.AKSWindows2025Gen2TL,
 		Gallery: &Config.GalleryWindows,
 	}
+
+	VHDWindows2028Gen2 = &Image{
+		Name:         "windows-2028-gen2",
+		OS:           OSWindows,
+		Arch:         "amd64",
+		Distro:       datamodel.CustomizedWindowsOSImage,
+		Gallery:      &Config.GalleryWindows,
+		WindowsSKU:   "2028-gen2",
+		OSDiskSizeGB: 127,
+	}
 )
 
 var ErrNotFound = fmt.Errorf("not found")
@@ -346,6 +356,8 @@ type Image struct {
 	SkipOldVHDValidations               bool
 	// OSDiskSizeGB overrides the default OS disk size (50 GB) when set.
 	OSDiskSizeGB int32
+	// WindowsSKU overrides distro-derived cache selection for customized Windows images.
+	WindowsSKU string
 }
 
 func (i *Image) String() string {

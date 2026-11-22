@@ -93,6 +93,15 @@ if [ -n "${SIG_GALLERY_NAME}" ]; then
   export GALLERY_NAME=$SIG_GALLERY_NAME
 fi
 
+if [ "${TAGS_TO_RUN}" = "imageName=windows-2028-gen2" ]; then
+  az vm image terms accept \
+    --subscription "${SUBSCRIPTION_ID}" \
+    --publisher microsoftwindowsserver \
+    --offer microsoftserveroperatingsystems-previews \
+    --plan windows-server-vnext-azure-edition-core \
+    --output none
+fi
+
 az extension add --name bastion
 
 cd e2e

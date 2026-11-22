@@ -151,6 +151,10 @@ if [ "${SUBSCRIPTION_ID}" != "${GALLERY_SUBSCRIPTION_ID}" ]; then
 fi
 
 # If we're building a Linux VHD or we're building a windows VHD in windowsVhdMode, ensure SIG resources
+if [ "$MODE" = "windowsVhdMode" ]; then
+  load_windows_image_plan
+fi
+
 if [ "$MODE" = "linuxVhdMode" ] || [ "$MODE" = "windowsVhdMode" ]; then
   ensure_sig_vhd_exists
 else
@@ -225,6 +229,9 @@ cat <<EOF > vhdbuilder/packer/settings.json
   "windows_image_offer": "${WINDOWS_IMAGE_OFFER}",
   "windows_image_sku": "${WINDOWS_IMAGE_SKU}",
   "windows_image_version": "${WINDOWS_IMAGE_VERSION}",
+  "windows_image_plan_name": "${WINDOWS_IMAGE_PLAN_NAME:-}",
+  "windows_image_plan_product": "${WINDOWS_IMAGE_PLAN_PRODUCT:-}",
+  "windows_image_plan_publisher": "${WINDOWS_IMAGE_PLAN_PUBLISHER:-}",
   "windows_image_url": "${WINDOWS_IMAGE_URL}",
   "imported_image_name": "${IMPORTED_IMAGE_NAME}",
   "security_type_feature": "${SECURITY_TYPE_FEATURE}",
