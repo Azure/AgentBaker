@@ -18,7 +18,7 @@
                 "type": "Shell",
                 "name": "InstallDeprovisionHook",
                 "inline": [
-                    "printf '%s\\n' '#!/bin/bash -eu' 'rm -f \"$0\"' 'exec sudo /opt/azure/containers/aks-node-controller generalize' | sudo tee /tmp/DeprovisioningScript.sh >/dev/null && sudo chmod 0755 /tmp/DeprovisioningScript.sh"
+                    "printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /opt/azure/containers/aks-node-controller generalize' | sudo tee /tmp/DeprovisioningScript.sh >/dev/null && sudo chmod 0755 /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],

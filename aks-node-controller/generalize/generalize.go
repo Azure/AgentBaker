@@ -56,6 +56,8 @@ var buildArtifactPaths = []string{
 	"/opt/azure/containers/imds_instance_metadata_cache.json",
 	// Prevents build-time extension logs and telemetry from shipping on the OS disk.
 	"/var/log/azure/Microsoft.Azure.Extensions.CustomScript",
+	// AIB deprovision hook (optimize.json). It is root-owned in sticky /tmp, so the hook cannot delete itself before sudo.
+	"/tmp/DeprovisioningScript.sh",
 	// systemd NvPCR anchors are bound to the build VM's TPM; a clone creates its own at boot.
 	// The SRK, NV indices, disk-encryption keys, and other system credentials stay intact.
 	"/var/lib/systemd/nvpcr/nvpcr-anchor.cred",
