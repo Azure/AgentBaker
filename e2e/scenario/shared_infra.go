@@ -133,12 +133,14 @@ func ensureSharedVNet(ctx context.Context, rg, location string) error {
 				logging.Logf(ctx, "adding IPv6 address space %s to shared VNet %s", SharedVNetIPv6CIDR, SharedVNetName)
 				existing.Properties.AddressSpace.AddressPrefixes = append(existing.Properties.AddressSpace.AddressPrefixes, to.Ptr(SharedVNetIPv6CIDR))
 			}
-			// Preserve existing subnets in the PUT body — Azure VNet CreateOrUpdate
-			// is a full PUT, so omitting Subnets would delete them.
+			// Omit Subnets: since API 2023-09-01 Azure keeps existing subnets when the field is
+			// absent, while a stale list would delete subnets that another run just created.
+			props := *existing.Properties
+			props.Subnets = nil
 			poller, updateErr := config.Azure.VNet.BeginCreateOrUpdate(ctx, rg, SharedVNetName, armnetwork.VirtualNetwork{
 				Location:   existing.Location,
 				Tags:       existing.Tags,
-				Properties: existing.Properties,
+				Properties: &props,
 			}, nil)
 			if updateErr != nil {
 				return fmt.Errorf("updating shared VNet: %w", updateErr)
@@ -292,7 +294,20 @@ func reapplyFailedSubnet(ctx context.Context, rg, vnetName, subnetName string, s
 		return nil
 	}
 	logging.Logf(ctx, "##vso[task.logissue type=warning;]subnet %s is in Failed state; reapplying it", subnetName)
+	attempt := 0
 	return retryOn409(ctx, fmt.Sprintf("reapplying failed subnet %s", subnetName), func() error {
+		// After a conflict, another run may have repaired the subnet or attached a route
+		// table or NSG; a stale body would undo that.
+		if attempt++; attempt > 1 {
+			fresh, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
+			if err != nil {
+				return fmt.Errorf("getting failed subnet %s: %w", subnetName, err)
+			}
+			if fresh.Properties == nil || !isFailedProvisioningState(fresh.Properties.ProvisioningState) {
+				return nil
+			}
+			subnet = fresh.Subnet
+		}
 		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, subnet, nil)
 		if err != nil {
 			return fmt.Errorf("reapplying failed subnet %s: %w", subnetName, err)

@@ -395,7 +395,8 @@ Shared setup repairs long-lived resources that Azure reports in the `Failed` pro
 state, because they otherwise break every later run. It deletes and recreates a failed
 Bastion, which does not recover in place. It reapplies the current definition (GET + PUT) of a
 failed VNet, subnet, Firewall, private endpoint, private DNS zone or link, and gallery. It
-deletes and recreates a failed private ACR together with its cluster. Resources in other
+deletes a failed private ACR and its cluster, then recreates the ACR; that run then fails
+because its cluster is gone, and the next run recreates the cluster. Resources in other
 non-terminal states are not changed; a Bastion without a DNS name fails with its state.
 
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
