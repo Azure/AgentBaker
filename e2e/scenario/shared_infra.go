@@ -293,7 +293,16 @@ func reapplyFailedSubnet(ctx context.Context, rg, vnetName, subnetName string, s
 	}
 	logging.Logf(ctx, "##vso[task.logissue type=warning;]subnet %s is in Failed state; reapplying it", subnetName)
 	return retryOn409(ctx, fmt.Sprintf("reapplying failed subnet %s", subnetName), func() error {
-		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, subnet, nil)
+		// Re-read on every attempt: after a 409, another run may have repaired the subnet or
+		// changed its attachments, and a stale body would undo that.
+		current, err := config.Azure.Subnet.Get(ctx, rg, vnetName, subnetName, nil)
+		if err != nil {
+			return fmt.Errorf("getting failed subnet %s: %w", subnetName, err)
+		}
+		if current.Properties == nil || !isFailedProvisioningState(current.Properties.ProvisioningState) {
+			return nil
+		}
+		poller, err := config.Azure.Subnet.BeginCreateOrUpdate(ctx, rg, vnetName, subnetName, current.Subnet, nil)
 		if err != nil {
 			return fmt.Errorf("reapplying failed subnet %s: %w", subnetName, err)
 		}

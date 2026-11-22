@@ -316,3 +316,36 @@ func TestEnsureSubnetReappliesFailedSubnet(t *testing.T) {
 		})
 	}
 }
+
+func TestReapplyFailedSubnetRereadsAfterConflict(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	gets, puts := 0, 0
+	responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+		switch req.Method {
+		case http.MethodGet:
+			gets++
+			if gets == 1 {
+				return gcResponse(req, http.StatusOK, `{"name":"s","properties":{"provisioningState":"Failed","addressPrefix":"10.0.0.0/26"}}`)
+			}
+			// Another run repaired the subnet and attached a route table during the backoff.
+			return gcResponse(req, http.StatusOK, `{"name":"s","properties":{"provisioningState":"Succeeded","addressPrefix":"10.0.0.0/26","routeTable":{"id":"rt"}}}`)
+		case http.MethodPut:
+			puts++
+			return gcResponse(req, http.StatusConflict, `{"error":{"code":"AnotherOperationInProgress","message":"conflict"}}`)
+		}
+		t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+		return nil
+	})
+	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+	client, err := armnetwork.NewSubnetsClient("test", nil, opts)
+	require.NoError(t, err)
+	config.Azure = &config.AzureClient{Subnet: client}
+
+	failed := armnetwork.Subnet{Properties: &armnetwork.SubnetPropertiesFormat{ProvisioningState: to.Ptr(armnetwork.ProvisioningStateFailed)}}
+	require.NoError(t, reapplyFailedSubnet(logging.WithLogger(t.Context(), t), "rg", SharedVNetName, "s", failed))
+	require.Equal(t, 1, puts, "a retry must not PUT a stale body over the repaired subnet")
+	require.Equal(t, 2, gets)
+}
