@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -74,6 +75,12 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			name: "deny action", wantUpdate: true,
 			mutate: func(fw *armnetwork.AzureFirewall) {
 				fw.Properties.NetworkRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
+			},
+		},
+		{
+			name: "failed with current rules", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ProvisioningState = to.Ptr(armnetwork.ProvisioningStateFailed)
 			},
 		},
 		{
@@ -192,4 +199,120 @@ func TestEnsureSharedInfraPreservesOtherClusterSubnets(t *testing.T) {
 	require.Equal(t, "bastion.example", infra.BastionDNSName)
 	require.Equal(t, "10.0.1.4", infra.FirewallIP)
 	require.Empty(t, deletedSubnets, "another run may have created its subnet before creating its cluster")
+}
+
+func TestEnsureSharedBastionRecreatesFailedBastion(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	for _, tt := range []struct {
+		name      string
+		state     string
+		dnsName   string
+		wantCalls []string
+		wantErr   string
+	}{
+		{name: "reuse succeeded", state: "Succeeded", dnsName: "bastion.example", wantCalls: []string{"GET bastion"}},
+		{
+			name: "recreate failed", state: "Failed",
+			wantCalls: []string{"GET bastion", "DELETE bastion", "PUT pip", "PUT bastion"},
+		},
+		{
+			name: "in-progress bastion reports its state", state: "Updating",
+			wantCalls: []string{"GET bastion"}, wantErr: "exists in state Updating but has no DNS name",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			deleted := false
+			responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				resource := "bastion"
+				if strings.HasSuffix(req.URL.Path, "/publicIPAddresses/"+SharedBastionPIPName) {
+					resource = "pip"
+				} else {
+					require.True(t, strings.HasSuffix(req.URL.Path, "/bastionHosts/"+SharedBastionName), req.URL.Path)
+				}
+				calls = append(calls, req.Method+" "+resource)
+				switch {
+				case req.Method == http.MethodGet:
+					body := fmt.Sprintf(`{"properties":{"provisioningState":%q,"enableIpConnect":true}}`, tt.state)
+					if tt.dnsName != "" {
+						body = fmt.Sprintf(`{"properties":{"provisioningState":%q,"enableIpConnect":true,"dnsName":%q}}`, tt.state, tt.dnsName)
+					}
+					return gcResponse(req, http.StatusOK, body)
+				case req.Method == http.MethodDelete:
+					deleted = true
+					return gcResponse(req, http.StatusOK, "")
+				case req.Method == http.MethodPut && resource == "pip":
+					return gcResponse(req, http.StatusOK, `{"id":"/subscriptions/test/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/pip","properties":{"provisioningState":"Succeeded"}}`)
+				case req.Method == http.MethodPut:
+					require.True(t, deleted, "the failed bastion must be deleted before it is recreated")
+					return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded","dnsName":"new.bastion.example"}}`)
+				}
+				t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+				return nil
+			})
+			opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+			network, err := armnetwork.NewClientFactory("test", nil, opts)
+			require.NoError(t, err)
+			config.Azure = &config.AzureClient{
+				BastionHosts: network.NewBastionHostsClient(), PublicIPAddresses: network.NewPublicIPAddressesClient(),
+			}
+
+			dnsName, err := ensureSharedBastion(logging.WithLogger(t.Context(), t), "rg", "westus3")
+			require.Equal(t, tt.wantCalls, calls)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.state == "Failed" {
+				require.Equal(t, "new.bastion.example", dnsName)
+			} else {
+				require.Equal(t, tt.dnsName, dnsName)
+			}
+		})
+	}
+}
+
+func TestEnsureSubnetReappliesFailedSubnet(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	for _, state := range []string{"Succeeded", "Failed"} {
+		t.Run(state, func(t *testing.T) {
+			const natID = "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Network/natGateways/nat"
+			puts := 0
+			responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				require.True(t, strings.HasSuffix(req.URL.Path, "/subnets/AzureBastionSubnet"), req.URL.Path)
+				switch req.Method {
+				case http.MethodGet:
+					return gcResponse(req, http.StatusOK, fmt.Sprintf(
+						`{"name":"AzureBastionSubnet","properties":{"provisioningState":%q,"addressPrefix":"10.0.0.0/26","natGateway":{"id":%q}}}`, state, natID))
+				case http.MethodPut:
+					puts++
+					var subnet armnetwork.Subnet
+					require.NoError(t, json.NewDecoder(req.Body).Decode(&subnet))
+					require.Equal(t, "10.0.0.0/26", *subnet.Properties.AddressPrefix)
+					require.Equal(t, natID, *subnet.Properties.NatGateway.ID, "reapplying must keep the subnet's attachments")
+					return gcResponse(req, http.StatusOK, `{"name":"AzureBastionSubnet","properties":{"provisioningState":"Succeeded"}}`)
+				}
+				t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+				return nil
+			})
+			opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+			client, err := armnetwork.NewSubnetsClient("test", nil, opts)
+			require.NoError(t, err)
+			config.Azure = &config.AzureClient{Subnet: client}
+
+			require.NoError(t, ensureSubnet(logging.WithLogger(t.Context(), t), "rg", SharedVNetName, "AzureBastionSubnet", "10.0.0.0/26"))
+			if state == "Failed" {
+				require.Equal(t, 1, puts)
+			} else {
+				require.Zero(t, puts)
+			}
+		})
+	}
 }

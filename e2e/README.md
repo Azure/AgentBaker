@@ -391,6 +391,13 @@ its provisioning state as `Failed`. It waits for deletion before recreating the 
 and stops on deletion errors. It does not delete child image versions or definitions in
 other states.
 
+Shared setup repairs long-lived resources that Azure reports in the `Failed` provisioning
+state, because they otherwise break every later run. It deletes and recreates a failed
+Bastion, which does not recover in place. It reapplies the current definition (GET + PUT) of a
+failed VNet, subnet, Firewall, private endpoint, private DNS zone or link, and gallery. It
+deletes and recreates a failed private ACR together with its cluster. Resources in other
+non-terminal states are not changed; a Bastion without a DNS name fails with its state.
+
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
 Windows Server Core and Nano Server pod checks run concurrently on the scenario node.
 
