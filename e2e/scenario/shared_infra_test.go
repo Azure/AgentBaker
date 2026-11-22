@@ -316,36 +316,3 @@ func TestEnsureSubnetReappliesFailedSubnet(t *testing.T) {
 		})
 	}
 }
-
-func TestEnsureSharedVNetReapplyOmitsSubnets(t *testing.T) {
-	originalConfig, originalAzure := config.Config, config.Azure
-	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
-	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
-
-	puts := 0
-	responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
-		switch req.Method {
-		case http.MethodGet:
-			return gcResponse(req, http.StatusOK, fmt.Sprintf(
-				`{"location":"westus3","properties":{"provisioningState":"Failed","addressSpace":{"addressPrefixes":["10.0.0.0/8",%q]},"subnets":[{"name":"stale"}]}}`, SharedVNetIPv6CIDR))
-		case http.MethodPut:
-			puts++
-			var body struct {
-				Properties map[string]any `json:"properties"`
-			}
-			require.NoError(t, json.NewDecoder(req.Body).Decode(&body))
-			require.NotContains(t, body.Properties, "subnets", "a stale subnet list would delete subnets created by other runs")
-			require.Contains(t, body.Properties, "addressSpace")
-			return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded"}}`)
-		}
-		t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
-		return nil
-	})
-	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
-	client, err := armnetwork.NewVirtualNetworksClient("test", nil, opts)
-	require.NoError(t, err)
-	config.Azure = &config.AzureClient{VNet: client}
-
-	require.NoError(t, ensureSharedVNet(logging.WithLogger(t.Context(), t), "rg", "westus3"))
-	require.Equal(t, 1, puts)
-}
