@@ -1723,7 +1723,7 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_RuntimeClassInImageCr
 					FeatureGates map[string]bool `json:"featureGates"`
 				}
 				require.NoError(t, json.Unmarshal([]byte(GetKubeletConfigFileContent(config.KubeletConfig, nil)), &file))
-				require.Equal(t, strKeyValToMapBool(tc.wantGates, ",", "="), file.FeatureGates)
+				require.Equal(t, strKeyValToMapBool(tc.wantGates), file.FeatureGates)
 			})
 		}
 	}

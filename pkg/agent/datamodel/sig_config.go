@@ -1233,7 +1233,7 @@ func withAzureLinuxEdgeZoneConfig(acsSigConfig SIGConfig) SigImageConfigOpt {
 	}
 }
 
-// subscriptionID only receives AzurePublicCloudSigSubscription
+//nolint:unparam // functional option; today only AzurePublicCloudSigSubscription is passed
 func withSubscription(subscriptionID string) SigImageConfigOpt {
 	return func(c *SigImageConfig) {
 		c.SubscriptionID = subscriptionID

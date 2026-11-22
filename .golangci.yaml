@@ -10,10 +10,10 @@ linters:
     - canonicalheader
     - containedctx
     - contextcheck
-    - dupl
     - durationcheck
     - errchkjson
     - errorlint
+    - exhaustive
     - exptostd
     - fatcontext
     - forcetypeassert
@@ -32,6 +32,7 @@ linters:
     - reassign
     - revive
     - testifylint
+    - unparam
     - usetesting
   settings:
     modernize:
@@ -45,6 +46,9 @@ linters:
         - name: var-naming
           disabled: true
         - name: exported
+          disabled: true
+        # Exported API shape; changing return types breaks importers.
+        - name: unexported-return
           disabled: true
     gomoddirectives:
       replace-allow-list:
@@ -74,7 +78,6 @@ linters:
       # Keep test linting low-noise.
       - path: _test\.go
         linters:
-          - dupl
           - gosec
           - noctx
           - protogetter

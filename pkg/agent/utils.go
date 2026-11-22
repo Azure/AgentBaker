@@ -98,7 +98,7 @@ func addKeyvaultReference(m paramsMap, k string, vaultID, secretName, secretVers
 	}
 }
 
-func addSecret(m paramsMap, k string, v any, encode bool) {
+func addSecret(m paramsMap, k string, v any) {
 	str, ok := v.(string)
 	if !ok {
 		addValue(m, k, v)
@@ -107,11 +107,7 @@ func addSecret(m paramsMap, k string, v any, encode bool) {
 	keyvaultSecretPathRe := regexp.MustCompile(`^(/subscriptions/\S+/resourceGroups/\S+/providers/Microsoft.KeyVault/vaults/\S+)/secrets/([^/\s]+)(/(\S+))?$`)
 	parts := keyvaultSecretPathRe.FindStringSubmatch(str)
 	if parts == nil || len(parts) != 5 {
-		if encode {
-			addValue(m, k, base64.StdEncoding.EncodeToString([]byte(str)))
-		} else {
-			addValue(m, k, str)
-		}
+		addValue(m, k, base64.StdEncoding.EncodeToString([]byte(str)))
 		return
 	}
 	addKeyvaultReference(m, k, parts[1], parts[2], parts[4])
@@ -737,7 +733,7 @@ func GetKubeletConfigFileContent(kc map[string]string, customKc *datamodel.Custo
 
 	// feature gates.
 	// look like "f1=true,f2=true".
-	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"], ",", "=")
+	kubeletConfig.FeatureGates = strKeyValToMapBool(kc["--feature-gates"])
 
 	// system reserve and kube reserve.
 	// looks like "cpu=100m,memory=1638Mi".
@@ -845,12 +841,12 @@ func filterEvictionSignals(signals map[string]string) map[string]string {
 	return validSignals
 }
 
-// generic key/value parser; every current caller parses feature gates
-func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[string]bool {
+// strKeyValToMapBool parses "key1=val1,key2=val2" into a map.
+func strKeyValToMapBool(str string) map[string]bool {
 	m := make(map[string]bool)
-	pairs := strings.SplitSeq(str, strDelim)
+	pairs := strings.SplitSeq(str, ",")
 	for pairRaw := range pairs {
-		pair := strings.Split(pairRaw, pairDelim)
+		pair := strings.Split(pairRaw, "=")
 		if len(pair) == numInPair {
 			key := strings.TrimSpace(pair[0])
 			val := strings.TrimSpace(pair[1])
@@ -861,7 +857,7 @@ func strKeyValToMapBool(str string, strDelim string, pairDelim string) map[strin
 }
 
 func removeFeatureGateString(featureGates string, key string) string {
-	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap := strKeyValToMapBool(featureGates)
 	delete(fgMap, key)
 	keys := make([]string, 0, len(fgMap))
 	for k := range fgMap {
@@ -876,7 +872,7 @@ func removeFeatureGateString(featureGates string, key string) string {
 }
 
 func addFeatureGateString(featureGates string, key string, value bool) string {
-	fgMap := strKeyValToMapBool(featureGates, ",", "=")
+	fgMap := strKeyValToMapBool(featureGates)
 	fgMap[key] = value
 	keys := make([]string, 0, len(fgMap))
 	for k := range fgMap {

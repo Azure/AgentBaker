@@ -884,7 +884,7 @@ func ValidateAndSetLinuxNodeBootstrappingConfigurationWithError(config *datamode
 	if config.AgentPoolProfile != nil && config.AgentPoolProfile.Distro.IsKataDistro() &&
 		IsKubernetesVersionGe(config.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion, "1.29.0") {
 		// Default only, so the RP can still turn it off.
-		if _, set := strKeyValToMapBool(kubeletFlags["--feature-gates"], ",", "=")["RuntimeClassInImageCriApi"]; !set {
+		if _, set := strKeyValToMapBool(kubeletFlags["--feature-gates"])["RuntimeClassInImageCriApi"]; !set {
 			kubeletFlags["--feature-gates"] = addFeatureGateString(kubeletFlags["--feature-gates"], "RuntimeClassInImageCriApi", true)
 		}
 	}

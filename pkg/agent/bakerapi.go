@@ -24,7 +24,7 @@ type agentBakerImpl struct {
 
 var _ AgentBaker = (*agentBakerImpl)(nil)
 
-func NewAgentBaker() (*agentBakerImpl, error) { //nolint:revive // unexported-return; changing the return type breaks importers
+func NewAgentBaker() (*agentBakerImpl, error) {
 	return &agentBakerImpl{
 		toggles: toggles.NewDefaultToggles(),
 	}, nil

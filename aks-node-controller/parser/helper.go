@@ -141,6 +141,8 @@ func getStringFromLoadBalancerSkuType(enum aksnodeconfigv1.LoadBalancerSku) stri
 		return helpers.LoadBalancerBasic
 	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_STANDARD:
 		return helpers.LoadBalancerStandard
+	case aksnodeconfigv1.LoadBalancerSku_LOAD_BALANCER_SKU_UNSPECIFIED:
+		return ""
 	default:
 		return ""
 	}

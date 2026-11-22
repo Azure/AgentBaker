@@ -231,10 +231,10 @@ func assignKubernetesParameters(properties *datamodel.Properties, parametersMap 
 
 		certificateProfile := properties.CertificateProfile
 		if certificateProfile != nil {
-			addSecret(parametersMap, "apiServerCertificate", certificateProfile.APIServerCertificate, true)
-			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate, true)
-			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate, true)
-			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey, true)
+			addSecret(parametersMap, "apiServerCertificate", certificateProfile.APIServerCertificate)
+			addSecret(parametersMap, "caCertificate", certificateProfile.CaCertificate)
+			addSecret(parametersMap, "clientCertificate", certificateProfile.ClientCertificate)
+			addSecret(parametersMap, "clientPrivateKey", certificateProfile.ClientPrivateKey)
 		}
 	}
 }
