@@ -16,9 +16,9 @@
         "customize": [
             {
                 "type": "Shell",
-                "name": "Cleanup",
+                "name": "InstallDeprovisionHook",
                 "inline": [
-                    "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh && sudo rm -f /opt/azure/containers/cleanup-vhd.sh"
+                    "printf '%s\\n' '#!/bin/bash -eu' 'exec sudo /opt/azure/containers/aks-node-controller generalize' | sudo tee /tmp/DeprovisioningScript.sh >/dev/null && sudo chmod 0755 /tmp/DeprovisioningScript.sh"
                 ]
             }
         ],
