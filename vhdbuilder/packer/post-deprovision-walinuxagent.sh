@@ -1,6 +1,6 @@
 #!/bin/bash -eu
 # Post-deprovision WALinuxAgent install script.
-# Called by Packer and AIB AFTER 'waagent -force -deprovision+user',
+# Called by packer inline block AFTER 'waagent -force -deprovision+user',
 # which clears /var/lib/waagent/. This script reads the target WALinuxAgent
 # version from components.json and installs it from the wireserver manifest
 # so the agent daemon can pick it up locally without downloading at
@@ -8,9 +8,6 @@
 #
 # NOTE: -x is intentionally omitted to avoid leaking SAS tokens from
 # wireserver manifest/blob URLs in packer build logs.
-
-# Packer passes the effective optimization setting and feature flags; AIB uses the defaults.
-PREFETCH_OPTIMIZATION="${1:-false}"
 
 # ---- resolv.conf state tracking (read by the EXIT trap) ----
 RESOLV_CONF_ORIGINAL_STATE=""      # "symlink", "file", or "absent"; empty = not modified
@@ -37,19 +34,6 @@ pruneStaleWALinuxAgentDirs() {
     find "${base_dir}" -mindepth 1 -maxdepth 1 -type d -name 'WALinuxAgent-*' \
         ! -name "WALinuxAgent-${pinned_version}" \
         -exec rm -rf -- {} +
-}
-
-createAIBDeprovisionHook() {
-    local feature_flags="$1"
-    local hook_path="${2:-/opt/azure/containers/aib-deprovision.sh}"
-    local is_cvm=false
-    if printf '%s\n' "${feature_flags}" | grep -q "cvm"; then
-        is_cvm=true
-    fi
-    printf '%s\n' '#!/bin/bash -eu' \
-        "exec sudo /bin/bash -eu /opt/azure/containers/deprovision.sh ${is_cvm}" \
-        > "${hook_path}" || return $?
-    chmod 0755 "${hook_path}"
 }
 
 # Ensure cleanup and sync always run, even if the script errors (bash -e).
@@ -84,12 +68,8 @@ cleanup() {
         esac
         rm -f "${RESOLV_CONF_BAK}"
     fi
-    if [ "${PREFETCH_OPTIMIZATION,,}" != "true" ]; then
-        rm -f /opt/azure/containers/install_walinuxagent.py
-        rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
-        rm -f /opt/azure/containers/deprovision.sh
-        rm -f /opt/azure/containers/aib-deprovision.sh
-    fi
+    rm -f /opt/azure/containers/install_walinuxagent.py
+    rm -f /opt/azure/containers/post-deprovision-walinuxagent.sh
     sync
 }
 trap cleanup EXIT
@@ -181,15 +161,4 @@ if [ "$OS_VARIANT_ID" != "OSGUARD" ] && [ "$OS_VARIANT_ID" != "AZURECONTAINERLIN
 
 else
     echo "Skipping WALinuxAgent manifest install (VARIANT_ID=${OS_VARIANT_ID:-unset})"
-fi
-
-# Packer must reset CVM anchors even when no AIB optimization follows.
-if printf '%s\n' "${2:-}" | grep -q "cvm"; then
-    # shellcheck source=/dev/null
-    . /opt/azure/containers/deprovision.sh
-    cleanupNvPCRCredentials true /
-fi
-
-if [ "${PREFETCH_OPTIMIZATION,,}" = "true" ]; then
-    createAIBDeprovisionHook "${2:-}"
 fi

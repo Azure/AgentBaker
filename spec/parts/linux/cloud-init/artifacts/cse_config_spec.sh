@@ -380,8 +380,6 @@ $cpu_pressure_commands"
             TEST_EVENTS_DIR="$TEST_EVENTS_ROOT/events"
             mkdir "$TEST_EVENTS_DIR"
             EVENTS_LOGGING_DIR=$TEST_EVENTS_DIR
-            SSH_POLICY_DIR="$TEST_EVENTS_ROOT/policy"
-            SSH_SYSTEMD_UNIT_DIR="$TEST_EVENTS_ROOT/systemd"
         }
 
         cleanup_ssh_telemetry() {
@@ -397,7 +395,7 @@ $cpu_pressure_commands"
 
         systemctl() {
             case "$1" in
-                daemon-reload) [ "$*" != "${FAIL_COMMAND:-}" ] ;;
+                daemon-reload) return 0 ;;
                 cat)
                     # MISSING_UNITS simulates a distro where the unit isn't installed.
                     case " ${MISSING_UNITS:-} " in
@@ -422,15 +420,17 @@ $cpu_pressure_commands"
             :
         }
 
-        It 'stops every SSH unit without changing its boot activation'
+        It 'stops and disables every SSH unit that is present'
             When call disableSSH
-            The output should equal "stop ssh.socket
-stop sshd.socket
+            The output should equal "stop sshd.socket
+disable sshd.socket
 stop ssh
-stop sshd"
+disable ssh
+stop sshd
+disable sshd"
             The status should be success
             SSH_EVENT_FILTER='
-                length == 10 and
+                length == 8 and
                 ([.[].Message | fromjson | .AttemptId] | unique | length == 1) and
                 all(.[]; (.Message | type) == "string" and .EventLevel == "Informational") and
                 ([.[] | select(.TaskName == "AKS.CSE.disableSSH") | .Message | fromjson |
@@ -438,45 +438,47 @@ stop sshd"
                                         length == 1 and .[0].ExitCode == 0) and
                 ([.[] | select(.TaskName == "AKS.CSE.disableSSH.unit") | .Message | fromjson |
                   select(.Phase == "Completed")] |
-                    length == 4 and all(.[];
-                        .CatExitCode == 0 and .StopExitCode == 0 and .DisableExitCode == null and
+                    length == 3 and all(.[];
+                        .CatExitCode == 0 and .StopExitCode == 0 and .DisableExitCode == 0 and
                         .Skipped == false and .SchemaVersion == 1)) and
                     all(.[]; (.Timestamp | length) > 0 and (.OperationId | length) > 0) and
                 ([.[].Message | fromjson | select(.Phase == "Started")] |
-                    length == 5 and all(.[]; .ExitCode == null))
+                    length == 4 and all(.[]; .ExitCode == null))
             '
             The result of function ssh_events_match should equal true
         End
 
         It 'skips units that are not installed'
-            MISSING_UNITS="ssh.socket ssh sshd"
+            MISSING_UNITS="ssh sshd"
             When call disableSSH
-            The output should equal "stop sshd.socket"
+            The output should equal "stop sshd.socket
+disable sshd.socket"
             The status should be success
             SSH_EVENT_FILTER='
                 [.[].Message | fromjson | select(.Phase == "Completed" and .Skipped == true)] |
-                length == 3 and all(.[]; .CatExitCode == 1 and .StopExitCode == null and
+                length == 2 and all(.[]; .CatExitCode == 1 and .StopExitCode == null and
                     .DisableExitCode == null and .ExitCode == 0)
             '
             The result of function ssh_events_match should equal true
         End
 
         It 'skips sshd.socket on distros without socket activation'
-            MISSING_UNITS="ssh.socket ssh sshd.socket"
+            MISSING_UNITS="ssh sshd.socket"
             When call disableSSH
-            The output should equal "stop sshd"
+            The output should equal "stop sshd
+disable sshd"
             The status should be success
         End
 
-        It 'stops listeners and fails provisioning when the persistent policy cannot be loaded'
-            FAIL_COMMAND="daemon-reload"
+        It 'exits with the CSE SSH error code when a unit cannot be disabled'
+            FAIL_COMMAND="disable sshd.socket"
             When run disableSSH
-            The stderr should include "Failed to install persistent SSH disable policy"
-            The output should include "stop sshd.socket"
+            The output should include "sshd.socket could not be disabled"
             The status should equal 172
             SSH_EVENT_FILTER='
                 [.[] | select(.EventLevel == "Error") | .Message | fromjson] |
-                length == 1 and
+                length == 2 and
+                any(.[]; .Unit == "sshd.socket" and .StopExitCode == 0 and .DisableExitCode == 1) and
                 any(.[]; .Unit == "" and .ExitCode == 172 and .Phase == "Completed")
             '
             The result of function ssh_events_match should equal true
@@ -486,14 +488,14 @@ stop sshd"
             FAIL_COMMAND="stop sshd"
             When run disableSSH
             The output should include "sshd could not be stopped"
-            The output should include "stop sshd"
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd"
+            The output should include "disable sshd.socket"
             The status should equal 172
             SSH_EVENT_FILTER='
                 [.[].Message | fromjson] |
-                any(.[]; .Unit == "sshd" and .StopExitCode == 1 and .DisableExitCode == null) and
+                any(.[]; .Unit == "sshd" and .StopExitCode == 1 and .DisableExitCode == 0) and
                 any(.[]; .Unit == "" and .ExitCode == 172 and .Phase == "Completed") and
-                any(.[]; .Unit == "sshd.socket" and .StopExitCode == 0 and .DisableExitCode == null)
+                any(.[]; .Unit == "sshd.socket" and .StopExitCode == 0 and .DisableExitCode == 0)
             '
             The result of function ssh_events_match should equal true
         End
@@ -501,10 +503,10 @@ stop sshd"
         It 'emits only the compact outcome schema'
             When call disableSSH
             The status should be success
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd.socket"
             SSH_EVENT_FILTER='
                 [.[].Message | fromjson | select(.Phase == "Completed" and .Unit != "") | keys] |
-                length == 4 and all(.[]; . ==
+                length == 3 and all(.[]; . ==
                     ["AttemptId", "CatExitCode", "DisableExitCode", "ExitCode", "Phase",
                      "SchemaVersion", "Skipped", "StopExitCode", "Unit"])
             '
@@ -518,9 +520,9 @@ stop sshd"
             }
             When call disable_ssh_twice
             The status should be success
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd.socket"
             SSH_EVENT_FILTER='
-                length == 20 and ([.[].Message | fromjson | .AttemptId] | unique | length == 2)
+                length == 16 and ([.[].Message | fromjson | .AttemptId] | unique | length == 2)
             '
             The result of function ssh_events_match should equal true
         End
@@ -540,10 +542,10 @@ stop sshd"
 
             When call disableSSH
             The status should be success
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd.socket"
             The stderr should equal ""
             The file "$TEST_EVENTS_ROOT/cleaned" should be exist
-            SSH_EVENT_FILTER='length == 10 and all(.[]; (.Message | fromjson | .SchemaVersion) == 1)'
+            SSH_EVENT_FILTER='length == 8 and all(.[]; (.Message | fromjson | .SchemaVersion) == 1)'
             The result of function ssh_events_match should equal true
             The result of function remaining_staging_files should equal ""
         End
@@ -565,7 +567,7 @@ stop sshd"
             EVENTS_LOGGING_DIR="$TEST_EVENTS_DIR/not-a-directory"
             When call disableSSH
             The status should be success
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd.socket"
             The stderr should include "WARNING: could not emit SSH disable"
         End
 
@@ -573,7 +575,7 @@ stop sshd"
             jq() { return 1; }
             When call disableSSH
             The status should be success
-            The output should include "stop sshd.socket"
+            The output should include "disable sshd.socket"
             The stderr should include "WARNING: could not emit SSH disable"
             The stderr should include "WARNING: could not serialize SSH disable result"
         End
@@ -584,7 +586,7 @@ stop sshd"
             When run disableSSH
             The status should equal 172
             The output should include "sshd could not be stopped"
-            The output should include "stop sshd"
+            The output should include "disable sshd"
             The stderr should include "WARNING: could not emit SSH disable"
             The stderr should include "WARNING: could not serialize SSH disable result"
         End

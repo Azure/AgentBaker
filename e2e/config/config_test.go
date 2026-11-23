@@ -14,9 +14,3 @@ func TestDefaultConfigurationInADO(t *testing.T) {
 		})
 	}
 }
-
-func TestDefaultConfigurationSIGSelector(t *testing.T) {
-	defaults := DefaultConfiguration()
-	require.Equal(t, "branch", defaults.SIGVersionTagName)
-	require.Equal(t, DEFAULT_SIG_IMAGE_BRANCH, defaults.SIGVersionTagValue)
-}
