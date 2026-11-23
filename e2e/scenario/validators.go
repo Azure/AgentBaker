@@ -2220,6 +2220,44 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) er
 	return errors.Join(errs...)
 }
 
+// getWindowsContainerdVersion returns the output of `containerd.exe --version` on the node, e.g.
+// "containerd github.com/containerd/containerd v1.7.20+azure <commit>" for a combined package or
+// "containerd github.com/containerd/containerd 1.7.36-7 <commit>" for a DALEC package.
+func getWindowsContainerdVersion(ctx context.Context, s *Scenario) (string, error) {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"$env:ProgramFiles\\containerd\\containerd.exe\" --version",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read the containerd version")
+	if err != nil {
+		return "", fmt.Errorf("read containerd version: %w", err)
+	}
+	return strings.TrimSpace(result.stdout), nil
+}
+
+// ValidateWindowsContainerdVersion checks that the installed containerd reports the given version
+// token, such as "v1.7.17+azure" or "1.7.36-6".
+func ValidateWindowsContainerdVersion(ctx context.Context, s *Scenario, version string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	return assert.Equal(slices.Contains(strings.Fields(actual), version), true, "expected containerd version %q, got %q", version, actual)
+}
+
+// ValidateWindowsContainerdFromCachedDalecPackages checks that containerd came from a DALEC
+// moby-containerd package on the given major.minor line rather than a combined package. The exact
+// revision depends on what the VHD caches.
+func ValidateWindowsContainerdFromCachedDalecPackages(ctx context.Context, s *Scenario, line string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	dalecVersion := regexp.MustCompile(`^` + regexp.QuoteMeta(line) + `\.\d+-\d+$`)
+	return assert.Equal(slices.ContainsFunc(strings.Fields(actual), dalecVersion.MatchString), true,
+		"expected a DALEC containerd %s.x-<revision> version, got %q", line, actual)
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) error {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),

@@ -539,8 +539,8 @@ function Install-ContainerdFromLocalPackages {
   Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
 }
 
-# Installs the DALEC packages requested by RP. If any of them can't be fetched, falls back to
-# Install-Containerd with the combined package URL, which prefers the DALEC packages cached on the VHD.
+# Installs the DALEC packages requested by RP. If any of them can't be fetched, falls back to the
+# combined package path, which prefers the DALEC packages cached on the VHD.
 function Install-ContainerdFromComponentPackages {
   Param(
     [Parameter(Mandatory = $true)][string]
@@ -567,12 +567,13 @@ function Install-ContainerdFromComponentPackages {
   }
   Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue
 
-  # RP sets $global:ContainerdUrl to the full combined package URL alongside the component URLs.
-  if ([string]::IsNullOrWhiteSpace($global:ContainerdUrl) -or $global:ContainerdUrl.EndsWith("/")) {
-    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE -ErrorMessage "Failed to get the containerd component packages and no combined containerd package to fall back to. ContainerdUrl: $global:ContainerdUrl"
+  if ([string]::IsNullOrWhiteSpace($global:ContainerdUrl)) {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE -ErrorMessage "Failed to get the containerd component packages and no combined containerd package to fall back to"
   }
   Logs-To-Event -TaskName "AKS.WindowsCSE.ContainerdComponentPackagesFallback" -TaskMessage "Failed to get the component packages requested by RP; falling back to $global:ContainerdUrl. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
-  Install-Containerd -ContainerdUrl $global:ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+  # Without the component URLs, this resolves a ContainerdUrl endpoint to a package for the Kubernetes
+  # version and calls Install-Containerd.
+  Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir -KubernetesVersion $global:KubeBinariesVersion
 }
 
 function Complete-ContainerdInstallation {

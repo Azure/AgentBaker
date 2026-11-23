@@ -686,6 +686,7 @@ Describe "Containerd Functions Tests" {
       Remove-Item -LiteralPath $global:ContainerdInstallLocation -Recurse -Force -ErrorAction SilentlyContinue
       $global:CacheDir = Join-Path $TestDrive "no-cache"
       $global:ContainerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+      $global:KubeBinariesVersion = "1.33.2"
 
       $script:packages = @{
         $script:hcsshimUrl        = New-TestPackage -Name "hcsshim" -Files @("LICENSE", "containerd-shim-runhcs-v1.exe", "runhcs-LICENSE", "runhcs-NOTICE", "runhcs.exe", "shimdiag.exe", "wclayer.exe", "zapdir.exe")
@@ -697,7 +698,7 @@ Describe "Containerd Functions Tests" {
       Mock Get-Service -MockWith { $null }
       Mock Logs-To-Event
       Mock Complete-ContainerdInstallation
-      Mock Install-Containerd
+      Mock Install-Containerd-Based-On-Kubernetes-Version
       Mock Start-Sleep
       Mock Update-BaseUrl -MockWith { $InitialUrl }
       Mock Create-Directory -MockWith { New-Item -ItemType Directory -Path $FullPath -Force | Out-Null }
@@ -723,17 +724,22 @@ Describe "Containerd Functions Tests" {
       Assert-MockCalled -CommandName 'Complete-ContainerdInstallation' -Exactly -Times 1 -ParameterFilter {
         $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
       }
-      Assert-MockCalled -CommandName 'Install-Containerd' -Exactly -Times 0
+      Assert-MockCalled -CommandName 'Install-Containerd-Based-On-Kubernetes-Version' -Exactly -Times 0
       Join-Path $ENV:TEMP "containerd-packages" | Should -Not -Exist
     }
 
-    It 'falls back to the combined package before touching containerd when a download fails' {
+    It 'falls back to the combined package before touching containerd when a download fails (<Description>)' -ForEach @(
+      @{ Description = "package URL"; RequestedContainerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz" }
+      @{ Description = "endpoint URL"; RequestedContainerdUrl = "https://packages.aks.azure.com/containerd/windows/" }
+    ) {
+      $global:ContainerdUrl = $RequestedContainerdUrl
       $script:failingUrl = $script:crictlUrl
 
       Install-ContainerdFromComponentPackages -HcsshimUrl $script:hcsshimUrl -MobyContainerdUrl $script:mobyContainerdUrl -CrictlUrl $script:crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
 
-      Assert-MockCalled -CommandName 'Install-Containerd' -Exactly -Times 1 -ParameterFilter {
-        $ContainerdUrl -eq $global:ContainerdUrl -and $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
+      Assert-MockCalled -CommandName 'Install-Containerd-Based-On-Kubernetes-Version' -Exactly -Times 1 -ParameterFilter {
+        $ContainerdUrl -eq $RequestedContainerdUrl -and $KubernetesVersion -eq "1.33.2" -and -not $PesterBoundParameters.ContainsKey("MobyContainerdUrl") -and
+        $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
       }
       Assert-MockCalled -CommandName 'Logs-To-Event' -Exactly -Times 1 -ParameterFilter { $TaskName -eq 'AKS.WindowsCSE.ContainerdComponentPackagesFallback' }
       Assert-MockCalled -CommandName 'Get-Service' -Exactly -Times 0
