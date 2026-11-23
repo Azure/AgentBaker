@@ -152,7 +152,8 @@ const (
 	dalecPackagesURL = "https://packages.aks.azure.com/dalec-packages"
 	// Not cached on the VHD, so nodes have to download it.
 	uncachedDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-6_amd64.zip"
-	missingDalecContainerdURL  = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-999_amd64.zip"
+	// No build will ever target this architecture, so the URL never exists.
+	missingDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/brokenarch/moby-containerd_1.7.36-6_brokenarch.zip"
 )
 
 const containerdSelectionSkipReason = "Windows containerd package selection scenarios require a VHD built with branch CSE and cached DALEC packages in the current pipeline run"

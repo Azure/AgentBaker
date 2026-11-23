@@ -494,9 +494,11 @@ function Save-ContainerdComponentPackages {
 
   New-Item -ItemType Directory -Path $StagingDirectory -Force | Out-Null
   $packages = @()
-  foreach ($url in $Urls) {
+  for ($i = 0; $i -lt $Urls.Count; $i++) {
+    $url = $Urls[$i]
     $fileName = [IO.Path]::GetFileName($url.Split('?')[0])
-    $destination = [Io.path]::Combine($StagingDirectory, $fileName)
+    # The index keeps packages that share a file name from overwriting each other.
+    $destination = [Io.path]::Combine($StagingDirectory, "$i-$fileName")
     try {
       $cached = @()
       if ($global:CacheDir -and (Test-Path -LiteralPath $global:CacheDir)) {
