@@ -148,10 +148,18 @@ var _ = Register(&Scenario{
 	},
 })
 
+// Packages used by the containerd package selection scenarios, shared by their setup and validation.
 const (
+	// Not a stock package, so it is installed as requested instead of the cached DALEC packages.
+	combinedContainerdURL     = "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+	combinedContainerdVersion = "v1.7.17+azure"
+
 	dalecPackagesURL = "https://packages.aks.azure.com/dalec-packages"
-	// Not cached on the VHD, so nodes have to download it.
-	uncachedDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-6_amd64.zip"
+	dalecHcsshimURL  = dalecPackagesURL + "/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+	// These revisions aren't cached on the VHD, so nodes have to download them.
+	uncachedDalecContainerdVersion = "1.7.36-6"
+	uncachedDalecContainerdURL     = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_" + uncachedDalecContainerdVersion + "_amd64.zip"
+	uncachedDalecCrictlURL         = dalecPackagesURL + "/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-7_amd64.zip"
 	// No build will ever target this architecture, so the URL never exists.
 	missingDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/brokenarch/moby-containerd_1.7.36-6_brokenarch.zip"
 )
@@ -176,9 +184,9 @@ func validateContainerdFromCacheOnCurrentBuildVHD(ctx context.Context, s *Scenar
 
 func setWindowsContainerRuntimeComponentURLs(nbc *datamodel.NodeBootstrappingConfiguration, mobyContainerdURL string) {
 	kubernetesConfig := nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
-	kubernetesConfig.WindowsHcsshimURL = dalecPackagesURL + "/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+	kubernetesConfig.WindowsHcsshimURL = dalecHcsshimURL
 	kubernetesConfig.WindowsMobyContainerdURL = mobyContainerdURL
-	kubernetesConfig.WindowsCrictlURL = dalecPackagesURL + "/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-7_amd64.zip"
+	kubernetesConfig.WindowsCrictlURL = uncachedDalecCrictlURL
 }
 
 var _ = Register(&Scenario{
@@ -189,11 +197,11 @@ var _ = Register(&Scenario{
 		VHD:             config.VHDWindows2022ContainerdGen2,
 		VMConfigMutator: EmptyVMConfigMutator,
 		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
-			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.WindowsContainerdURL = "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.WindowsContainerdURL = combinedContainerdURL
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateWindowsContainerdVersion(ctx, s, "v1.7.17+azure"),
+				ValidateWindowsContainerdVersion(ctx, s, combinedContainerdVersion),
 				ValidateContainerdWindowsPriorityClass(ctx, s),
 			)
 		},
@@ -213,11 +221,12 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
-				ValidateWindowsContainerdVersion(ctx, s, "1.7.36-6"),
+				ValidateWindowsContainerdVersion(ctx, s, uncachedDalecContainerdVersion),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Installing containerd from the component packages requested by RP"),
-				// Neither revision is cached on the VHD, so both must have been downloaded.
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-6_amd64.zip to "),
-				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-7_amd64.zip to "),
+				// Neither revision is cached on the VHD, so both must have been downloaded. The host may be
+				// mapped to the cloud's mirror, so only the package path is matched.
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", strings.TrimPrefix(uncachedDalecContainerdURL, dalecPackagesURL)+" to "),
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", strings.TrimPrefix(uncachedDalecCrictlURL, dalecPackagesURL)+" to "),
 				ValidateFileExcludesContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Failed to get containerd component package"),
 				ValidateContainerdWindowsPriorityClass(ctx, s),
 			)
