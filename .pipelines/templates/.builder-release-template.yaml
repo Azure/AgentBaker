@@ -279,13 +279,8 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
-  # A candidate ACL image (ACL_BASE_IMAGE_SOURCE aclstaging) isn't released, so
-  # hide it from every tag-based E2E lookup, such as the default
-  # branch tag or a buildId (noSelectionTagName in
-  # e2e/config/vhd.go). The tag goes on through the image version itself, which
-  # packer created, tags included, under this same connection, so the step needs
-  # no permission the build doesn't already use. This run's own E2E stage takes
-  # its images from the VHD metadata artifact, which ignores tags.
+  # Packer tags candidates at creation. If a build path misses the tag, hide the
+  # version before failing the job; repairing it must not mask that failure.
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
@@ -301,16 +296,21 @@ steps:
         fi
         version_args=(--subscription "${BASH_REMATCH[1]}" --resource-group "${BASH_REMATCH[2]}" --gallery-name "${BASH_REMATCH[3]}"
           --gallery-image-definition "${BASH_REMATCH[4]}" --gallery-image-version "${BASH_REMATCH[5]}" --only-show-errors)
-        az sig image-version update "${version_args[@]}" --set tags.abe2e-ignore=true --force-string --output none
         hidden="$(az sig image-version show "${version_args[@]}" --query 'tags."abe2e-ignore"' --output tsv)"
         if [ "${hidden}" != "true" ]; then
-          echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} has no abe2e-ignore tag after the update, so other E2E runs can still pick it."
+          echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} was created without abe2e-ignore=true. Hiding it before failing the job; check the candidate Packer template."
+          az sig image-version update "${version_args[@]}" --set tags.abe2e-ignore=true --force-string --output none
+          hidden="$(az sig image-version show "${version_args[@]}" --query 'tags."abe2e-ignore"' --output tsv)"
+          if [ "${hidden}" != "true" ]; then
+            echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} still has no abe2e-ignore=true tag after repair, so other E2E runs can still pick it."
+            exit 1
+          fi
+          echo "Hidden ${MANAGED_SIG_ID} after a missed creation tag; this job still fails."
           exit 1
         fi
-        echo "Tagged ${MANAGED_SIG_ID} with abe2e-ignore=true"
+        echo "Verified ${MANAGED_SIG_ID} was created with abe2e-ignore=true"
     condition: and(succeeded(), eq(variables.ACL_CANDIDATE_IMAGE, 'true'))
-    displayName: Hide candidate image from other E2E runs
-    retryCountOnTaskFailure: 3
+    displayName: Verify candidate image was tagged at creation
 
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
