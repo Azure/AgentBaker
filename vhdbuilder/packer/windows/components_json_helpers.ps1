@@ -27,7 +27,7 @@ function GetWindowsDownloadPartForPackage {
     }
 
     $part = $downloadUrls.default
-    switch -Regex ($windowsSku) {
+    switch -Wildcard ($windowsSku) {
         "2019-containerd" {
             $part = $downloadUrls.ws2019
             break
