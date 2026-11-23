@@ -167,6 +167,8 @@ type imageModeFixture struct {
 	failCmd string
 	// deprovisionOutput is the output of the fake waagent.
 	deprovisionOutput string
+	// keepAgentState makes the fake waagent leave /var/lib/waagent unchanged.
+	keepAgentState bool
 }
 
 func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
@@ -180,6 +182,15 @@ func newImageModeFixture(t *testing.T, osRelease string) *imageModeFixture {
 			return errors.New("exit status 1")
 		}
 		if filepath.Base(cmd.Path) == "waagent" {
+			if !f.keepAgentState {
+				stateDir := filepath.Join(f.root, walinuxagentStateDir)
+				entries, _ := os.ReadDir(stateDir)
+				for _, e := range entries {
+					if err := os.RemoveAll(filepath.Join(stateDir, e.Name())); err != nil {
+						return err
+					}
+				}
+			}
 			_, err := io.WriteString(cmd.Stdout, f.deprovisionOutput)
 			return err
 		}
@@ -277,6 +288,15 @@ func TestGeneralizeImage(t *testing.T) {
 		f.deprovisionOutput = "Failed to run 'deprovision+user': OSError: [Errno 39] Directory not empty: '/var/lib/waagent/events'\n"
 
 		assert.ErrorContains(t, f.g.Run(context.Background()), "Failed to run 'deprovision")
+		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
+	})
+
+	t.Run("fails when waagent deprovision leaves agent state but exits 0", func(t *testing.T) {
+		f := newImageModeFixture(t, "ID=ubuntu\n")
+		f.keepAgentState = true
+		writeUnderRoot(t, f.root, "/var/lib/waagent/Certificates.pem", "cert")
+
+		assert.ErrorContains(t, f.g.Run(context.Background()), "is not empty")
 		assert.NoDirExists(t, filepath.Join(f.root, walinuxagentStateDir, "WALinuxAgent-"+testWALinuxAgentVersion))
 	})
 

@@ -233,10 +233,23 @@ func (g *Generalizer) deprovisionAgent(ctx context.Context, _ map[string]string)
 	// waagent stops at the first failed cleanup action but still exits 0. Do not retry: a partial run can
 	// delete ovf-env.xml, and waagent then skips build-user deletion.
 	output, err := g.runCmd(ctx, "waagent", "-force", "-deprovision+user")
-	if err == nil && bytes.Contains(output, []byte("Failed to run 'deprovision")) {
-		err = errors.New("waagent deprovision logged \"Failed to run 'deprovision\" but exited 0")
+	if err != nil {
+		return err
 	}
-	return err
+	if bytes.Contains(output, []byte("Failed to run 'deprovision")) {
+		return errors.New("waagent deprovision logged \"Failed to run 'deprovision\" but exited 0")
+	}
+	// A partial cleanup can also exit 0 without that line. Leftover state includes the build VM's
+	// certificates and extension data, so it must not reach the image.
+	stateDir := g.path(walinuxagentStateDir)
+	entries, err := os.ReadDir(stateDir)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("read %s: %w", stateDir, err)
+	}
+	if len(entries) > 0 {
+		return fmt.Errorf("waagent deprovision exited 0 but %s is not empty (contains %q)", stateDir, entries[0].Name())
+	}
+	return nil
 }
 
 // removeNvPCRCredentials removes top-level anchor files and symlinks in dir. A missing dir is not an error.
