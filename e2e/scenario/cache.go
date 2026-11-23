@@ -30,12 +30,15 @@ func createGallery(ctx context.Context, request CreateGalleryRequest) (armcomput
 
 	gallery, err := config.Azure.Galleries.Get(ctx, request.ResourceGroup, galleryName, nil)
 	if err == nil {
-		return gallery.Gallery, nil
-	}
-	if !isNotFoundErr(err) {
+		if gallery.Properties == nil || !isFailedProvisioningState(gallery.Properties.ProvisioningState) {
+			return gallery.Gallery, nil
+		}
+		// Reapply rather than delete: a gallery that still has image definitions cannot be deleted.
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]gallery %s is in Failed state; reapplying it", galleryName)
+	} else if !isNotFoundErr(err) {
 		return armcompute.Gallery{}, fmt.Errorf("failed to get gallery: %w", err)
 	}
-	// If the gallery does not exist, create it.
+	// If the gallery does not exist or failed, create or reapply it.
 	poller, err := config.Azure.Galleries.BeginCreateOrUpdate(ctx, request.ResourceGroup, galleryName, armcompute.Gallery{
 		Location: to.Ptr(request.Location),
 		Properties: &armcompute.GalleryProperties{
