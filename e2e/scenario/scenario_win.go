@@ -140,8 +140,82 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
+				ValidateWindowsContainerdFromCachedDalecPackages(ctx, s, "1.7"),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
+			)
+		},
+	},
+})
+
+const (
+	dalecPackagesURL = "https://packages.aks.azure.com/dalec-packages"
+	// Not cached on the VHD, so nodes have to download it.
+	uncachedDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-6_amd64.zip"
+	missingDalecContainerdURL  = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_1.7.36-999_amd64.zip"
+)
+
+func setWindowsContainerRuntimeComponentURLs(nbc *datamodel.NodeBootstrappingConfiguration, mobyContainerdURL string) {
+	kubernetesConfig := nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
+	kubernetesConfig.WindowsHcsshimURL = dalecPackagesURL + "/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+	kubernetesConfig.WindowsMobyContainerdURL = mobyContainerdURL
+	kubernetesConfig.WindowsCrictlURL = dalecPackagesURL + "/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-7_amd64.zip"
+}
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdCombinedPackage",
+	Description: "Tests that a combined containerd package other than the stock ones is installed as requested instead of the cached DALEC packages",
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.WindowsContainerdURL = "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsContainerdVersion(ctx, s, "v1.7.17+azure"),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdComponentPackages",
+	Description: "Tests that the DALEC component packages sent by RP are installed, including one that isn't cached on the VHD",
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setWindowsContainerRuntimeComponentURLs(nbc, uncachedDalecContainerdURL)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsContainerdVersion(ctx, s, "1.7.36-6"),
+				ValidateFileExcludesContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Failed to get containerd component package"),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdComponentPackagesFallback",
+	Description: "Tests that a node falls back to the cached DALEC packages when a component package sent by RP doesn't exist",
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setWindowsContainerRuntimeComponentURLs(nbc, missingDalecContainerdURL)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Failed to get containerd component package "+missingDalecContainerdURL),
+				ValidateWindowsContainerdFromCachedDalecPackages(ctx, s, "1.7"),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
 			)
 		},
 	},
