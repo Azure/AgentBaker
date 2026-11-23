@@ -88,6 +88,8 @@ type App struct {
 	gpuComponentsFilePath string
 	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
 	readyReportMarkerPath string
+	// provisionJSONFilePath overrides the cleanup failure status location for testing.
+	provisionJSONFilePath string
 	// goalStateReporter overrides native provisioning status reporting for testing.
 	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
@@ -823,7 +825,11 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		provisionResult.Error = provisionErr.Error()
 		data, persistErr := json.Marshal(provisionResult)
 		if persistErr == nil {
-			persistErr = writeProvisioningFile(osCfg.provisionJSONFilePath, data)
+			statusPath := a.provisionJSONFilePath
+			if statusPath == "" {
+				statusPath = provisionJSONFilePath
+			}
+			persistErr = writeProvisioningFile(statusPath, data)
 		}
 		if persistErr != nil {
 			provisionErr = errors.Join(provisionErr, fmt.Errorf("write cleanup failure status: %w", persistErr))
