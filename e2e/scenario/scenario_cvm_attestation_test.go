@@ -128,11 +128,6 @@ func TestCVMAttestationRetainsPlatformReportOnCollectorFailure(t *testing.T) {
 }
 
 func TestCVMCollectorReportsObservedPlatformBeforeRejectingMismatch(t *testing.T) {
-	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
-	_, embedded, ok := strings.Cut(script, "<<'PY'\n")
-	require.True(t, ok)
-	python, _, ok := strings.Cut(embedded, "\nPY\n")
-	require.True(t, ok)
 	command := exec.Command("python3", "-c", `
 import ast
 import contextlib
@@ -187,7 +182,7 @@ for platform, report_type, expected_error in (
         assert line.startswith(prefix), line
         assert json.loads(line[len(prefix):]) == {"reportType": report_type.name}, line
 `)
-	command.Stdin = strings.NewReader(python)
+	command.Stdin = strings.NewReader(cvmAttestationCollectorPython)
 	output, err := command.CombinedOutput()
 	require.NoError(t, err, string(output))
 }
@@ -203,6 +198,8 @@ func TestCVMAttestationCollectorIsPinnedAndDoesNotUseUpstreamRunner(t *testing.T
 	assert.Contains(t, script, `chown -- "${token_owner}" "${work_dir}"`)
 	assert.Contains(t, script, "cryptography==42.0.8")
 	assert.Contains(t, script, "cryptography==50.0.2")
+	assert.Contains(t, script, "<<'PY'\n"+cvmAttestationCollectorPython+"PY\n")
+	assert.NotContains(t, script, "@@")
 
 	command := exec.Command("bash", "-n")
 	command.Stdin = strings.NewReader(script)
@@ -454,11 +451,6 @@ func TestCVMCollectorDeadlineIncludesSetup(t *testing.T) {
 }
 
 func TestCVMCollectorPythonDiagnostics(t *testing.T) {
-	script := cvmAttestationCollectorScript(cvmPlatformSEVSNP, "nonce", "/tmp/test")
-	_, embedded, ok := strings.Cut(script, "<<'PY'\n")
-	require.True(t, ok)
-	python, _, ok := strings.Cut(embedded, "\nPY\n")
-	require.True(t, ok)
 	command := exec.Command("python3", "-c", `
 import ast
 import contextlib
@@ -486,7 +478,7 @@ assert "InvalidParameter" in output and "collateral expired" in output, output
 assert "secret-sentinel" not in output and jwt not in output and blob not in output, output
 print(output)
 `)
-	command.Stdin = strings.NewReader(python)
+	command.Stdin = strings.NewReader(cvmAttestationCollectorPython)
 	output, err := command.CombinedOutput()
 	require.NoError(t, err, string(output))
 	assert.Contains(t, string(output), "InvalidParameter")

@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha512"
 	"crypto/x509"
+	_ "embed"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -268,177 +269,15 @@ func cvmAttestationCollectorScript(platform cvmPlatform, nonce, remoteDir string
 		"@@ENDPOINT@@", endpoint,
 		"@@COMMIT@@", cvmAttestationToolsCommit,
 	)
-	return replacer.Replace(cvmAttestationCollectorScriptTemplate)
+	script := strings.Replace(cvmAttestationCollectorScriptTemplate, "@@PYTHON@@\n", cvmAttestationCollectorPython, 1)
+	return replacer.Replace(script)
 }
 
-const cvmAttestationCollectorScriptTemplate = `#!/usr/bin/env bash
-set -euo pipefail
-if ! command -v timeout >/dev/null; then
-  echo '[cvm-collector] phase=prerequisites status=failed: GNU timeout is required' >&2
-  exit 1
-fi
+//go:embed cvm_attestation_collector.sh
+var cvmAttestationCollectorScriptTemplate string
 
-sudo timeout --verbose --signal=TERM --kill-after=10s 480s \
-  bash -s -- "$(id -u):$(id -g)" <<'CVM_COLLECTOR'
-set -euo pipefail
-umask 077
-phase=prerequisites
-trap 'printf "[cvm-collector] phase=%s status=failed exit_code=%s elapsed_seconds=%s\n" "$phase" "$?" "$SECONDS" >&2' ERR
-trap 'printf "[cvm-collector] phase=%s status=timed_out elapsed_seconds=%s\n" "$phase" "$SECONDS" >&2; exit 124' TERM
-mark_phase() {
-  phase="$1"
-  printf '[cvm-collector] phase=%s status=started elapsed_seconds=%s\n' "$phase" "$SECONDS" >&2
-}
-
-work_dir="@@REMOTE_DIR@@"
-repo_dir="${work_dir}/repo"
-deps_dir="${work_dir}/deps"
-token_path="${work_dir}/token.jwt"
-token_owner="$1"
-mkdir -p "${work_dir}"
-chown -- "${token_owner}" "${work_dir}"
-
-mark_phase prerequisites
-if ! command -v git >/dev/null || ! command -v python3 >/dev/null ||
-   ! python3 -m pip --version >/dev/null 2>&1 || ! command -v tpm2_pcrread >/dev/null; then
-  if command -v apt-get >/dev/null; then
-    env DEBIAN_FRONTEND=noninteractive apt-get update -qq
-    env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git python3 python3-pip tpm2-tools ca-certificates coreutils
-  elif command -v dnf >/dev/null; then
-    dnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
-  elif command -v tdnf >/dev/null; then
-    tdnf install -y -q git python3 python3-pip tpm2-tools ca-certificates coreutils
-  else
-    echo "no supported package manager found" >&2
-    exit 1
-  fi
-fi
-
-mark_phase tools-download
-git init --quiet "${repo_dir}"
-git -C "${repo_dir}" remote add origin https://github.com/Azure/cvm-attestation-tools.git
-git -C "${repo_dir}" fetch --quiet --depth 1 origin "@@COMMIT@@"
-git -C "${repo_dir}" checkout --quiet --detach FETCH_HEAD
-mark_phase python-dependencies
-python3 -m pip install --quiet --disable-pip-version-check --target "${deps_dir}" \
-  'requests==2.31.0; python_version < "3.10"' \
-  'requests==2.34.2; python_version >= "3.10"' \
-  'PyJWT==2.8.0; python_version < "3.9"' \
-  'PyJWT==2.15.1; python_version >= "3.9"' \
-  'cryptography==42.0.8; python_version < "3.9"' \
-  'cryptography==50.0.2; python_version >= "3.9"' \
-  construct==2.10.70
-
-mark_phase attestation
-# Keep Python in the outer timeout's process group so its deadline kills the entire collector.
-timeout --foreground --verbose --signal=TERM --kill-after=10s 180s env \
-  PYTHONPATH="${deps_dir}:${repo_dir}/cvm-attestation" \
-  python3 - "@@PLATFORM@@" "@@NONCE@@" "${token_path}" "@@ENDPOINT@@" <<'PY'
-import json
-import os
-import re
-import sys
-
-from src.attestation_provider import MAAProvider
-from src.encoder import Encoder
-from src.imds_client import ImdsClient
-from src.isolation import IsolationType
-from src.report_parser import ReportParser
-from src.tpm_wrapper import TssWrapper
-
-
-def safe_text(value):
-    text = re.sub(r"\beyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b",
-                  "[redacted JWT]", str(value))
-    text = re.sub(r"[A-Za-z0-9_+/=-]{80,}", "[redacted encoded data]", text)
-    text = re.sub(r"[\x00-\x1f\x7f]", " ", text)
-    return " ".join(text.split())[:1024]
-
-
-def report_phase(name):
-    print(f"[cvm-collector] phase={name}", file=sys.stderr, flush=True)
-
-
-class DiagnosticLogger:
-    def debug(self, *_args, **_kwargs):
-        pass
-
-    def info(self, message, *_args, **_kwargs):
-        if message == "Sending attestation request to provider..." or message.startswith("Retrying in "):
-            print(f"[cvm-collector] phase=maa-request {safe_text(message)}",
-                  file=sys.stderr, flush=True)
-
-    def warning(self, message, *_args, **_kwargs):
-        print(f"[cvm-collector] warning: {safe_text(message)}",
-              file=sys.stderr, flush=True)
-
-    def error(self, message, *_args, **_kwargs):
-        if message.startswith("Request payload:"):
-            return
-        if message.startswith("Failed to verify evidence due to invalid collateral, error:"):
-            message = "phase=maa-request HTTP 400: " + message
-        print(f"[cvm-collector] error: {safe_text(message)}",
-              file=sys.stderr, flush=True)
-
-
-def main():
-    platform, nonce, token_path, endpoint = sys.argv[1:]
-    isolation_type = {
-        "sevsnp": IsolationType.SEV_SNP,
-        "tdx": IsolationType.TDX,
-    }[platform]
-    claims = {"user-claims": {"nonce": nonce}}
-    logger = DiagnosticLogger()
-    report_phase("tpm-report")
-    tss = TssWrapper(logger)
-    hcl_report = tss.get_hcl_report(claims)
-    report_type = ReportParser.extract_report_type(hcl_report)
-    print("[cvm-collector] platform-report: " + json.dumps({"reportType": report_type.name}),
-          flush=True)
-    if report_type != isolation_type:
-        raise RuntimeError(f"expected {isolation_type.name} report, got {report_type.name}")
-
-    runtime_data = ReportParser.extract_runtimes_data(hcl_report)
-    hardware_report = ReportParser.extract_hw_report(hcl_report)
-    encoded_report = Encoder.base64url_encode(hardware_report)
-    imds = ImdsClient(logger)
-    report_phase("imds-evidence")
-    if isolation_type == IsolationType.TDX:
-        encoded_evidence = imds.get_td_quote(encoded_report)
-    else:
-        cert_chain = imds.get_vcek_certificate()
-        snp_report = json.dumps({
-            "SnpReport": encoded_report,
-            "VcekCertChain": Encoder.base64url_encode(cert_chain),
-        }).encode("utf-8")
-        encoded_evidence = Encoder.base64url_encode(snp_report)
-
-    report_phase("maa-request")
-    provider = MAAProvider(logger, isolation_type, endpoint)
-    token = provider.attest_platform(encoded_evidence, Encoder.base64url_encode(runtime_data))
-    if not token:
-        raise RuntimeError("attestation provider returned no token")
-
-    report_phase("token-write")
-    fd = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as token_file:
-        token_file.write(token)
-        token_file.write("\n")
-
-
-try:
-    main()
-except Exception as exc:
-    print(f"attestation collector failed: {type(exc).__name__}: {safe_text(exc)}", file=sys.stderr)
-    sys.exit(1)
-PY
-
-mark_phase token-ownership
-chown -- "${token_owner}" "${token_path}"
-printf 'attestation collector completed for %s\n' "@@PLATFORM@@"
-printf '[cvm-collector] phase=complete status=passed elapsed_seconds=%s\n' "$SECONDS" >&2
-CVM_COLLECTOR
-`
+//go:embed cvm_attestation_collector.py
+var cvmAttestationCollectorPython string
 
 func verifyCVMAttestationToken(
 	ctx context.Context,
