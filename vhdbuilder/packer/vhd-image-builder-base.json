@@ -124,6 +124,11 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/packer/cleanup-vhd.sh",
+      "destination": "/home/packer/cleanup-vhd.sh"
+    },
+    {
+      "type": "file",
       "source": "vhdbuilder/packer/packer_source.sh",
       "destination": "/home/packer/packer_source.sh"
     },

@@ -280,7 +280,11 @@ the steps below in order, and stops at the first failed step.
 | Install the downloaded WALinuxAgent | yes | no |
 | `sync` | yes | yes |
 
-- **Image mode** (no flag) is for Packer and Azure Image Builder builds.
+- **Image mode** (no flag) is for Packer and Azure Image Builder builds. Packer runs
+  the command as its last step. AIB templates (`vhdbuilder/prefetch/templates/optimize.json`
+  and the aks-rp hotfix prefetch template) run `/opt/azure/containers/cleanup-vhd.sh`,
+  which installs `/tmp/DeprovisioningScript.sh`. AIB runs that hook in place of its
+  default deprovision, and the hook runs this command.
 - **`--keep-agent`** is for capture through RunCommand (VHD caching/PIS). RunCommand
   reports its status through WALinuxAgent, so the command does not stop or deprovision
   the agent. It keeps `/var/lib/waagent/provisioned`: on a clone, the agent detects the

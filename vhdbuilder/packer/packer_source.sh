@@ -185,6 +185,8 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
   SNAPSHOT_UPDATE_TIMER_SRC=/home/packer/snapshot-update.timer
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
+  VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
+  VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -663,6 +665,9 @@ copyPackerFiles() {
       cpAndMode $BOM_SRC $BOM_DEST 644
     fi
   fi
+
+  # AIB templates run cleanup-vhd.sh: prefetch optimize.json and the aks-rp hotfix prefetch template.
+  cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
   cpAndMode $CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC $CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST 644
