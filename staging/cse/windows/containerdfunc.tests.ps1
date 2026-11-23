@@ -452,11 +452,12 @@ Describe "Containerd Functions Tests" {
         Mock tar -MockWith { $global:LASTEXITCODE = 0 }
       }
 
-      It "Should install the newest cached <Line> packages instead of <Package>" -ForEach @(
-        @{ Package = "v1.7.20-azure.1"; Line = "1.7"; Containerd = "moby-containerd_1.7.36-10_amd64.zip" }
-        @{ Package = "v2.0.4-azure.1"; Line = "2.0"; Containerd = "moby-containerd_2.0.14-6_amd64.zip" }
+      It "Should install the newest cached <Line> packages instead of <Package> from <BaseUrl>" -ForEach @(
+        @{ BaseUrl = "https://packages.aks.azure.com/containerd/windows/"; Package = "v1.7.20-azure.1"; Line = "1.7"; Containerd = "moby-containerd_1.7.36-10_amd64.zip" }
+        @{ BaseUrl = "https://packages.aks.azure.com/containerd/windows/"; Package = "v2.0.4-azure.1"; Line = "2.0"; Containerd = "moby-containerd_2.0.14-6_amd64.zip" }
+        @{ BaseUrl = "https://aksteleportusnat.blob.core.eaglex.ic.gov/aksteleportusnat/upstream/containerd/windows/"; Package = "v1.7.20-azure.1"; Line = "1.7"; Containerd = "moby-containerd_1.7.36-10_amd64.zip" }
       ) {
-        $containerdUrl = "https://packages.aks.azure.com/containerd/windows/$Package/binaries/containerd-$Package-windows-amd64.tar.gz"
+        $containerdUrl = "$BaseUrl$Package/binaries/containerd-$Package-windows-amd64.tar.gz"
         Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
 
         $expected = @(
@@ -480,10 +481,24 @@ Describe "Containerd Functions Tests" {
         Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 0
       }
 
+      It "Should pull with ORAS instead of using the cache in network isolated test mode" {
+        Mock Set-PodInfraContainerImage
+        $global:BootstrapProfileContainerRegistryServer = "myregistry.azurecr.io"
+        $global:NetworkIsolatedClusterTestMode = $true
+        $containerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"
+        Install-Containerd -ContainerdUrl $containerdUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+        $global:BootstrapProfileContainerRegistryServer = $null
+        $global:NetworkIsolatedClusterTestMode = $false
+
+        Assert-MockCalled -CommandName 'Install-ContainerdFromLocalPackages' -Exactly -Times 0
+        Assert-MockCalled -CommandName 'DownloadFileWithOras' -Exactly -Times 1
+      }
+
       It "Should install the requested <Description> as is" -ForEach @(
         @{ Description = "containerd 1.6 package"; RequestedUrl = "https://packages.aks.azure.com/containerd/windows/v1.6.35-azure.1/binaries/containerd-v1.6.35-azure.1-windows-amd64.tar.gz" }
         @{ Description = "rollback package"; RequestedUrl = "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz" }
         @{ Description = "custom package"; RequestedUrl = "https://example.com/containerd/windows/hotfix/containerd-v2.0.4-azure.2-windows-amd64.tar.gz" }
+        @{ Description = "custom package with a stock file name"; RequestedUrl = "https://example.com/hotfix/containerd-v2.0.4-azure.1-windows-amd64.tar.gz" }
       ) {
         Install-Containerd -ContainerdUrl $RequestedUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
 
@@ -725,7 +740,7 @@ Describe "Containerd Functions Tests" {
         $CNIBinDir -eq "cniBin" -and $CNIConfDir -eq "cniConf" -and $KubeDir -eq "kubeDir"
       }
       Assert-MockCalled -CommandName 'Install-Containerd-Based-On-Kubernetes-Version' -Exactly -Times 0
-      Join-Path $ENV:TEMP "containerd-packages" | Should -Not -Exist
+      Get-ChildItem -LiteralPath $ENV:TEMP -Filter "containerd-packages*" | Should -BeNullOrEmpty
     }
 
     It 'falls back to the combined package before touching containerd when a download fails (<Description>)' -ForEach @(
@@ -758,6 +773,21 @@ Describe "Containerd Functions Tests" {
       Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 2
       Assert-MockCalled -CommandName 'Invoke-RestMethod' -Exactly -Times 0 -ParameterFilter { [string]$Uri -eq $script:crictlUrl }
       Join-Path $global:ContainerdInstallLocation "crictl.exe" | Should -Exist
+    }
+
+    It 'falls back before touching containerd when copying a cached package fails' {
+      $cacheDir = Join-Path $TestDrive "cache/containerd-packages/kubernetes-cri-tools"
+      New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+      Copy-Item -LiteralPath $script:packages[$script:crictlUrl] -Destination (Join-Path $cacheDir "kubernetes-cri-tools_1.37.0-6_amd64.zip")
+      $global:CacheDir = Join-Path $TestDrive "cache"
+      Mock Copy-Item -ParameterFilter { $LiteralPath -like "*cache*" } -MockWith { Write-Error "copy failed" }
+
+      Install-ContainerdFromComponentPackages -HcsshimUrl $script:hcsshimUrl -MobyContainerdUrl $script:mobyContainerdUrl -CrictlUrl $script:crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+
+      Assert-MockCalled -CommandName 'Install-Containerd-Based-On-Kubernetes-Version' -Exactly -Times 1
+      Assert-MockCalled -CommandName 'Get-Service' -Exactly -Times 0
+      $global:ContainerdInstallLocation | Should -Not -Exist
+      Get-ChildItem -LiteralPath $ENV:TEMP -Filter "containerd-packages*" | Should -BeNullOrEmpty
     }
   }
 
