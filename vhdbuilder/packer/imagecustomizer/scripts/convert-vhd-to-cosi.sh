@@ -48,6 +48,17 @@ validate_imagecustomizer_reference() {
     fi
 }
 
+# SKU_NAME is the build job's SIG image definition name, e.g. aclgen2fipsCVM. AKS-RP registers the COSI in
+# Nebraska as <release>+<SKU_NAME>, so it must be a single SemVer build identifier; it also names the blob.
+validate_sku_name() {
+    case "$1" in
+        ''|*[!0-9A-Za-z]*)
+            echo "##vso[task.logissue type=error]SKU_NAME '$1' must be the build job's SIG image definition name, letters and digits only" >&2
+            return 1
+            ;;
+    esac
+}
+
 # Source-guard: functions above are unit-tested; the flow below skips when sourced.
 ${__SOURCED__:+return}
 
@@ -72,6 +83,8 @@ done
 
 # The image must be pinned before privileged execution.
 validate_imagecustomizer_reference "$IMG_CUSTOMIZER_CONTAINER"
+
+validate_sku_name "$SKU_NAME"
 
 WORK_DIR="$(pwd)/cosi-convert"
 mkdir -p "$WORK_DIR/build" "$WORK_DIR/out"

@@ -86,6 +86,46 @@ Describe 'generate_cosi_package_version'
   End
 End
 
+Describe 'validate_sku_name'
+  setup() {
+    # shellcheck disable=SC1090
+    __SOURCED__=1 . "./vhdbuilder/packer/imagecustomizer/scripts/convert-vhd-to-cosi.sh"
+  }
+  BeforeEach 'setup'
+
+  Describe 'accepts every ACL SIG image definition name'
+    Parameters
+      aclgen2TL
+      aclgen2arm64TL
+      aclgen2fipsTL
+      aclgen2arm64fipsTL
+      aclgen2CVM
+      aclgen2fipsCVM
+      aclkatagen2TL
+    End
+    It "accepts $1"
+      When call validate_sku_name "$1"
+      The status should be success
+    End
+  End
+
+  Describe 'rejects a name AKS-RP cannot register as SemVer build metadata'
+    Parameters
+      ''
+      'acl-gen2-TL'
+      'aclgen2.TL'
+      'aclgen2 TL'
+      'aclgen2TL/x'
+      "$(printf 'aclgen2TL\naclgen2CVM')"
+    End
+    It "rejects '$1'"
+      When call validate_sku_name "$1"
+      The status should be failure
+      The error should include 'must be the build job'"'"'s SIG image definition name'
+    End
+  End
+End
+
 Describe 'immutable VHD handoff'
   setup_handoff() {
     export DESTINATION_STORAGE_CONTAINER=https://storage.invalid/staging
@@ -443,6 +483,15 @@ Describe 'COSI artifact names'
     When run bash "$convert_script"
     The status should be failure
     The output should equal 'SKU_NAME was not set!'
+  End
+
+  It 'rejects a SKU that is not a SIG image definition name before downloading'
+    export SKU_NAME=acl-gen2-TL
+    When call run_convert
+    The status should be failure
+    The output should be blank
+    The error should include "SKU_NAME 'acl-gen2-TL' must be the build job's SIG image definition name"
+    The path "$test_dir/azcopy-call" should not be exist
   End
 
   It 'rejects upload without a SKU'

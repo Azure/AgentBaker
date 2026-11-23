@@ -292,6 +292,14 @@ steps:
       displayName: Export Image Version for COSI convert
       condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
+    # The COSI is published under this job's SIG image definition name, which AKS-RP uses as the variant's
+    # Nebraska identity, so the convert job must not derive its own.
+    - bash: |
+        echo "##vso[task.setvariable variable=SKU_NAME;isOutput=true]${SKU_NAME}"
+      name: exportSkuName
+      displayName: Export SKU Name for COSI convert
+      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+
   - task: AzureCLI@2
     inputs:
       azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
