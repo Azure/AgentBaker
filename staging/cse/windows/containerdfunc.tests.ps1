@@ -743,6 +743,21 @@ Describe "Containerd Functions Tests" {
       Get-ChildItem -LiteralPath $ENV:TEMP -Filter "containerd-packages*" | Should -BeNullOrEmpty
     }
 
+    It 'installs every package when their URLs share a file name' {
+      $hcsshimUrl = "https://example.com/hcsshim/package.zip"
+      $mobyContainerdUrl = "https://example.com/moby-containerd/package.zip"
+      $crictlUrl = "https://example.com/kubernetes-cri-tools/package.zip"
+      $script:packages[$hcsshimUrl] = $script:packages[$script:hcsshimUrl]
+      $script:packages[$mobyContainerdUrl] = $script:packages[$script:mobyContainerdUrl]
+      $script:packages[$crictlUrl] = $script:packages[$script:crictlUrl]
+
+      Install-ContainerdFromComponentPackages -HcsshimUrl $hcsshimUrl -MobyContainerdUrl $mobyContainerdUrl -CrictlUrl $crictlUrl -CNIBinDir "cniBin" -CNIConfDir "cniConf" -KubeDir "kubeDir"
+
+      foreach ($exe in @("containerd.exe", "containerd-shim-runhcs-v1.exe", "crictl.exe")) {
+        Join-Path $global:ContainerdInstallLocation $exe | Should -Exist
+      }
+    }
+
     It 'falls back to the combined package before touching containerd when a download fails (<Description>)' -ForEach @(
       @{ Description = "package URL"; RequestedContainerdUrl = "https://packages.aks.azure.com/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz" }
       @{ Description = "endpoint URL"; RequestedContainerdUrl = "https://packages.aks.azure.com/containerd/windows/" }
