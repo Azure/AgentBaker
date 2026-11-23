@@ -230,10 +230,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
-					if len(cmd.Args().Slice()) > 0 {
-						return fmt.Errorf("unexpected generalize arguments: %s", strings.Join(cmd.Args().Slice(), " "))
-					}
-					return (&generalize.Generalizer{KeepAgent: cmd.Bool("keep-agent")}).Run(ctx)
+					return runGeneralizeCommand(ctx, cmd.Args().Slice(), cmd.Bool("keep-agent"))
 				},
 			},
 		},
@@ -241,6 +238,19 @@ func (a *App) Run(ctx context.Context, args []string) int {
 
 	err := cmd.Run(ctx, args)
 	return errToExitCode(err)
+}
+
+func runGeneralizeCommand(ctx context.Context, args []string, keepAgent bool) error {
+	var err error
+	if len(args) > 0 {
+		err = fmt.Errorf("unexpected generalize arguments: %s", strings.Join(args, " "))
+	} else {
+		err = (&generalize.Generalizer{KeepAgent: keepAgent}).Run(ctx)
+	}
+	if err != nil {
+		slog.Error("aks-node-controller failed", "error", err)
+	}
+	return err
 }
 
 func (a *App) initCloudCommand() *cli.Command {

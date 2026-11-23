@@ -440,8 +440,14 @@ func TestApp_Run(t *testing.T) {
 
 	t.Run("generalize rejects unexpected arguments", func(t *testing.T) {
 		tt := NewTestApp(t, TestAppConfig{})
+		logCap := installLogCapturer(t)
 		exitCode := tt.App.Run(context.Background(), []string{"aks-node-controller", generalizeCommand, "--keep-agent", "extra"})
 		assert.Equal(t, 1, exitCode)
+		records := logCap.getRecords()
+		require.NotEmpty(t, records)
+		last := records[len(records)-1]
+		assert.Equal(t, slog.LevelError, last.Level)
+		assert.Contains(t, last.Attrs["error"], "unexpected generalize arguments: extra")
 	})
 
 	t.Run("download-hotfix returns success when VHD version already matches target", func(t *testing.T) {
