@@ -322,7 +322,7 @@ func TestWindowsCustomDataUsesBundledSSHFunctions(t *testing.T) {
 			require.GreaterOrEqual(t, loadSSH, 0)
 			require.Less(t, loadSSH, loadHelpers)
 
-			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			matches := regexp.MustCompile(`\$zippedFiles=['"]([^'"]+)['"]`).FindStringSubmatch(customData)
 			require.Len(t, matches, 2)
 			archive, err := base64.StdEncoding.DecodeString(matches[1])
 			require.NoError(t, err)
@@ -392,7 +392,7 @@ func TestWindowsCustomDataOmitsPostResetHealthGate(t *testing.T) {
 			require.Contains(t, customData, `"--healthz-port=10248"`)
 			require.Contains(t, customData, "Start-NodeResetScriptTask")
 
-			matches := regexp.MustCompile(`\$zippedFiles="([^"]+)"`).FindStringSubmatch(customData)
+			matches := regexp.MustCompile(`\$zippedFiles=['"]([^'"]+)['"]`).FindStringSubmatch(customData)
 			require.Len(t, matches, 2)
 			archive, err := base64.StdEncoding.DecodeString(matches[1])
 			require.NoError(t, err)

@@ -748,6 +748,18 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
 }
 
+func getParameterValue(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, name string) interface{} {
+	v, ok := params[name].(paramsMap)
+	if !ok || v["value"] == nil {
+		// return empty string so we don't get <no value> from go template
+		return ""
+	}
+	if value, ok := v["value"].(string); ok && config.AgentPoolProfile.IsWindows() {
+		return escapePowerShellDoubleQuotedString(value)
+	}
+	return v["value"]
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
@@ -760,12 +772,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
-		v, ok := params[s].(paramsMap)
-		if !ok || v["value"] == nil {
-			// return empty string so we don't get <no value> from go template
-			return ""
-		}
-		return v["value"]
+		return getParameterValue(config, params, s)
 	}
 
 	// TODO: GetParameterPropertyLower

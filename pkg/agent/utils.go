@@ -378,19 +378,34 @@ func powerShellLiteral(value string) string {
 }
 
 func powerShellQuotedLiteral(value string, quote byte) string {
+	if requiresPowerShellBase64(value) {
+		return "(" + encodePowerShellBase64Literal(value) + ")"
+	}
+	if quote == '"' {
+		return `"` + escapePowerShellDoubleQuotedString(value) + `"`
+	}
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+// escapePowerShellDoubleQuotedString returns content for an existing PowerShell double-quoted string.
+func escapePowerShellDoubleQuotedString(value string) string {
+	if requiresPowerShellBase64(value) {
+		return "$(" + encodePowerShellBase64Literal(value) + ")"
+	}
+	return strings.NewReplacer("`", "``", "$", "`$", `"`, `""`).Replace(value)
+}
+
+func requiresPowerShellBase64(value string) bool {
 	// Hide the marker from the global replacement performed after template rendering.
 	if strings.Contains(value, "PREPROVISION_EXTENSION") {
-		return "(" + encodePowerShellBase64Literal(value) + ")"
+		return true
 	}
 	for i := 0; i < len(value); i++ {
 		if value[i] < ' ' || value[i] > '~' {
-			return "(" + encodePowerShellBase64Literal(value) + ")"
+			return true
 		}
 	}
-	if quote == '"' {
-		return `"` + strings.NewReplacer("`", "``", "$", "`$", `"`, `""`).Replace(value) + `"`
-	}
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+	return false
 }
 
 // Keep ASCII arguments double-quoted: RP's PatchCustomDataForKubeReservedForWindows matches that syntax.
