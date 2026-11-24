@@ -184,6 +184,9 @@ function Test-ValidateSinglePackageSignature {
                 throw "Failed to extract the '$dest' archive with tar. Exit code: $LASTEXITCODE"
             }
         }
+        elseif ($fileName.endswith(".exe")) {
+            Copy-Item -Path $dest -Destination $installDir -Force -ErrorAction Stop
+        }
         else {
             Write-Error "Unknown package suffix"
             exit 1

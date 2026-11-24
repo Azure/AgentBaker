@@ -65,6 +65,24 @@ Describe 'Test-ValidateSinglePackageSignature' {
         { Test-ValidateSinglePackageSignature -dir $script:nonExistentDir } | Should -Throw "*archive*"
     }
 
+    It 'validates a standalone executable without expanding an archive' {
+        $map = @{ $script:nonExistentDir = @('https://upstreamartifacts.azureedge.net/nssm/nssm.exe') }
+        Mock Test-Path { $true }
+        Mock Copy-Item {}
+        Mock Expand-Archive {}
+        Mock Remove-Item {}
+        Mock Get-UnsignedFilesExcludingKnownTypes { @() }
+        Mock Get-UnsignedBinariesInDirectory { @() }
+
+        Test-ValidateSinglePackageSignature -dir $script:nonExistentDir
+
+        Should -Invoke Copy-Item -Times 1 -Exactly -ParameterFilter {
+            $Path -eq [IO.Path]::Combine($script:nonExistentDir, 'nssm.exe') -and $Destination -eq 'c:\SignatureCheck'
+        }
+        Should -Invoke Expand-Archive -Times 0 -Exactly
+        Should -Invoke Get-UnsignedBinariesInDirectory -Times 1 -Exactly
+    }
+
     It 'skips an unsigned binary that matches both the allowlisted directory and filename with NotSigned status' {
         $global:azCopyUrls = @{ }
         $map = @{
