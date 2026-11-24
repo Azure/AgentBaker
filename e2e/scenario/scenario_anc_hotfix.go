@@ -96,7 +96,7 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 				return errors.Join(
 					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
 					ValidateFileHasContent(ctx, s, ancLogPath, "check-hotfix LPS gRPC dial"),
-					ValidateFileHasContent(ctx, s, ancLogPath, "check-hotfix completed"),
+					ValidateFileHasContent(ctx, s, ancLogPath, `"outcome":"noHotfixAvailable"`),
 					ValidateFileExcludesContent(ctx, s, ancLogPath, "check-hotfix panicked"),
 					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Found ANC hotfix config"),
