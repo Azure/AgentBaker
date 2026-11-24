@@ -858,6 +858,46 @@ function Set-WinRmServiceAutoStart
     sc.exe config winrm start=auto
 }
 
+function Install-NssmOnVHD
+{
+    Param(
+        [string]$KubernetesCacheDir = "c:\akse-cache\win-k8s\",
+        [string]$KubeDir = "C:\k"
+    )
+
+    # Use the first configured Kubernetes package, not an arbitrary cached ZIP.
+    $packageUrl = @($global:map[$KubernetesCacheDir])[0]
+    if ([string]::IsNullOrEmpty($packageUrl))
+    {
+        throw "No Kubernetes package configured for $KubernetesCacheDir"
+    }
+    $packageName = [IO.Path]::GetFileName($packageUrl.Split('?')[0])
+    $package = Join-Path $KubernetesCacheDir $packageName
+    if (-not (Test-Path -Path $package -PathType Leaf))
+    {
+        throw "Kubernetes package not cached at $package"
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($package)
+    try
+    {
+        $entries = @($archive.Entries | Where-Object { $_.FullName.Replace('\', '/') -eq 'k/nssm.exe' })
+        if ($entries.Count -ne 1)
+        {
+            throw "Expected exactly one k/nssm.exe in $package, found $($entries.Count)"
+        }
+        New-Item -ItemType Directory -Path $KubeDir -Force -ErrorAction Stop | Out-Null
+        $destination = Join-Path $KubeDir "nssm.exe"
+        Write-Log "Extracting nssm.exe from $package to $destination"
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entries[0], $destination, $true)
+    }
+    finally
+    {
+        $archive.Dispose()
+    }
+}
+
 function Install-WindowsExporterOnVHD
 {
     # Stage windows-exporter assets into C:\k\windows-exporter. The CSE
@@ -1224,6 +1264,7 @@ try
             Get-ContainerImages
             Get-FilesToCacheOnVHD
             Get-PrivatePackagesToCacheOnVHD
+            Install-NssmOnVHD
             Install-WindowsCiliumNetworking
             Install-WindowsExporterOnVHD
             # Update all the registry keys again in case the steps in between reset them. Ok, some of the steps in between do reset them. But there's a risk that the steps also need
