@@ -285,6 +285,14 @@ var cachedVMResourceSKUs = toolkit.Memoize(func(ctx context.Context, location st
 	return config.Azure.ListVMResourceSKUs(ctx, location)
 })
 
+func VMSizeArchitecture(ctx context.Context, location, vmSize string) (string, error) {
+	sku, err := getVMSizeSKU(ctx, location, vmSize)
+	if err != nil {
+		return "", err
+	}
+	return config.SkuArchitecture(sku)
+}
+
 func getVMSizeSKU(ctx context.Context, location, vmSize string) (*armcompute.ResourceSKU, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

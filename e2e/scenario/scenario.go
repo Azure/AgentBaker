@@ -23,6 +23,9 @@ import (
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_ARM64",
 	Description: "Tests that a node using a AzureLinuxV3 VHD on ARM64 architecture can be properly bootstrapped",
+	Tags: Tags{
+		KernelCoverageTest: true,
+	},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2Arm64,
@@ -39,6 +42,32 @@ var _ = Register(&Scenario{
 		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
 			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
 		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "AzureLinuxV3_ARM64_FIPS",
+	Description: "Tests Azure Linux 3 ARM64 FIPS node bootstrap, kernel FIPS mode, and OpenSSL provider activation",
+	Tags: Tags{
+		KernelCoverageTest: true,
+	},
+	Config: Config{
+		Cluster: ClusterKubenet,
+		VHD:     config.VHDAzureLinuxV3Gen2Arm64FIPS,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.IsARM64 = true
+			nbc.AgentPoolProfile.VMSize = "Standard_D2pds_V5"
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].VMSize = "Standard_D2pds_V5"
+			nbc.AgentPoolProfile.LocalDNSProfile = nil
+			nbc.ContainerService.Properties.AgentPoolProfiles[0].LocalDNSProfile = nil
+		},
+		VMConfigMutator: func(vmss *armcompute.VirtualMachineScaleSet) {
+			vmss.SKU.Name = to.Ptr("Standard_D2pds_V5")
+			vmss.Properties.AdditionalCapabilities = &armcompute.AdditionalCapabilities{
+				EnableFips1403Encryption: to.Ptr(true),
+			}
+		},
+		Validator: ValidateFIPSProvider,
 	},
 })
 
@@ -68,6 +97,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL",
 	Description: "Tests that a node using an ACL VHD can be properly bootstrapped and custom CA was correctly added",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -177,6 +207,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL_ARM64",
 	Description: "Tests that a node using an ACL VHD on ARM64 architecture can be properly bootstrapped",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLArm64Gen2TL,
@@ -207,6 +238,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACLGen2FIPSTL",
 	Description: "Tests that a node using the ACL FIPS TrustedLaunch Gen2 VHD can be properly bootstrapped and FIPS is active at runtime",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2FIPSTL,
@@ -234,6 +266,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3Gen2FIPS",
 	Description: "Tests that a node using the Azure Linux V3 Gen2 FIPS VHD can be properly bootstrapped and FIPS is active at runtime",
+	Tags:        Tags{VMSeriesCoverageTest: true},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2FIPS,
@@ -1312,6 +1345,9 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204ARM64",
 	Description: "Tests that an Ubuntu 2204 Node using ARM64 architecture can be properly bootstrapped",
+	Tags: Tags{
+		KernelCoverageTest: true,
+	},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Arm64Containerd,
@@ -3314,6 +3350,9 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404ARM",
 	Description: "Tests that a node using the Ubuntu 2404 VHD can be properly bootstrapped with containerd v2",
+	Tags: Tags{
+		KernelCoverageTest: true,
+	},
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2404ArmContainerd,

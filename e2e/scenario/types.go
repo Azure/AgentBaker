@@ -36,6 +36,7 @@ type Tags struct {
 	MockAzureChinaCloud    bool
 	RCV1PCertMode          bool
 	VMSeriesCoverageTest   bool
+	KernelCoverageTest     bool
 }
 
 // Scenario represents an AgentBaker E2E scenario.
@@ -235,6 +236,16 @@ type Config struct {
 	SkipOnCapacityError bool
 }
 
+func (s *Scenario) systemPoolVMSize(c *config.Configuration) string {
+	if s.K8sSystemPoolSKU != "" {
+		return s.K8sSystemPoolSKU
+	}
+	if c.VMSeriesCoverage {
+		return c.SystemPoolVMSKU
+	}
+	return c.VMSKU()
+}
+
 // PrepareVMSSModel mutates the input VirtualMachineScaleSet based on the scenario's VMConfigMutator, if configured.
 // This method will also use the scenario's configured VHD selector to modify the input VMSS to reference the correct VHD resource.
 func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.VirtualMachineScaleSet) error {
@@ -259,6 +270,13 @@ func (s *Scenario) PrepareVMSSModel(ctx context.Context, vmss *armcompute.Virtua
 		if err := s.VMConfigMutatorWithError(ctx, vmss); err != nil {
 			return fmt.Errorf("mutate VMSS model: %w", err)
 		}
+	}
+	if config.Config.AdHocSKUValidation {
+		if vmss.SKU == nil {
+			return fmt.Errorf("cannot enforce ad-hoc VM size: VMSS SKU is nil")
+		}
+		vmss.SKU.Name = to.Ptr(config.Config.VMSKU())
+		logging.Logf(ctx, "Ad-hoc SKU validation: final VMSS size %s", *vmss.SKU.Name)
 	}
 
 	if vmss.Properties.VirtualMachineProfile == nil {
