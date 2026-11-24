@@ -79,6 +79,7 @@ DEB_PACKAGE_INDEXES = {
 @dataclass
 class ComponentEntry:
     path: str  # human-readable JSON path, for messages
+    identity: tuple
     renovate_tag: Optional[str]
     latest_version: Optional[str]
     previous_latest_version: Optional[str]
@@ -166,39 +167,91 @@ def find_previous_version_lines(path: str) -> list:
     return lines
 
 
-def collect_entries(node, path="root") -> list:
+# Component identities and version selectors, not mutable version values,
+# comments or cache locations. renovateTag alone is shared across k8s minors.
+ENTRY_IDENTITY_FIELDS = (
+    "name", "downloadURL", "windowsDownloadURL", "registry",
+    "k8sVersion", "windowsSkuMatch", "renovateTag",
+)
+
+
+def collect_entries(node, path="root", identity=()) -> list:
     """Recursively find every dict in components.json that tracks both
     `latestVersion` and `previousLatestVersion`, regardless of component
-    type (kubectl/kubelet, containerd, CNI plugins, GPU drivers, etc.)."""
+    type (kubectl/kubelet, containerd, CNI plugins, GPU drivers, etc.).
+
+    Keep the indexed path for reporting, but match entries using dictionary
+    keys (including OS/release nesting) and semantic selectors at each level.
+    Array positions must not affect identity when components/versions move.
+    """
     entries = []
     if isinstance(node, dict):
+        selectors = tuple((key, node[key]) for key in ENTRY_IDENTITY_FIELDS if key in node)
+        identity = identity + (selectors,)
         if "latestVersion" in node and "previousLatestVersion" in node:
             entries.append(
                 ComponentEntry(
                     path=path,
+                    identity=identity,
                     renovate_tag=node.get("renovateTag"),
                     latest_version=node.get("latestVersion"),
                     previous_latest_version=node.get("previousLatestVersion"),
                 )
             )
         for key, value in node.items():
-            entries.extend(collect_entries(value, f"{path}.{key}"))
+            entries.extend(collect_entries(value, f"{path}.{key}", identity + (key,)))
     elif isinstance(node, list):
         for i, value in enumerate(node):
-            entries.extend(collect_entries(value, f"{path}[{i}]"))
+            entries.extend(collect_entries(value, f"{path}[{i}]", identity))
     return entries
 
 
-def entry_key(entry: ComponentEntry) -> str:
-    # JSON path (array index / dict key chain) uniquely and stably identifies
-    # an entry across base/head diffs for this kind of PR: Renovate only
-    # replaces the latestVersion/previousLatestVersion *values* in place, it
-    # never reorders or adds/removes array entries. renovateTag looks like a
-    # natural identity key, but it is NOT unique -- multiple rows for
-    # different k8sVersion minors commonly share the exact same
-    # `name=..., os=..., release=...` tag (same package/OS/release), which
-    # would otherwise collide different entries onto the same dict key.
-    return entry.path
+def entry_key(entry: ComponentEntry) -> tuple:
+    return entry.identity
+
+
+@dataclass
+class BaseEntryMatch:
+    entry: Optional[ComponentEntry] = None
+    ambiguous: bool = False
+
+
+def match_base_entries(base_entries: list, head_entries: list) -> list[BaseEntryMatch]:
+    """Match unchanged rows first, then unambiguous version updates.
+
+    Some image rows share every selector (no explicit minor/track field).
+    Preserve these as a group rather than overwriting them in a keyed dict.
+    Mark unresolved rows with remaining base candidates as ambiguous, not new.
+    """
+    base_by_key = {}
+    for entry in base_entries:
+        base_by_key.setdefault(entry_key(entry), []).append(entry)
+
+    matches = [BaseEntryMatch() for _ in head_entries]
+    unmatched_by_key = {}
+    for index, entry in enumerate(head_entries):
+        key = entry_key(entry)
+        candidates = base_by_key.get(key, [])
+        for candidate_index, candidate in enumerate(candidates):
+            if (
+                candidate.latest_version == entry.latest_version
+                and candidate.previous_latest_version == entry.previous_latest_version
+            ):
+                matches[index] = BaseEntryMatch(entry=candidates.pop(candidate_index))
+                break
+        else:
+            unmatched_by_key.setdefault(key, []).append(index)
+
+    for key, indexes in unmatched_by_key.items():
+        candidates = base_by_key.get(key, [])
+        # With multiple changed rows and no distinguishing selector, do not
+        # guess which base row's retained prior release belongs to which head.
+        if len(indexes) == 1 and len(candidates) == 1:
+            matches[indexes[0]] = BaseEntryMatch(entry=candidates[0])
+        elif candidates:
+            for index in indexes:
+                matches[index] = BaseEntryMatch(ambiguous=True)
+    return matches
 
 
 # ---------------------------------------------------------------------------
@@ -383,8 +436,9 @@ def main() -> int:
         base_json = {}
     head_json = load_json_file(args.file)
 
-    base_entries = {entry_key(e): e for e in collect_entries(base_json)}
+    base_entries = collect_entries(base_json)
     head_entries = collect_entries(head_json)
+    base_matches = match_base_entries(base_entries, head_entries)
 
     prev_version_lines = find_previous_version_lines(args.file)
     if len(prev_version_lines) == len(head_entries):
@@ -407,8 +461,8 @@ def main() -> int:
     # Each row: (path, line_number, raw_line, previous_latest_version, recommendation)
     suggestions = []
 
-    for entry in head_entries:
-        base_entry = base_entries.get(entry_key(entry))
+    for entry, base_match in zip(head_entries, base_matches):
+        base_entry = base_match.entry
         changed = (
             base_entry is None
             or base_entry.latest_version != entry.latest_version
@@ -432,6 +486,14 @@ def main() -> int:
                 f"release {'.'.join(map(str, latest.release))}. "
                 f"previousLatestVersion must reference a genuinely prior release."
             )
+            if base_match.ambiguous:
+                note = (
+                    "multiple base rows share these selectors; cannot establish the retained "
+                    "prior release. Set previousLatestVersion manually."
+                )
+                print(f"::warning::{entry.path}: {note}")
+                findings.append((entry, kind, None, note))
+                continue
         else:
             kind = "stale"
 
