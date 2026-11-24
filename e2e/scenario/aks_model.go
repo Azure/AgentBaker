@@ -111,11 +111,7 @@ func getBaseClusterModel(clusterName, location, k8sSystemPoolSKU string) *armcon
 		Name:     to.Ptr(clusterName),
 		Location: to.Ptr(location),
 		Properties: &armcontainerservice.ManagedClusterProperties{
-			DNSPrefix:  to.Ptr(clusterName),
-			EnableRBAC: to.Ptr(true),
-			AADProfile: &armcontainerservice.ManagedClusterAADProfile{
-				Managed: to.Ptr(true),
-			},
+			DNSPrefix: to.Ptr(clusterName),
 			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
 				{
 					Name:         to.Ptr("nodepool1"),

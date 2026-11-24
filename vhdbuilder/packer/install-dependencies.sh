@@ -1359,6 +1359,20 @@ capture_benchmark "${SCRIPT_NAME}_validate_container_runtime_and_override_ubuntu
 # Configure SSH service during VHD build for Ubuntu 22.10+
 configureSSHService "$OS" "$OS_VERSION" || echo "##vso[task.logissue type=warning]SSH Service configuration failed, but continuing VHD build"
 
+CONTAINERD_SERVICE_DIR="/etc/systemd/system/containerd.service.d"
+mkdir -p "${CONTAINERD_SERVICE_DIR}"
+# Explicitly set LimitNOFILE=1048576 (the value that 'infinity' resolves to on Ubuntu 22.04) for both Ubuntu and Mariner/AzureLinux.
+# On Ubuntu 24.04 (Containerd 2.0), LimitNOFILE is removed upstream and systemd falls back to an implicit soft:hard limit
+# (for example 1024:524288), so containerd inherits a very low soft file descriptor limit (1024) unless we override it here.
+# On Mariner/AzureLinux this is redundant with the base containerd.service unit but harmless.
+# Not removing LimitNOFILE from parts/linux/cloud-init/artifacts/containerd.service,
+# to avoid compatibility issues between new VHDs and old CSE scripts.
+tee "${CONTAINERD_SERVICE_DIR}/exec_start.conf" > /dev/null <<EOF
+[Service]
+ExecStartPost=/sbin/iptables -P FORWARD ACCEPT
+LimitNOFILE=1048576
+EOF
+
 tee "/etc/sysctl.d/99-force-bridge-forward.conf" > /dev/null <<EOF
 net.ipv4.ip_forward = 1
 net.ipv4.conf.all.forwarding = 1

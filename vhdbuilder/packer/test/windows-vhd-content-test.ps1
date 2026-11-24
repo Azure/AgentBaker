@@ -405,7 +405,15 @@ function Test-ImagesPulled {
         }
         # Find items to add
         switch -Wildcard ($windowsSKU.ToLower()) {
+            "*2019*" {
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:1809"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2019"
+            }
             "*2022*" {
+                $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
+                $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
+            }
+            "*23h2*" {
                 $targetImagesToPull += "mcr.microsoft.com/windows/nanoserver:ltsc2022"
                 $targetImagesToPull += "mcr.microsoft.com/windows/servercore:ltsc2022"
             }
@@ -544,6 +552,40 @@ function Test-RegistryAdded {
         }
     }
 
+    if ($env:WindowsSKU -Like '2019*') {
+        $result = (Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\hns\State" -Name HNSControlFlag)
+        if (($result.HNSControlFlag -band 0x10) -ne 0x10) {
+            Write-ErrorWithTimestamp "The registry for the two HNS fixes is not added"
+            exit 1
+        }
+        else {
+            Write-OutputWithTimestamp "The registry for the two HNS fixes was added"
+        }
+
+
+        Validate-WindowsFixInPath -Path "HKLM:\SYSTEM\CurrentControlSet\Services\wcifs" -Name WcifsSOPCountDisabled -Value 0
+        Validate-WindowsFixInHnsState -Name HnsPolicyUpdateChange
+        Validate-WindowsFixInHnsState -Name HnsNatAllowRuleUpdateChange
+        Validate-WindowsFixInFeatureManagement -Name 3105872524
+        Validate-WindowsFixInVfpExtParameters -Name VfpEvenPodDistributionIsEnabled
+        Validate-WindowsFixInFeatureManagement -Name 3230913164
+        Validate-WindowsFixInVfpExtParameters -Name VfpNotReuseTcpOneWayFlowIsEnabled
+        Validate-WindowsFixInHnsState -Name CleanupReservedPorts
+        Validate-WindowsFixInFeatureManagement -Name 652313229
+        Validate-WindowsFixInFeatureManagement -Name 2059235981
+        Validate-WindowsFixInFeatureManagement -Name 3767762061
+        Validate-WindowsFixInFeatureManagement -Name 1102009996
+
+        Validate-WindowsFixInFeatureManagement -Name 2290715789
+        Validate-WindowsFixInFeatureManagement -Name 3152880268
+
+        Validate-WindowsFixInFeatureManagement -Name 1605443213
+
+        # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+        Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+    }
+
     # These are all historical from when we migrated from hard coded values in scripts to using a config file. Seemed sensible to leave them here to check the
     # values from the config file are all being set as per pre-use of the config file.
     Validate-WindowsFixInHnsState -Name EnableCompartmentNamespace
@@ -614,6 +656,17 @@ function Test-RegistryAdded {
         # https://msrc.microsoft.com/update-guide/vulnerability/CVE-2013-3900
         Validate-WindowsFixInPath -Path "HKLM:\Software\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
         Validate-WindowsFixInPath -Path "HKLM:\Software\Wow6432Node\Microsoft\Cryptography\Wintrust\Config" -Name EnableCertPaddingCheck -Value 1
+    }
+
+    if ($env:WindowsSKU -Like '23H2*') {
+        Validate-WindowsFixInHnsState -Name PortExclusionChange -Value 0
+
+        Validate-WindowsFixInFeatureManagement -Name 1800977551
+
+        # 2024-11B
+        Validate-WindowsFixInFeatureManagement -Name 3197800078
+        Validate-WindowsFixInFeatureManagement -Name 340036751
+        Validate-WindowsFixInFeatureManagement -Name 2020509326
     }
 }
 
@@ -753,6 +806,10 @@ function Test-SSHDConfig {
 
 # Verify .NET is not installed at all on the VHD (dotnet command should not be available)
 function Test-DotnetNotInstalled {
+    if ($windowsSKU -like "*23H2*") {
+        Write-OutputWithTimestamp "Skipping Test-DotnetNotInstalled for deprecated SKU: $windowsSKU"
+        return
+    }
     $dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
     if ($dotnetCmd) {
         Write-ErrorWithTimestamp ".NET is installed at $($dotnetCmd.Source) but should not be present on the VHD"

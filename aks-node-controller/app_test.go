@@ -796,17 +796,16 @@ func TestRunProvisionReportsInputCleanupFailure(t *testing.T) {
 	require.NoError(t, os.WriteFile(flags.NBCCmd, []byte("/bin/true"), 0o600))
 	require.NoError(t, os.Mkdir(flags.ProvisionConfig, 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(flags.ProvisionConfig, "child"), nil, 0o600))
-	oldPath := osCfg.provisionJSONFilePath
-	t.Cleanup(func() { osCfg.provisionJSONFilePath = oldPath })
-	osCfg.provisionJSONFilePath = filepath.Join(dir, "provision.json")
-	require.NoError(t, os.WriteFile(osCfg.provisionJSONFilePath, []byte(`{"ExitCode":"0"}`), 0o600))
+	statusPath := filepath.Join(dir, "provision.json")
+	require.NoError(t, os.WriteFile(statusPath, []byte(`{"ExitCode":"0"}`), 0o600))
 	tt := NewTestApp(t, TestAppConfig{RunFunc: cmdRunner})
+	tt.App.provisionJSONFilePath = statusPath
 
 	result, err := tt.App.runProvision(t.Context(), flags, false)
 	require.ErrorContains(t, err, "clean up provisioning inputs")
 	require.Equal(t, "240", result.ExitCode)
 	require.NoFileExists(t, flags.NBCCmd)
-	data, err := os.ReadFile(osCfg.provisionJSONFilePath)
+	data, err := os.ReadFile(statusPath)
 	require.NoError(t, err)
 	var persisted ProvisionResult
 	require.NoError(t, json.Unmarshal(data, &persisted))

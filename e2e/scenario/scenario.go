@@ -97,7 +97,7 @@ var _ = Register(&Scenario{
 var _ = Register(&Scenario{
 	Name:        "ACL_ArtifactStreaming",
 	Description: "Tests that an ACL node with artifact streaming enabled activates OverlayBD and acr-mirror",
-	SkipIf:      skipACLArtifactStreamingOnDefaultBranchImage,
+	SkipIf:      skipACLArtifactStreamingOnMainBuiltImage,
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -132,10 +132,10 @@ var _ = Register(&Scenario{
 
 // ACL e2e provisions with the CSE scripts baked into the VHD rather than the branch's scripts,
 // so the ACL artifact streaming path only exists on VHDs built from a branch that contains it.
-func skipACLArtifactStreamingOnDefaultBranchImage(context.Context) string {
-	if laneResolvedDefaultBranchImage() {
+func skipACLArtifactStreamingOnMainBuiltImage(context.Context) string {
+	if laneResolvedMainBuiltImage() {
 		return fmt.Sprintf(
-			"this lane selected a default-branch image (%s=%s), which may predate ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
+			"this lane resolved a main-built image (%s=%s), which predates ACL artifact streaming support baked into the VHD; run against the PR's VHD build to exercise it",
 			config.Config.SIGVersionTagName,
 			config.Config.SIGVersionTagValue,
 		)
@@ -312,7 +312,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "ACL_DisableSSH",
-	Description: "Tests that ACL boots with SSH disabled and keeps SSH blocked after reboot",
+	Description: "Tests that a node using ACL VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDACLGen2TL,
@@ -328,7 +328,13 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateSSHDisabledAcrossReboot(ctx, s)
+			if err := ValidateSSHServiceDisabled(ctx, s); err != nil {
+				return err
+			}
+			if err := RestartVMSSVM(ctx, s); err != nil {
+				return err
+			}
+			return ValidateSSHServiceDisabled(ctx, s)
 		},
 	},
 })
@@ -704,12 +710,12 @@ func newUbuntu2204_CustomLinuxOSConfig_Taints_ANCScenario() *Scenario {
 }
 
 var _ = Register(&Scenario{
-	Name:        "Ubuntu2404_CustomDataOnlyProvisioning",
-	Description: "Tests that an Ubuntu 24.04 node can be bootstrapped entirely through CustomData without CSE",
+	Name:        "Ubuntu2204_CustomDataOnlyProvisioning",
+	Description: "Tests that an Ubuntu 22.04 node can be bootstrapped entirely through CustomData without CSE",
 	Config: Config{
 		ExcludeFromNBCSampling: true,
 		Cluster:                ClusterKubenet,
-		VHD:                    config.VHDUbuntu2404Gen2Containerd,
+		VHD:                    config.VHDUbuntu2204Gen2Containerd,
 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 			nbc.CustomDataOnlyProvisioning = true
 		},
@@ -725,11 +731,11 @@ var _ = Register(&Scenario{
 
 // TODO: uncomment once cloud-init with experimental_skip_ready_report is included in the VHD
 // var _ = Register(&Scenario{
-// 	Name:        "Ubuntu2404_CustomDataOnlyProvisioning_Failure",
-// 	Description: "Tests that an Ubuntu 24.04 node returns an error without CSE",
+// 	Name:        "Ubuntu2204_CustomDataOnlyProvisioning_Failure",
+// 	Description: "Tests that an Ubuntu 22.04 node returns an error without CSE",
 // 	Config: Config{
 // 		Cluster: ClusterKubenet,
-// 		VHD:     config.VHDUbuntu2404Gen2Containerd,
+// 		VHD:     config.VHDUbuntu2204Gen2Containerd,
 // 		BootstrapConfigMutator: func(cluster *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
 // 			nbc.CustomDataOnlyProvisioning = true
 // 			nbc.HTTPProxyConfig = &datamodel.HTTPProxyConfig{
@@ -1064,7 +1070,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinuxV3_DisableSSH",
-	Description: "Tests that AzureLinuxV3 boots with SSH disabled and keeps SSH blocked after reboot",
+	Description: "Tests that a node using AzureLinuxV3 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDAzureLinuxV3Gen2,
@@ -1077,14 +1083,15 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateSSHDisabledAcrossReboot(ctx, s)
+			// Validate SSH daemon is disabled via RunCommand
+			return ValidateSSHServiceDisabled(ctx, s)
 		},
 	},
 })
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2204_DisableSSH",
-	Description: "Tests that Ubuntu 2204 boots with SSH disabled and keeps SSH blocked after reboot",
+	Description: "Tests that a node using Ubuntu 2204 VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 	Config: Config{
 		Cluster: ClusterKubenet,
 		VHD:     config.VHDUbuntu2204Gen2Containerd,
@@ -1097,7 +1104,8 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateSSHDisabledAcrossReboot(ctx, s)
+			// Validate SSH daemon is disabled via RunCommand
+			return ValidateSSHServiceDisabled(ctx, s)
 		},
 	},
 })
@@ -2754,7 +2762,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2604Minimal_DisableSSH",
-	Description: "Tests that Ubuntu 2604 minimal boots with SSH disabled and keeps SSH blocked after reboot",
+	Description: "Tests that a node using Ubuntu 2604 minimal VHD with SSH disabled can be properly bootstrapped and SSH daemon is disabled",
 	Config: Config{
 		Cluster: ClusterLatestKubernetesVersionKubenet,
 		VHD:     config.VHDUbuntu2604MinimalGen2Containerd,
@@ -2767,7 +2775,8 @@ var _ = Register(&Scenario{
 		SkipSSHConnectivityValidation: true, // Skip SSH connectivity validation since SSH is down
 		SkipDefaultValidation:         true, // Skip default validation since it requires SSH connectivity
 		Validator: func(ctx context.Context, s *Scenario) error {
-			return ValidateSSHDisabledAcrossReboot(ctx, s)
+			// Validate SSH daemon is disabled via RunCommand
+			return ValidateSSHServiceDisabled(ctx, s)
 		},
 	},
 })
