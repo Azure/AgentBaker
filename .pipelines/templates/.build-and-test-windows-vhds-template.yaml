@@ -54,18 +54,41 @@ parameters:
   - name: csePublishDir
     type: string
     default: $(Build.ArtifactStagingDirectory)/packages
+  # Run of aks-rp's windows-cse-sign pipeline whose signed scripts to cache instead of packaging unsigned
+  # scripts. "0" packages unsigned scripts.
+  - name: signedCsePackagePipelineId
+    type: string
+    default: "0"
+  - name: signedCsePackageBuildId
+    type: string
+    default: "0"
 stages:
   - stage: Package
     displayName: "Package Windows CSE"
     jobs:
     - job: PackageWindowsCSE
       steps:
+      - ${{ if ne(parameters.signedCsePackageBuildId, '0') }}:
+        - task: DownloadPipelineArtifact@2
+          displayName: Download signed Windows CSE scripts
+          inputs:
+            source: specific
+            project: CloudNativeCompute
+            pipeline: ${{ parameters.signedCsePackagePipelineId }}
+            runVersion: specific
+            runId: ${{ parameters.signedCsePackageBuildId }}
+            artifact: windows-cse-signed
+            path: $(Agent.TempDirectory)/windows-cse-signed
       - bash: bash ./.pipelines/scripts/windows_package_cse.sh
         displayName: Package Windows CSE Scripts
         env:
           CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
           CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
           CSE_FILE_NAME: ${{ parameters.cseFileName }}
+          ${{ if ne(parameters.signedCsePackageBuildId, '0') }}:
+            SIGNED_CSE_DIR: $(Agent.TempDirectory)/windows-cse-signed/files
+            SIGNED_CSE_PROVENANCE: $(Agent.TempDirectory)/windows-cse-signed/provenance.json
+            EXPECTED_SOURCE_VERSION: $(Build.SourceVersion)
       - task: ManifestGeneratorTask@0
         inputs:
           BuildDropPath: ${{ parameters.csePublishDir }}

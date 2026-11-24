@@ -608,6 +608,36 @@ function LogFilesInDirectory
     }
 }
 
+function Copy-CSEPackageFile
+{
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $EntryName,
+        [Parameter(Mandatory = $true)][string]
+        $DestinationPath
+    )
+
+    # Packer uploads the CSE scripts package to the cache under the name that
+    # parts/windows/kuberneteswindowssetup.ps1.template looks for.
+    $csePackage = [IO.Path]::Combine($global:cacheDir, "aks-windows-cse-scripts-current.zip")
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($csePackage)
+    try
+    {
+        $entry = $zip.Entries | Where-Object { $_.FullName.Replace('\', '/') -eq $EntryName } | Select-Object -First 1
+        if (-not $entry)
+        {
+            throw "$EntryName not found in $csePackage"
+        }
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $DestinationPath, $true)
+    }
+    finally
+    {
+        $zip.Dispose()
+    }
+    Write-Log "Copied $EntryName from $csePackage to $DestinationPath"
+}
+
 function Register-ExpandVolumeTask
 {
     if (!(Test-Path -Path $global:aksToolsDir))
@@ -615,20 +645,10 @@ function Register-ExpandVolumeTask
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
-    # Leverage existing folder 'c:\aks-tools' to store the task scripts
-    $taskScript = @'
-        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
-        $diskpartScriptPath = "c:\aks-tools\diskpart.script"
-        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath -Force
-        Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
-        # Run once and remove the task. Sequence: taks invokes ps1, ps1 invokes diskpart.
-        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
-        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
-        Remove-Item -Path $diskpartScriptPath -Force
-'@
-
+    # Leverage existing folder 'c:\aks-tools' to store the task scripts. The script comes from the CSE
+    # scripts package so that release builds, which cache a signed package, also get a signed task script.
     $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
-    $taskScript | Set-Content -Path $taskScriptPath -Force
+    Copy-CSEPackageFile -EntryName "provisioningscripts/expand-volume.ps1" -DestinationPath $taskScriptPath
 
     # It sometimes failed with below error
     # New-ScheduledTask : Cannot validate argument on parameter 'Action'. The argument is null or empty. Provide an argument

@@ -15,6 +15,9 @@ variables:
       value: false
     ${{ else }}:
       value: ${{ variables.SKIP_EXTENSION_CHECK }}
+  # Read by vhdbuilder/packer/test/run-test.sh: the VHD content test fails on unsigned CSE scripts.
+  - name: REQUIRE_SIGNED_CSE_SCRIPTS
+    value: ${{ ne(parameters.signedCsePackageBuildId, '0') }}
 
 parameters:
   - name: build2022containerd
@@ -69,6 +72,16 @@ parameters:
     displayName: Branch in aks-rp to use for overrides
     type: string
     default: master
+  # Set by aks-rp's windows-release-orchestrator.yaml. When set, the VHD caches the CSE scripts signed by
+  # aks-rp's windows-cse-sign.OneBranch.Official.yml instead of packaging unsigned scripts.
+  - name: signedCsePackagePipelineId
+    displayName: Signed CSE scripts - signing pipeline ID
+    type: string
+    default: "0"
+  - name: signedCsePackageBuildId
+    displayName: Signed CSE scripts - signing build ID (0 = package unsigned scripts)
+    type: string
+    default: "0"
 
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build"
 # Use variable group "ab-windows-ame-tenant" and link it to the pipeline "AKS Windows VHD Build - PR check-in gate"
@@ -90,6 +103,8 @@ stages:
       installOpenSshServer: ${{ parameters.installOpenSshServer }}
       overrideBranch: ${{ parameters.overrideBranch }}
       useOverrides: ${{ parameters.useOverrides }}
+      signedCsePackagePipelineId: ${{ parameters.signedCsePackagePipelineId }}
+      signedCsePackageBuildId: ${{ parameters.signedCsePackageBuildId }}
       ${{ if eq(parameters.useContainerUrlsFromJson, true) }}:
         windowsContainerImageJsonUrl: ${{ parameters.windowsContainerImageJsonUrl }}
       ${{ else }}:
