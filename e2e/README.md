@@ -73,6 +73,14 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Windows containerd restart plugin
+
+The Windows 2022/2025 base scenarios, combined containerd package scenario,
+Windows 2022 Kubernetes 1.33 scenario, and Windows VHD-caching scenarios inspect
+the running daemon with `ctr plugins list`. They require a healthy CRI plugin
+and reject both the containerd 1.x and 2.x restart plugins. This checks that
+the plugin is disabled in the running daemon, not just in its config file.
+
 ### PIS GPU coverage
 
 `Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`

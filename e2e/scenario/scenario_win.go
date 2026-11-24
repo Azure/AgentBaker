@@ -91,6 +91,7 @@ var _ = Register(&Scenario{
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 				ValidateSSHKeyLiteralPreservation(ctx, s, sshKeyInterpolationComment),
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 			)
 		},
 	},
@@ -141,6 +142,7 @@ var _ = Register(&Scenario{
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
 				validateContainerdFromCacheOnCurrentBuildVHD(ctx, s),
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
 			)
@@ -202,6 +204,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateWindowsContainerdVersion(ctx, s, combinedContainerdVersion),
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateContainerdWindowsPriorityClass(ctx, s),
 			)
 		},
@@ -328,7 +331,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2025",
-	Description: "Windows Server 2025 with Containerd",
+	Description: "Windows Server 2025 with Containerd and the restart plugin disabled",
 	Config: Config{
 		Cluster:         ClusterAzureNetwork,
 		VHD:             config.VHDWindows2025,
@@ -339,6 +342,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025"),
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "24H2"),
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
@@ -355,7 +359,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2",
-	Description: "Windows Server 2025 with Containerd - hyperv gen 2",
+	Description: "Windows Server 2025 with Containerd and the restart plugin disabled - hyperv gen 2",
 	Config: Config{
 		Cluster:         ClusterAzureNetwork,
 		VHD:             config.VHDWindows2025Gen2,
@@ -366,6 +370,7 @@ var _ = Register(&Scenario{
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2"),
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "24H2"),
 				ValidateFileHasContent(ctx, s, "/k/kubeletstart.ps1", "--container-runtime=remote"),
@@ -553,7 +558,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2022_VHDCaching",
-	Description: "VHD Caching",
+	Description: "VHD Caching with the containerd restart plugin disabled",
 	Config: Config{
 		Cluster:    ClusterAzureNetwork,
 		VHD:        config.VHDWindows2022Containerd, // gen1 is default for windows 2022
@@ -568,6 +573,7 @@ var _ = Register(&Scenario{
 		BootstrapConfigMutator: EmptyBootstrapConfigMutator,
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd"),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "21H2"),
@@ -585,7 +591,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Windows2025Gen2_VHDCaching",
-	Description: "VHD Caching - Windows Server 2025 Gen2",
+	Description: "VHD Caching with the containerd restart plugin disabled - Windows Server 2025 Gen2",
 	Config: Config{
 		Cluster:    ClusterAzureNetwork,
 		VHD:        config.VHDWindows2025Gen2,
@@ -598,6 +604,7 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2025-gen2"),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2025 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "24H2"),
@@ -651,7 +658,7 @@ func newWindows2022_VHDCaching_LegacyTLSBootstrapScenario() *Scenario {
 
 var _ = Register(&Scenario{
 	Name:        "Windows2022Gen2_k8s_133",
-	Description: "Windows Server 2022 with Containerd 2- hyperv gen 2",
+	Description: "Windows Server 2022 with Containerd 2 and the restart plugin disabled - hyperv gen 2",
 	Config: Config{
 		Cluster:         ClusterAzureNetwork,
 		VHD:             config.VHDWindows2022ContainerdGen2,
@@ -663,6 +670,7 @@ var _ = Register(&Scenario{
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
 			return errors.Join(
+				ValidateWindowsContainerdRestartPluginDisabled(ctx, s),
 				ValidateWindowsVersionFromWindowsSettings(ctx, s, "2022-containerd-gen2"),
 				ValidateWindowsProductName(ctx, s, "Windows Server 2022 Datacenter"),
 				ValidateWindowsDisplayVersion(ctx, s, "21H2"),
