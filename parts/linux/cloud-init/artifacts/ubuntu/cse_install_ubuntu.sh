@@ -95,6 +95,19 @@ installUbuntu2604MinimalBuildDeps() {
     aptGetBatchInstallPackagesWithFallback "${pkg_list[@]}"
 }
 
+getUbuntuKernelModulesPackage() {
+    local kernel_version="${1}"
+    case "${kernel_version}" in
+        7.*-azure-64k)
+            # The Azure 7.x 64K kernel bundles its modules without a separate modules-extra package.
+            echo "linux-modules-${kernel_version}"
+            ;;
+        *)
+            echo "linux-modules-extra-${kernel_version}"
+            ;;
+    esac
+}
+
 installDeps() {
     wait_for_apt_locks
     retrycmd_silent 120 5 25 curl -fsSL https://packages.microsoft.com/config/ubuntu/${UBUNTU_RELEASE}/packages-microsoft-prod.deb > /tmp/packages-microsoft-prod.deb || exit $ERR_MS_PROD_DEB_DOWNLOAD_TIMEOUT
@@ -119,8 +132,7 @@ installDeps() {
             pkg_list+=(cron)
         fi
     else
-        # linux-modules-extra-* isn't bundled into linux-modules-* on Ubuntu releases < 26.04
-        pkg_list+=(linux-modules-extra-$(uname -r))
+        pkg_list+=("$(getUbuntuKernelModulesPackage "$(uname -r)")")
     fi
 
     while IFS= read -r fallback_pkg; do
