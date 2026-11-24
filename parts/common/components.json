@@ -69,6 +69,17 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-host-process-containers-base-image",
+          "latestVersion": "v1.0.0"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
