@@ -7,6 +7,5 @@ After=system.slice
 
 [Slice]
 CPUAccounting=true
-#CPUQuota=10%
 CPUWeight=1
 MemoryMax=256M
