@@ -24,6 +24,9 @@ message CustomLinuxOsConfig {
   // Valid values are "always", "madvise" and "never"
   // If it's unset or set to empty string, it will use the default value in the VHD "madvise"
   string transparent_defrag = 6;
+
+  // Sysfs settings for Linux agent nodes
+  SysfsConfig sysfs_config = 7;
 }
 
 message SysctlConfig {
@@ -62,10 +65,20 @@ message SysctlConfig {
   optional string net_ipv4_ip_local_reserved_ports = 31;
   // TCP receive buffer minimum, default, and maximum, as three whitespace-separated integers.
   optional string net_ipv4_tcp_rmem = 32;
+  optional int32 vm_nr_hugepages = 33;
+  // Global limit in bytes for BPF JIT allocations.
+  optional int64 net_core_bpf_jit_limit = 34;
+  // TCP send buffer minimum, default, and maximum, as three whitespace-separated integers.
+  optional string net_ipv4_tcp_wmem = 35;
 }
 
 message UlimitConfig {
   // using optional here to allow detecting if the field is set or not (explicit presence in proto3)
   optional string no_file = 1;
   optional string max_locked_memory = 2;
+}
+
+message SysfsConfig {
+  // Enable or disable Multi-Gen LRU. If unset, preserve the node image default.
+  optional bool mglru_enabled = 1;
 }
