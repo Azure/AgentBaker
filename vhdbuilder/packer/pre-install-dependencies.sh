@@ -35,6 +35,20 @@ installJq || echo "WARNING: jq installation failed, VHD Build benchmarks will no
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 copyPackerFiles
+if [ -f /home/packer/lps-json-observe.py ]; then
+  # Test-only image recipe, never a postboot content-store purge.
+  install -d -m 0700 /opt/azure/containers/lps-json-cold-ab
+  for experiment_file in observe.py worker.sh hooks.sh expected-inventory.json cache-input-record.json; do
+    install -m 0600 "/home/packer/lps-json-${experiment_file}" \
+      "/opt/azure/containers/lps-json-cold-ab/${experiment_file}" || exit 1
+  done
+  printf '%s\n' "${COMMIT:?}" > /opt/azure/containers/lps-json-cold-ab/source-commit
+  sha256sum /opt/azure/containers/{aks-node-controller,image-fetcher} \
+    /opt/azure/containers/lps-json-cold-ab/{observe.py,worker.sh,hooks.sh,expected-inventory.json} \
+    > /opt/azure/containers/lps-json-cold-ab/baked-sha256sums || exit 1
+  echo "LPS JSON cold A/B baked source: ${COMMIT}"
+  cat /opt/azure/containers/lps-json-cold-ab/baked-sha256sums
+fi
 
 # Install required dependencies needed to build minimal images if needed (currently only Ubuntu 26.04)
 if isMinimalImage && isUbuntu "$OS"; then

@@ -4,7 +4,7 @@ set -eux
 prefetch() {
     local image=$1
     local files=$2
-    
+
     mount_dir=$(mktemp -d)
     ctr -n k8s.io images mount "$image" "$mount_dir"
 

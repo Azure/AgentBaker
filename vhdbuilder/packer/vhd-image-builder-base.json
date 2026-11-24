@@ -115,6 +115,31 @@
     },
     {
       "type": "file",
+      "source": "vhdbuilder/experiments/lps-json-cold-ab/observe.py",
+      "destination": "/home/packer/lps-json-observe.py"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/experiments/lps-json-cold-ab/worker.sh",
+      "destination": "/home/packer/lps-json-worker.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/experiments/lps-json-cold-ab/hooks.sh",
+      "destination": "/home/packer/lps-json-hooks.sh"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/experiments/lps-json-cold-ab/expected-inventory.json",
+      "destination": "/home/packer/lps-json-expected-inventory.json"
+    },
+    {
+      "type": "file",
+      "source": "vhdbuilder/experiments/lps-json-cold-ab/cache-input-record.json",
+      "destination": "/home/packer/lps-json-cache-input-record.json"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/cloud-init-status-check.sh",
       "destination": "/home/packer/cloud-init-status-check.sh"
     },

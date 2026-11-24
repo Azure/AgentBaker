@@ -416,6 +416,11 @@ EOF
     if ! systemctl daemon-reload; then
         exit $ERR_KUBELET_START_FAIL
     fi
+    if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" = true ] &&
+       [ -f /opt/azure/containers/lps-json-cold-ab/hooks.sh ]; then
+        source /opt/azure/containers/lps-json-cold-ab/hooks.sh
+        lpsColdObserve before-kubelet
+    fi
     # start kubelet.service without waiting for the main process to start, though check whether it has entered a failed state after enablement
     if ! systemctlEnableAndStartNoBlock kubelet 240; then
         # append kubelet status to CSE output to ensure we can see it

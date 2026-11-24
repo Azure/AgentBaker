@@ -17,20 +17,9 @@ prefetch() {
 
     ctr -n k8s.io images unmount "$mount_dir"
 }
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.4.56" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.4.59" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.38" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.5.35" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.13" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.18" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.4.56" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.4.59" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.38" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.5.35" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.13" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-cns:v1.6.18" "/usr/local/bin/azure-cns"
-prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.0.7" "/dropgz"
-prefetch "mcr.microsoft.com/containernetworking/azure-ipam:v0.2.0" "/dropgz"
+prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.6.44-0" "/dropgz"
+prefetch "mcr.microsoft.com/containernetworking/azure-cni:v1.7.17-0" "/dropgz"
+prefetch "mcr.microsoft.com/containernetworking/v2/azure-cni:v1.8.13" "/usr/bin/dropgz"
 
 # cse_preload.sh warms binaries and containerd caches needed by CSE early in
 # boot so that node provisioning runs against an already-warm page cache.

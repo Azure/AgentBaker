@@ -438,6 +438,26 @@ prepullImages() {
         return 0
     fi
     local image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+    # This file is baked only by the isolated cold-cache experiment recipe.
+    if [ -f /opt/azure/containers/lps-json-cold-ab/hooks.sh ]; then
+        source /opt/azure/containers/lps-json-cold-ab/hooks.sh
+        lpsColdObserve before-prefetch
+        if [ "${ANC_IMAGE_CACHE_MODE:-}" = json ] &&
+           [ "${ENABLE_NETWORKING_IMAGE_CACHE_ASYNC:-}" = true ]; then
+            if lpsAsyncPrefetch "$image_cache_anc"; then
+                echo "ANC async image pre-pull launched; actual outcome is in image-cache-status.json"
+            else
+                echo "ANC async image pre-pull launch failed or timed out; continuing (fail-open)"
+            fi
+            return 0
+        fi
+        if /bin/bash /opt/azure/containers/lps-json-cold-ab/worker.sh sync "$image_cache_anc"; then
+            echo "ANC synchronous image pre-pull completed"
+        else
+            echo "ANC synchronous image pre-pull failed; continuing (fail-open)"
+        fi
+        return 0
+    fi
     echo "ENABLE_NETWORKING_IMAGE_CACHE=true; requesting imageCache/networking"
     if "${image_cache_anc}" prepull-images --source networking; then
         echo "ANC image pre-pull returned; outcome is in image-cache-status.json"
