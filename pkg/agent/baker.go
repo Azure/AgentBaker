@@ -748,6 +748,18 @@ func getCloudInitFileContent(config *datamodel.NodeBootstrappingConfiguration, c
 	return "!!binary |\n    " + getBase64EncodedGzippedCustomScriptFromStr(content), nil
 }
 
+func getParameterValue(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, name string) interface{} {
+	v, ok := params[name].(paramsMap)
+	if !ok || v["value"] == nil {
+		// return empty string so we don't get <no value> from go template
+		return ""
+	}
+	if value, ok := v["value"].(string); ok && config.AgentPoolProfile.IsWindows() {
+		return escapePowerShellDoubleQuotedString(value)
+	}
+	return v["value"]
+}
+
 // getTemplateFuncMap returns the general purpose template func map from getContainerServiceFuncMap.
 func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params paramsMap, variables paramsMap) template.FuncMap {
 	funcMap := getContainerServiceFuncMap(config)
@@ -760,12 +772,7 @@ func getBakerFuncMap(config *datamodel.NodeBootstrappingConfiguration, params pa
 	}
 
 	funcMap["GetParameter"] = func(s string) interface{} {
-		v, ok := params[s].(paramsMap)
-		if !ok || v["value"] == nil {
-			// return empty string so we don't get <no value> from go template
-			return ""
-		}
-		return v["value"]
+		return getParameterValue(config, params, s)
 	}
 
 	// TODO: GetParameterPropertyLower
@@ -1111,10 +1118,10 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return GetOrderedKubeletConfigFlagString(config)
 		},
 		"GetKubeletConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeletConfigStringForPowershell(profile.CustomKubeletConfig)
+			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeletConfigArgsForWindows(profile.CustomKubeletConfig)))
 		},
 		"GetKubeproxyConfigKeyValsPsh": func() string {
-			return config.GetOrderedKubeproxyConfigStringForPowershell()
+			return powerShellLiteralList(unescapePowerShellDoubleQuotes(config.GetOrderedKubeproxyConfigArgsForWindows()))
 		},
 		"IsCgroupV2": func() bool {
 			return profile.Is2204VHDDistro() || profile.Is2404VHDDistro() || profile.Is2604VHDDistro() ||
@@ -1124,7 +1131,7 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 			return config.IsCustomDataOnlyProvisioningEnabled()
 		},
 		"GetKubeProxyFeatureGatesPsh": func() string {
-			return cs.Properties.GetKubeProxyFeatureGatesWindowsArguments()
+			return powerShellLiteralList(cs.Properties.GetKubeProxyFeatureGatesForWindows())
 		},
 		"ShouldConfigCustomSysctl": func() bool {
 			return profile.CustomLinuxOSConfig != nil && profile.CustomLinuxOSConfig.Sysctls != nil
@@ -1233,6 +1240,13 @@ func getContainerServiceFuncMap(config *datamodel.NodeBootstrappingConfiguration
 		},
 		"GetSshPublicKeysPowerShell": func() string {
 			return getSSHPublicKeysPowerShell(cs.Properties.LinuxProfile)
+		},
+		// PowerShellLiteral writes a value into the Windows CSE script as a plain string.
+		"PowerShellLiteral": func(value interface{}) string {
+			if value == nil {
+				return powerShellLiteral("")
+			}
+			return powerShellLiteral(fmt.Sprint(value))
 		},
 		"GetKubernetesAgentPreprovisionYaml": func(profile *datamodel.AgentPoolProfile) string {
 			str := ""
