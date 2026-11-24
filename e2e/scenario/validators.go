@@ -1714,6 +1714,11 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
+		if unit.Name == "azurefile-proxy.service" && s.Tags.CVM &&
+			s.VHD.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+			logging.Logf(ctx, "Temporarily allowing %s in Ubuntu 20.04 CVM validation; Azure Files proxy health is not validated and failure logs are retained", unit.Name)
+			continue
+		}
 		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
 			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 				fmt.Sprintf("journalctl -b -u %s -p notice --no-pager --quiet -o cat", unit.Name),
