@@ -4040,6 +4040,7 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
+<<<<<<< HEAD
 func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
 	result, err := execScriptOnVMForScenarioValidateExitCode(
 		ctx,
@@ -4081,6 +4082,8 @@ sudo "$anc_path" check-hotfix`,
 	)
 }
 
+=======
+>>>>>>> a8c643d1e0 (test: fix filesystem corruption e2e (#10164))
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
