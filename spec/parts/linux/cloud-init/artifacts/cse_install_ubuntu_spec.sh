@@ -3,32 +3,6 @@
 Describe 'cse_install_ubuntu.sh'
     Include "./parts/linux/cloud-init/artifacts/ubuntu/cse_install_ubuntu.sh"
 
-    Describe 'getUbuntuKernelModulesPackage'
-        It 'keeps modules-extra for the Ubuntu LTS Azure kernel'
-            When call getUbuntuKernelModulesPackage "6.8.0-1074-azure"
-            The status should be success
-            The output should equal "linux-modules-extra-6.8.0-1074-azure"
-        End
-
-        It 'keeps modules-extra for the previous NVIDIA kernel'
-            When call getUbuntuKernelModulesPackage "6.14.0-1012-nvidia"
-            The status should be success
-            The output should equal "linux-modules-extra-6.14.0-1012-nvidia"
-        End
-
-        It 'selects the modules package for the Azure 7.0 64K kernel on Ubuntu 24.04'
-            When call getUbuntuKernelModulesPackage "7.0.0-1020-azure-64k"
-            The status should be success
-            The output should equal "linux-modules-7.0.0-1020-azure-64k"
-        End
-
-        It 'does not skip modules-extra for other Azure kernel flavors'
-            When call getUbuntuKernelModulesPackage "7.0.0-1020-azure"
-            The status should be success
-            The output should equal "linux-modules-extra-7.0.0-1020-azure"
-        End
-    End
-
     Describe 'cleanUpPrebakedGPUDriver'
         It 'is a no-op when the prebake marker is absent'
             GPU_DKMS_MARKER_FILE="$(mktemp)"; rm -f "${GPU_DKMS_MARKER_FILE}"

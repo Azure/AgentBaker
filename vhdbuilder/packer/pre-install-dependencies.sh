@@ -289,7 +289,8 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   else
     echo "Kernel packages for Ubuntu ${UBUNTU_RELEASE} are not available. Skipping purging and subsequent installation."
   fi
-  NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia"
+  # Keep Ubuntu 24.04 on 6.x; the unversioned NVIDIA meta-package now transitions to the 7.x Azure 64K kernel.
+  NVIDIA_KERNEL_PACKAGE="linux-azure-nvidia-6.14"
   # shellcheck disable=SC3014
   if [[ "${CPU_ARCH}" == "arm64" && "${UBUNTU_RELEASE}" = "24.04" ]]; then
     # This is the ubuntu 2404arm64gen2containerd image or the 2404arm64gb image
