@@ -1,13 +1,22 @@
 package scenario
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Azure/agentbaker/e2e/logging"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 // Exercise the script's predicates with synthetic state and logs, without a VM
@@ -196,6 +205,190 @@ ipe_collect_audit_logs boot audit-start kernel-start driver-start
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := runACLScriptHelper(t, aclIPEAuditScript, command, "DRIVER_LOGS="+tc.logs, "DRIVER_READ_FAILURE="+tc.readFailure)
+			require.Equal(t, tc.ok, err == nil)
+		})
+	}
+}
+
+func TestIPEAuditUsesObservedPod(t *testing.T) {
+	const createdUID types.UID = "created-uid"
+	for _, observedUID := range []types.UID{createdUID, "replacement-uid"} {
+		t.Run(string(observedUID), func(t *testing.T) {
+			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "scenario-node", UID: "node-uid"}}
+			client := fake.NewSimpleClientset(node)
+			ctx, cancel := context.WithTimeout(logging.WithLogger(t.Context(), &executionLogger{}), 2*time.Second)
+			defer cancel()
+			s := &Scenario{Runtime: &ScenarioRuntime{
+				VM: &ScenarioVM{KubeName: node.Name}, Kube: &Kubeclient{Typed: client},
+			}}
+			var created *corev1.Pod
+			client.PrependReactor("create", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				created = action.(k8stesting.CreateAction).GetObject().(*corev1.Pod).DeepCopy()
+				created.UID = createdUID
+				observed := created.DeepCopy()
+				observed.UID = observedUID
+				observed.Status = corev1.PodStatus{
+					Phase:      corev1.PodRunning,
+					Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}},
+				}
+				return true, created, client.Tracker().Add(observed)
+			})
+
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "signed-mount-test", Namespace: "default"}}
+			var observed *corev1.Pod
+			err := deployACLSignedPod(ctx, s, pod, func(pod *corev1.Pod) error {
+				observed = pod
+				return nil
+			})
+			if observedUID != createdUID {
+				require.ErrorContains(t, err, "was replaced")
+				require.Nil(t, observed)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, observed)
+				require.Equal(t, created.UID, observed.UID)
+				require.Equal(t, corev1.PodRunning, observed.Status.Phase)
+			}
+			actions := client.Actions()
+			cleanup, ok := actions[len(actions)-1].(k8stesting.DeleteAction)
+			require.True(t, ok, "the signed pod must be cleaned up on success and failure")
+			require.Equal(t, created.Namespace, cleanup.GetNamespace())
+			require.Equal(t, created.Name, cleanup.GetName())
+			require.Equal(t, &metav1.Preconditions{UID: &created.UID}, cleanup.GetDeleteOptions().Preconditions)
+		})
+	}
+}
+
+func TestIPEAuditContainerdID(t *testing.T) {
+	const node, container = "scenario-node", "signed"
+	id := strings.Repeat("a", 64)
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{NodeName: node},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{Name: "sidecar"},
+				{Name: container, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}, Ready: true, ContainerID: "containerd://" + id},
+			},
+		},
+	}
+	got, err := getContainerdID(pod, node, container)
+	require.NoError(t, err)
+	require.Equal(t, id, got)
+
+	_, err = getContainerdID(pod, "other-node", container)
+	require.ErrorContains(t, err, `want "other-node"`)
+	pod.Status.Phase = corev1.PodSucceeded
+	_, err = getContainerdID(pod, node, container)
+	require.ErrorContains(t, err, "is not live")
+	pod.Status.Phase = corev1.PodRunning
+	signed := &pod.Status.ContainerStatuses[1]
+	signed.Ready = false
+	_, err = getContainerdID(pod, node, container)
+	require.ErrorContains(t, err, "has no running, ready container")
+	signed.Ready = true
+	signed.ContainerID = "containerd://invalid"
+	_, err = getContainerdID(pod, node, container)
+	require.ErrorContains(t, err, "has invalid containerd ID")
+}
+
+func TestIPEAuditSignedContainerMount(t *testing.T) {
+	const command = `
+findmnt() {
+    case "$*" in
+        "-N 123 -rn -o FSTYPE,FS-OPTIONS --mountpoint /") printf '%s\n' "$ROOT_MOUNT" ;;
+        "-rn -o FSTYPE,MAJ:MIN -T /snapshots/1") printf '%s\n' "$DEVICE" ;;
+        "-rn -o FSTYPE,MAJ:MIN -T /snapshots/3") printf '%s\n' "erofs 254:43" ;;
+        *) return 2 ;;
+    esac
+}
+dmsetup() {
+    case "$*" in
+        "--major 254 --minor 42 table") printf '%s\n' "$TABLE" ;;
+        "--major 254 --minor 43 table") printf '%s\n' "$SECOND_TABLE" ;;
+        "--major 254 --minor 42 status") printf '%s\n' "$STATUS" ;;
+        "--major 254 --minor 43 status") printf '%s\n' "$SECOND_STATUS" ;;
+        *) return 2 ;;
+    esac
+}
+ipe_check_signed_container_mounted 123
+`
+	const root = "overlay rw,lowerdir=/snapshots/1,upperdir=/snapshots/2"
+	const unsignedTable = "0 1 verity 1 7:0 7:1 4096 4096 1 1 sha256 hash salt"
+	const table = unsignedTable + " 2 root_hash_sig_key_desc key"
+	const multiLayerRoot = "overlay rw,lowerdir=/snapshots/1:/snapshots/3,upperdir=/snapshots/2"
+	const healthy = "0 1 verity V"
+	for _, tc := range []struct {
+		name      string
+		ok        bool
+		overrides []string
+	}{
+		{"healthy signed device", true, nil},
+		{"both layers signed", true, []string{"ROOT_MOUNT=" + multiLayerRoot}},
+		{"unsigned second layer", false, []string{"ROOT_MOUNT=" + multiLayerRoot, "SECOND_TABLE=" + unsignedTable}},
+		{"unhealthy second layer", false, []string{"ROOT_MOUNT=" + multiLayerRoot, "SECOND_STATUS=0 1 verity C"}},
+		{"wrong root filesystem", false, []string{"ROOT_MOUNT=ext4 rw"}},
+		{"ambiguous root mount", false, []string{"ROOT_MOUNT=" + root + "\n" + root}},
+		{"ambiguous lowerdir option", false, []string{"ROOT_MOUNT=" + root + ",lowerdir=/snapshots/3"}},
+		{"lowerdir text inside another option", false, []string{"ROOT_MOUNT=overlay rw,upperdir=/lowerdir=/snapshots/1"}},
+		{"empty trailing layer", false, []string{"ROOT_MOUNT=overlay rw,lowerdir=/snapshots/1:"}},
+		{"non-EROFS lowerdir", false, []string{"DEVICE=ext4 254:42"}},
+		{"plain fallback", false, []string{"DEVICE=erofs 7:0"}},
+		{"missing signature key", false, []string{"TABLE=" + strings.TrimSuffix(table, " key")}},
+		{"wrong target", false, []string{"TABLE=" + strings.Replace(table, " verity ", " linear ", 1)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := append([]string{
+				"ROOT_MOUNT=" + root, "DEVICE=erofs 254:42", "TABLE=" + table, "STATUS=" + healthy,
+				"SECOND_TABLE=" + table, "SECOND_STATUS=" + healthy,
+			}, tc.overrides...)
+			err := runACLScriptHelper(t, aclIPEAuditScript, command, env...)
+			require.Equal(t, tc.ok, err == nil)
+		})
+	}
+}
+
+func TestIPEAuditSignedContainerExecution(t *testing.T) {
+	dir := t.TempDir()
+	const nsenter = `#!/bin/bash
+set -eu
+[[ "$*" == "--target 123 --mount --root --wd --no-fork -- /usr/bin/kubectl-gadget --help" ]]
+printf '%s\n' "$$" > "$EXEC_TRACE"
+exit "$SIGNED_EXIT"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "nsenter"), []byte(nsenter), 0o700))
+	const command = `
+ipe_journal_cursor() { printf '%s-cursor\n' "$2"; }
+sleep() { :; }
+ipe_collect_audit_logs() {
+    [[ "$*" == "boot audit-cursor kernel-cursor driver-cursor" ]] || return 2
+    local recorded_pid
+    read -r recorded_pid < "$EXEC_TRACE" || return 2
+    [[ "$recorded_pid" == "$signed_pid" ]] || return 2
+    case "$AUDIT_CASE" in
+        none) return 0 ;;
+        denied)
+            printf 'IPE_ACCESS pid=%s path="/usr/bin/kubectl-gadget" ipe_op=EXECUTE ipe_hook=BPRM_CHECK enforcing=0 rule="DEFAULT op=EXECUTE action=DENY"\n' "$recorded_pid"
+            ;;
+        *) return 2 ;;
+    esac
+}
+ipe_check_signed_container_execution boot 123
+`
+	for _, tc := range []struct {
+		name, signedExit, auditCase string
+		ok                          bool
+	}{
+		{"no denial", "0", "none", true},
+		{"signed executable denied", "0", "denied", false},
+		{"signed execution failed", "1", "none", false},
+		{"audit evidence unavailable", "0", "unavailable", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := runACLScriptHelper(t, aclIPEAuditScript, command,
+				"PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"),
+				"EXEC_TRACE="+filepath.Join(t.TempDir(), "execution.txt"),
+				"SIGNED_EXIT="+tc.signedExit, "AUDIT_CASE="+tc.auditCase)
 			require.Equal(t, tc.ok, err == nil)
 		})
 	}

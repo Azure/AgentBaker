@@ -259,6 +259,15 @@ run without IPE denials.
 Its copy in writable storage must also run, but produce a matching audit denial.
 Audit mode logs violations without blocking execution.
 
+Both scenarios also run MCR `kubectl-gadget:v0.58.0-4`, pinned by its AMD64/ARM64
+index digest. Its exec readiness probe must run `/usr/bin/kubectl-gadget --help`
+successfully. Every lower layer of that container must be mounted as EROFS on
+a healthy dm-verity device with a root-hash signature descriptor.
+
+The container check also runs Gadget from the signed image and checks the
+node journal for IPE execution denials for that process's host PID. The
+writable-copy audit control runs only for the host executable.
+
 The existing `ACL` and `ACL_ARM64` scenarios also check that containerd's
 effective default remains overlayfs when the IPE profile is not requested.
 

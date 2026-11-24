@@ -156,6 +156,67 @@ ipe_check_erofs_runtime() {
     ipe_check_containerd <<< "$dump" || ipe_fail "containerd did not select the EROFS IPE profile"
 }
 
+ipe_check_signed_erofs_layer() {
+    local layer="$1" device table status
+    # Identify the mounted device independently of how findmnt renders its /dev alias.
+    if ! device=$(findmnt -rn -o FSTYPE,MAJ:MIN -T "$layer") ||
+        [[ ! "$device" =~ ^erofs[[:blank:]]+([0-9]+):([0-9]+)$ ]]; then
+        ipe_fail "expected one EROFS device for container lowerdir $layer, got: $device"
+        return 1
+    fi
+    local major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}"
+    if ! table=$(dmsetup --major "$major" --minor "$minor" table) ||
+        ! status=$(dmsetup --major "$major" --minor "$minor" status); then
+        ipe_fail "cannot inspect device-mapper device $major:$minor for container lowerdir $layer"
+        return 1
+    fi
+    printf 'Container lowerdir: %s -> EROFS %s:%s\nTable: %s\nStatus: %s\n' \
+        "$layer" "$major" "$minor" "$table" "$status"
+    if [[ "$(awk '{print $3}' <<< "$table")" != verity ]]; then
+        ipe_fail "container mapper $major:$minor is not a single dm-verity target"
+        return 1
+    fi
+    if ! grep -Eq '(^|[[:space:]])root_hash_sig_key_desc[[:space:]]+[^[:space:]]+' <<< "$table"; then
+        ipe_fail "container mapper $major:$minor has no signature key descriptor"
+        return 1
+    fi
+    [[ "$(awk '{print $3, $4}' <<< "$status")" == "verity V" ]] ||
+        ipe_fail "container mapper $major:$minor is unhealthy"
+}
+
+ipe_check_signed_container_mounted() {
+    local pid="$1" mount option layer
+    local -a options lowerdirs=() layers
+    if ! mount=$(findmnt -N "$pid" -rn -o FSTYPE,FS-OPTIONS --mountpoint /) ||
+        [[ ! "$mount" =~ ^overlay[[:blank:]]+([^[:space:]]+)$ ]]; then
+        ipe_fail "expected one OverlayFS root for container PID $pid, got: $mount"
+        return 1
+    fi
+    IFS=, read -r -a options <<< "${BASH_REMATCH[1]}"
+    for option in "${options[@]}"; do
+        if [[ "$option" == lowerdir=* ]]; then
+            lowerdirs+=("${option#lowerdir=}")
+        fi
+    done
+    if [[ "${#lowerdirs[@]}" != 1 || -z "${lowerdirs[0]}" ]]; then
+        ipe_fail "expected one nonempty lowerdir option for container PID $pid"
+        return 1
+    fi
+    # Containerd's snapshot paths are unescaped; do not resolve escaped paths literally.
+    if [[ "${lowerdirs[0]}" == *: || "${lowerdirs[0]}" == *\\* ]]; then
+        ipe_fail "invalid container lowerdirs: ${lowerdirs[0]}"
+        return 1
+    fi
+    IFS=: read -r -a layers <<< "${lowerdirs[0]}"
+    for layer in "${layers[@]}"; do
+        if [[ "$layer" != /* ]]; then
+            ipe_fail "invalid container lowerdir: $layer"
+            return 1
+        fi
+        ipe_check_signed_erofs_layer "$layer" || return 1
+    done
+}
+
 # Bookmark each transport separately. Events can be in audit or kernel;
 # journald reports its own loss/suppression notices on driver.
 # Cursors exclude notices from before the probes.
@@ -232,6 +293,35 @@ ipe_check_execution() {
     printf 'No IPE denial for the base executable or its dependencies: pid=%s path=%s\n' "$usr_pid" "$usr_probe"
 }
 
+ipe_check_signed_container_execution() {
+    local boot_id="$1" container_pid="$2" signed_pid
+    local audit_cursor kernel_cursor driver_cursor logs
+    if ! audit_cursor=$(ipe_journal_cursor "$boot_id" audit) ||
+        ! kernel_cursor=$(ipe_journal_cursor "$boot_id" kernel) ||
+        ! driver_cursor=$(ipe_journal_cursor "$boot_id" driver) ||
+        [[ -z "$kernel_cursor" ]]; then
+        ipe_fail "cannot establish an audit observation window for signed container execution"
+        return 1
+    fi
+
+    # Keep $! as the host PID of Gadget, not the container's initial sleep process.
+    (exec nsenter --target "$container_pid" --mount --root --wd --no-fork -- /usr/bin/kubectl-gadget --help) &
+    signed_pid=$!
+    if ! wait "$signed_pid"; then
+        ipe_fail "signed container executable failed: pid=$signed_pid"
+        return 1
+    fi
+
+    # Allow delayed audit records to reach journald, as in the host probe.
+    sleep 2
+    logs=$(ipe_collect_audit_logs "$boot_id" "$audit_cursor" "$kernel_cursor" "$driver_cursor") || return 1
+    if ! ipe_check_usr_audit "$signed_pid" <<< "$logs"; then
+        ipe_fail "signed container execution audit check failed: pid=$signed_pid"
+        return 1
+    fi
+    printf 'No IPE execution denial observed for signed Gadget or its dependencies: pid=%s\n' "$signed_pid"
+}
+
 ipe_cleanup() {
     local status="$1" probe="$2"
     if [[ -n "$probe" ]] && ! rm -f -- "$probe"; then
@@ -258,15 +348,28 @@ trap 'ipe_cleanup "$?" "$probe"' EXIT
 echo "Checking IPE audit mode (boot=$boot_id)"
 ipe_check_audit_mode /sys/kernel/security/ipe || ipe_fail "expected an active policy with enforcement off"
 
-echo "Checking signed /usr"
-ipe_check_signed_usr
+pass_message="functional IPE audit integration (not full signature or host-trust qualification)"
+if [[ $# -gt 0 ]]; then
+    [[ $# == 1 && "$1" =~ ^[0-9a-f]{64}$ ]] || ipe_fail "invalid container ID"
+    if ! container_pid=$(crictl inspect -o go-template --template '{{.info.pid}}' "$1") ||
+        [[ ! "$container_pid" =~ ^[1-9][0-9]*$ ]]; then
+        ipe_fail "cannot resolve a running PID for container $1: $container_pid"
+    fi
+    echo "Checking signed container: id=$1 pid=$container_pid"
+    ipe_check_signed_container_mounted "$container_pid"
+    ipe_check_signed_container_execution "$boot_id" "$container_pid"
+    pass_message="signed dm-verity container mount and no observed IPE execution denial"
+else
+    echo "Checking signed /usr"
+    ipe_check_signed_usr
 
-echo "Checking EROFS runtime configuration"
-ipe_check_erofs_runtime
+    echo "Checking EROFS runtime configuration"
+    ipe_check_erofs_runtime
 
-echo "Checking base and writable execution"
-probe=$(mktemp /var/tmp/acl-ipe-audit.XXXXXX)
-ipe_check_execution "$boot_id" "$probe"
+    echo "Checking base and writable execution"
+    probe=$(mktemp /var/tmp/acl-ipe-audit.XXXXXX)
+    ipe_check_execution "$boot_id" "$probe"
+fi
 
 ipe_check_audit_mode /sys/kernel/security/ipe || ipe_fail "policy state changed during the probe"
-echo "PASS: functional IPE audit integration (not full signature or host-trust qualification)"
+echo "PASS: $pass_message"
