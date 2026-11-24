@@ -1470,6 +1470,9 @@ func waitForWindowsExporter(ctx context.Context, interval, timeout time.Duration
 	var lastErr error
 	err := wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
 		metrics, err := scrape(ctx)
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
 		if err == nil {
 			if metricsErr := validateWindowsExporterMetrics(metrics); metricsErr != nil {
 				err = fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", metricsErr, metrics)

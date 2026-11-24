@@ -50,6 +50,22 @@ func TestWaitForWindowsExporterTimeout(t *testing.T) {
 	}
 }
 
+func TestWaitForWindowsExporterTimeoutDuringScrapePreservesLastError(t *testing.T) {
+	wantErr := errors.New("connection refused")
+	attempts := 0
+	err := waitForWindowsExporter(context.Background(), time.Millisecond, time.Second, func(ctx context.Context) (string, error) {
+		attempts++
+		if attempts == 1 {
+			return "", wantErr
+		}
+		<-ctx.Done()
+		return "", ctx.Err()
+	})
+	if attempts != 2 || !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, wantErr) {
+		t.Fatalf("expected two attempts, timeout and original scrape error; got attempts=%d, err=%v", attempts, err)
+	}
+}
+
 func TestWaitForWindowsExporterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
