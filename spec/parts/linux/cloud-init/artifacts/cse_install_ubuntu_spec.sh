@@ -240,19 +240,31 @@ EOF
             eval "$*"
         }
 
-        It 'installs the latest revision when the installed upstream version is equal but stale'
+        It 'installs the latest revision during VHD build when the installed upstream version is equal but stale'
             dpkg-query() { echo "1:1.7.35+azure-ubuntu22.04u1"; }
 
-            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}"
+            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}" true
 
             The output should include "installed moby-containerd package version 1:1.7.35+azure-ubuntu22.04u1 does not match latest revision 1:1.7.35+azure-ubuntu22.04u2"
             The output should include "installDebPackageFromFile ${CONTAINERD_DOWNLOADS_DIR}/moby-containerd_1.7.35+azure-ubuntu22.04u2_amd64.deb"
         End
 
+        It 'keeps the VHD revision during provisioning when the installed upstream version is equal but stale'
+            dpkg-query() { echo "1:1.7.35+azure-ubuntu22.04u1"; }
+            getLatestDebPackageVersion() { echo "unexpected revision query"; }
+
+            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}"
+
+            The output should include "currently installed containerd version 1:1.7.35+azure-ubuntu22.04u1 satisfies target version 1.7.35"
+            The output should not include "unexpected revision query"
+            The output should not include "removeContainerd"
+            The output should not include "installDebPackageFromFile"
+        End
+
         It 'skips installation when the latest revision is already installed'
             dpkg-query() { echo "1:1.7.35+azure-ubuntu22.04u2"; }
 
-            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}"
+            When call installContainerdWithAptGet 1.7.35 "${CONTAINERD_DOWNLOADS_DIR}" true
 
             The output should include "currently installed containerd version 1:1.7.35+azure-ubuntu22.04u2 satisfies target version 1.7.35"
             The output should not include "removeContainerd"

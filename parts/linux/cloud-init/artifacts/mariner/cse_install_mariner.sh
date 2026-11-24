@@ -742,6 +742,10 @@ downloadPkgFromVersion() {
 # CSE+VHD can dictate the containerd version, users don't care as long as it works
 installStandaloneContainerd() {
     local desiredVersion="${1:-}"
+    # VHD build passes true to bake the newest distro revision. Provisioning keeps the
+    # VHD package when the upstream version matches, so a PMC revision-only rebuild does
+    # not force a remove/download/reinstall on every full-install node.
+    local upgradeStaleRevision="${2:-false}"
     local containerdPackageName="containerd"
     local fullPackageVersion="${desiredVersion}"
     local currentVersion=""
@@ -769,7 +773,7 @@ installStandaloneContainerd() {
     # v1.4.1 is our lowest supported version of containerd
     if semverCompare "${currentVersion:-"0.0.0"}" "${desiredVersion}"; then
         installRequired=false
-        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${desiredVersion}" ]; then
+        if [ "${upgradeStaleRevision}" = "true" ] && [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${desiredVersion}" ]; then
             fullPackageVersion=$(getLatestRPMPackageVersion "${containerdPackageName}" "${desiredVersion}")
             if [ -z "${fullPackageVersion}" ]; then
                 echo "Failed to find valid ${containerdPackageName} version for ${desiredVersion}"

@@ -81,7 +81,7 @@ installContainerd() {
         installContainerdFromOverride ${containerdOverrideDownloadURL} || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
         return 0
     fi
-    installContainerdWithAptGet "${packageVersion}" "${CONTAINERD_DOWNLOADS_DIR}" || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
+    installContainerdWithAptGet "${packageVersion}" "${CONTAINERD_DOWNLOADS_DIR}" true || exit $ERR_CONTAINERD_INSTALL_TIMEOUT
 }
 
 installBcc() {

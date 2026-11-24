@@ -241,18 +241,35 @@ containerd2.x86_64 2.2.5-1.azl3 azurelinux-official-cloud-native
 EOF
         }
 
-        It 'updates an installed package when a newer revision has the same upstream version'
+        It 'updates an installed package during VHD build when a newer revision has the same upstream version'
             OS_VERSION="3.0"
             VHD_LOGS_FILEPATH="$PWD/spec/tmp/missing-vhd-marker"
             rpm() {
                 echo "2.2.4-1.azl3"
             }
 
-            When call installStandaloneContainerd 2.2.4
+            When call installStandaloneContainerd 2.2.4 true
 
             The output should include "installed containerd2 package version 2.2.4-1.azl3 does not match latest revision 2.2.4-8.azl3"
             The output should include "dnf install 30 1 600 containerd2-2.2.4-8.azl3"
             The output should not include "containerd2-2.2.5-1.azl3"
+        End
+
+        It 'keeps the VHD revision during provisioning when a newer revision has the same upstream version'
+            OS_VERSION="3.0"
+            rpm() {
+                echo "2.2.4-1.azl3"
+            }
+            dnf() {
+                echo "unexpected dnf query"
+                return 1
+            }
+
+            When call installStandaloneContainerd 2.2.4
+
+            The output should include "currently installed containerd version 2.2.4 satisfies target package version 2.2.4"
+            The output should not include "unexpected dnf query"
+            The output should not include "removeContainerd"
         End
 
         It 'skips installation when the latest package revision is installed'
@@ -262,7 +279,7 @@ EOF
                 echo "2.2.4-8.azl3"
             }
 
-            When call installStandaloneContainerd 2.2.4
+            When call installStandaloneContainerd 2.2.4 true
 
             The output should include "satisfies target package version 2.2.4-8.azl3"
             The output should not include "dnf install"

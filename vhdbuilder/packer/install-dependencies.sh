@@ -784,7 +784,7 @@ cachePackageAndBinaryComponents() {
           if [ "${OS}" = "${UBUNTU_OS_NAME}" ]; then
             installContainerd "${downloadDir}" "${evaluatedURL}" "${version}"
           elif isMarinerOrAzureLinux "$OS"; then
-            installStandaloneContainerd "${version}"
+            installStandaloneContainerd "${version}" true
           fi
           echo "  - containerd version ${version}" >> ${VHD_LOGS_FILEPATH}
         done

@@ -633,6 +633,10 @@ installContainerdFromOverride() {
 installContainerdWithAptGet() {
     local packageVersion="${1}"
     CONTAINERD_DOWNLOADS_DIR="${2:-$CONTAINERD_DOWNLOADS_DIR}"
+    # VHD build passes true to bake the newest distro revision. Provisioning keeps the
+    # VHD package when the upstream version matches, so a PMC revision-only rebuild does
+    # not force a remove/download/reinstall on every full-install node.
+    local upgradeStaleRevision="${3:-false}"
     local containerdMajorMinorPatchVersion
     local currentPackageVersion=""
     local latestPackageVersion=""
@@ -666,7 +670,7 @@ installContainerdWithAptGet() {
 
     if [ "$hasGreaterVersion" = "0" ] && [ "$currentMajorMinor" = "$desiredMajorMinor" ]; then
         installRequired=false
-        if [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${containerdMajorMinorPatchVersion}" ]; then
+        if [ "${upgradeStaleRevision}" = "true" ] && [ "${revisionlessVersion}" = "true" ] && [ "${currentVersion}" = "${containerdMajorMinorPatchVersion}" ]; then
             latestPackageVersion=$(getLatestDebPackageVersion "moby-containerd" "${packageVersion}")
             if [ -z "${latestPackageVersion}" ]; then
                 echo "Failed to find valid moby-containerd version for ${packageVersion}"
