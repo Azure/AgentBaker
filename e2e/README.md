@@ -82,6 +82,13 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Windows exporter readiness
+
+Common Windows validation checks the exporter service and scrapes its metrics
+immediately, then retries every 10 seconds for up to two minutes. Each successful
+scrape must include all required metrics. If readiness never succeeds, validation
+fails with the last error; cancellation stops the retries.
+
 ### Windows containerd restart plugin
 
 The Windows 2022/2025 base scenarios, combined containerd package scenario,

@@ -1450,16 +1450,41 @@ func ValidateWindowsExporter(ctx context.Context, s *Scenario) error {
 		"  if ($metricsContent -match \"(?m)^$([regex]::Escape($metricName))(?:\\{|\\s)\") { Write-Output \"$metricName 1\" }",
 		"}",
 	}
-	validationResult, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
-		fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+	err = waitForWindowsExporter(ctx, 10*time.Second, 2*time.Minute, func(ctx context.Context) (string, error) {
+		result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, strings.Join(command, "\n"), 0,
+			fmt.Sprintf("aks-windows-exporter validation failed on %s", s.Runtime.VM.PrivateIP))
+		if err != nil {
+			return "", err
+		}
+		return result.stdout, nil
+	})
 	if err != nil {
 		return err
 	}
 
-	if err := validateWindowsExporterMetrics(validationResult.stdout); err != nil {
-		return fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", err, validationResult.stdout)
-	}
 	logging.Logf(ctx, "aks-windows-exporter validation succeeded on %s: service is Running/Automatic and %s satisfies the metrics contract", s.Runtime.VM.PrivateIP, metricsURL)
+	return nil
+}
+
+func waitForWindowsExporter(ctx context.Context, interval, timeout time.Duration, scrape func(context.Context) (string, error)) error {
+	var lastErr error
+	err := wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
+		metrics, err := scrape(ctx)
+		if err == nil {
+			if metricsErr := validateWindowsExporterMetrics(metrics); metricsErr != nil {
+				err = fmt.Errorf("windows-exporter scrape did not satisfy the metrics contract: %w\nmetric summary:\n%s", metricsErr, metrics)
+			}
+		}
+		if err != nil {
+			lastErr = err
+			logging.Logf(ctx, "aks-windows-exporter is not ready; retrying every %s for up to %s: %v", interval, timeout, err)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("waiting for aks-windows-exporter validation: %w", errors.Join(err, lastErr))
+	}
 	return nil
 }
 

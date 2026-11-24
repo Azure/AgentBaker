@@ -1,9 +1,66 @@
 package scenario
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestWaitForWindowsExporter(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		failures int
+		metrics  string
+	}{
+		{name: "immediately ready"},
+		{name: "connection failure then ready", failures: 1},
+		{name: "incomplete metrics then ready", failures: 1, metrics: "windows_cpu_info 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			attempts := 0
+			err := waitForWindowsExporter(context.Background(), time.Millisecond, time.Second, func(context.Context) (string, error) {
+				attempts++
+				if attempts <= tc.failures {
+					if tc.metrics != "" {
+						return tc.metrics, nil
+					}
+					return "", errors.New("connection refused")
+				}
+				return validWindowsExporterMetrics(), nil
+			})
+			if err != nil || attempts != tc.failures+1 {
+				t.Fatalf("got attempts=%d, err=%v; want attempts=%d and success", attempts, err, tc.failures+1)
+			}
+		})
+	}
+}
+
+func TestWaitForWindowsExporterTimeout(t *testing.T) {
+	wantErr := errors.New("connection refused")
+	err := waitForWindowsExporter(context.Background(), time.Millisecond, 20*time.Millisecond, func(ctx context.Context) (string, error) {
+		if _, ok := ctx.Deadline(); !ok {
+			t.Fatal("scrape context must have a deadline")
+		}
+		return "", wantErr
+	})
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, wantErr) {
+		t.Fatalf("expected timeout and last scrape error, got %v", err)
+	}
+}
+
+func TestWaitForWindowsExporterCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := waitForWindowsExporter(ctx, time.Hour, time.Hour, func(context.Context) (string, error) {
+		cancel()
+		return "", errors.New("connection refused")
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation, got %v", err)
+	}
+}
 
 func TestValidateWindowsContainerdRestartPluginDisabled(t *testing.T) {
 	const header = "TYPE ID PLATFORMS STATUS\r\n"
