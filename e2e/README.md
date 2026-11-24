@@ -82,6 +82,14 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
 
+### Windows containerd restart plugin
+
+The Windows 2022/2025 base scenarios, combined containerd package scenario,
+Windows 2022 Kubernetes 1.33 scenario, and Windows VHD-caching scenarios inspect
+the running daemon with `ctr plugins list`. They require a healthy CRI plugin
+and reject both the containerd 1.x and 2.x restart plugins. This checks that
+the plugin is disabled in the running daemon, not just in its config file.
+
 ### PIS GPU coverage
 
 `Ubuntu2404_ManagedGPU_VHDCaching` and `AzureLinuxV3_ManagedGPU_VHDCaching`
@@ -390,6 +398,14 @@ VHD-caching setup deletes and recreates a gallery image definition only when Azu
 its provisioning state as `Failed`. It waits for deletion before recreating the definition
 and stops on deletion errors. It does not delete child image versions or definitions in
 other states.
+
+Shared setup repairs long-lived resources that Azure reports in the `Failed` provisioning
+state, because they otherwise break every later run. It deletes and recreates a failed
+Bastion, which does not recover in place. It reapplies the current definition (GET + PUT) of a
+failed VNet, subnet, Firewall, private endpoint, private DNS zone or link, and gallery. It
+deletes a failed private ACR and its cluster, then recreates the ACR; that run then fails
+because its cluster is gone, and the next run recreates the cluster. Resources in other
+non-terminal states are not changed; a Bastion without a DNS name fails with its state.
 
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
 Windows Server Core and Nano Server pod checks run concurrently on the scenario node.

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Azure/agentbaker/e2e/config"
 	"github.com/Azure/agentbaker/e2e/logging"
@@ -31,15 +32,42 @@ func TestGetFirewallAllowsNTP(t *testing.T) {
 	require.Equal(t, []*armnetwork.AzureFirewallNetworkRuleProtocol{to.Ptr(armnetwork.AzureFirewallNetworkRuleProtocolUDP)}, rule.Protocols)
 }
 
+func TestGetFirewallAllowsCVMValidation(t *testing.T) {
+	fw := getFirewall(logging.WithLogger(t.Context(), t), "westus3", "subnet-id", "public-ip-id")
+	coll := fw.Properties.ApplicationRuleCollections[0]
+	require.Equal(t, armnetwork.AzureFirewallRCActionTypeAllow, *coll.Properties.Action.Type)
+	var cvmRule *armnetwork.AzureFirewallApplicationRule
+	for _, rule := range coll.Properties.Rules {
+		if *rule.Name == "cvm-validation-fqdn" {
+			cvmRule = rule
+			break
+		}
+	}
+	require.NotNil(t, cvmRule)
+	require.Equal(t, []*string{to.Ptr(SharedVNetCIDR)}, cvmRule.SourceAddresses)
+	require.Equal(t, []*armnetwork.AzureFirewallApplicationRuleProtocol{{
+		ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+		Port:         to.Ptr[int32](443),
+	}}, cvmRule.Protocols)
+	require.ElementsMatch(t, []*string{
+		to.Ptr("github.com"),
+		to.Ptr("pypi.org"),
+		to.Ptr("files.pythonhosted.org"),
+		to.Ptr("sharedwus.wus.attest.azure.net"),
+	}, cvmRule.TargetFqdns)
+}
+
 func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 	originalConfig, originalAzure := config.Config, config.Azure
 	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
 	config.Config = &config.Configuration{SubscriptionID: "test"}
 
 	for _, tt := range []struct {
-		name       string
-		mutate     func(*armnetwork.AzureFirewall)
-		wantUpdate bool
+		name              string
+		mutate            func(*armnetwork.AzureFirewall)
+		wantUpdate        bool
+		preserveUnrelated bool
+		wantError         string
 	}{
 		{name: "current rules"},
 		{
@@ -77,9 +105,85 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			},
 		},
 		{
+			name: "failed with current rules", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ProvisioningState = to.Ptr(armnetwork.ProvisioningStateFailed)
+			},
+		},
+		{
 			name: "stale blob rule", wantUpdate: true,
 			mutate: func(fw *armnetwork.AzureFirewall) {
 				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[1].TargetFqdns = []*string{to.Ptr("old.blob.core.windows.net")}
+			},
+		},
+		{
+			name: "legacy firewall without CVM rule", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = fw.Properties.ApplicationRuleCollections[0].Properties.Rules[:4]
+			},
+		},
+		{
+			name: "incomplete CVM destinations", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].TargetFqdns = []*string{to.Ptr("github.com")}
+			},
+		},
+		{
+			name: "CVM rule without attestation destination", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].TargetFqdns = []*string{
+					to.Ptr("github.com"), to.Ptr("pypi.org"), to.Ptr("files.pythonhosted.org"),
+				}
+			},
+		},
+		{
+			name: "wrong CVM protocol", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].Protocols[0].ProtocolType = to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTP)
+			},
+		},
+		{
+			name: "wrong CVM port", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].Protocols[0].Port = to.Ptr[int32](80)
+			},
+		},
+		{
+			name: "wrong CVM source", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules[4].SourceAddresses = []*string{to.Ptr("192.168.0.0/16")}
+			},
+		},
+		{
+			name: "application deny action", wantUpdate: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
+			},
+		},
+		{
+			name: "CVM migration preserves unrelated configuration", wantUpdate: true, preserveUnrelated: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = fw.Properties.ApplicationRuleCollections[0].Properties.Rules[:4]
+			},
+		},
+		{
+			name: "NTP repair preserves unrelated configuration", wantUpdate: true, preserveUnrelated: true,
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.NetworkRuleCollections[0].Properties.Rules[0].DestinationPorts = []*string{to.Ptr("443")}
+			},
+		},
+		{
+			name: "unrelated application deny rules are not changed to allow", preserveUnrelated: true,
+			wantError: "cannot change collection action to Allow with unrelated rules",
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.ApplicationRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
+			},
+		},
+		{
+			name: "unrelated network deny rules are not changed to allow", preserveUnrelated: true,
+			wantError: "cannot change collection action to Allow with unrelated rules",
+			mutate: func(fw *armnetwork.AzureFirewall) {
+				fw.Properties.NetworkRuleCollections[0].Properties.Action.Type = to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)
 			},
 		},
 	} {
@@ -91,6 +195,60 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			fw.Properties.IPConfigurations[0].Properties.PrivateIPAddress = to.Ptr("10.0.1.4")
 			if tt.mutate != nil {
 				tt.mutate(fw)
+			}
+			var checkPreserved func(armnetwork.AzureFirewall)
+			if tt.preserveUnrelated {
+				appRule := &armnetwork.AzureFirewallApplicationRule{
+					Name: to.Ptr("unrelated-app"), SourceAddresses: []*string{to.Ptr("10.1.0.0/16")},
+					TargetFqdns: []*string{to.Ptr("example.com")},
+				}
+				netRule := &armnetwork.AzureFirewallNetworkRule{
+					Name: to.Ptr("unrelated-network"), DestinationPorts: []*string{to.Ptr("8443")},
+				}
+				appCollection := &armnetwork.AzureFirewallApplicationRuleCollection{
+					Name: to.Ptr("unrelated-app-collection"),
+					Properties: &armnetwork.AzureFirewallApplicationRuleCollectionPropertiesFormat{
+						Priority: to.Ptr[int32](300),
+						Action:   &armnetwork.AzureFirewallRCAction{Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)},
+						Rules:    []*armnetwork.AzureFirewallApplicationRule{appRule},
+					},
+				}
+				netCollection := &armnetwork.AzureFirewallNetworkRuleCollection{
+					Name: to.Ptr("unrelated-network-collection"),
+					Properties: &armnetwork.AzureFirewallNetworkRuleCollectionPropertiesFormat{
+						Priority: to.Ptr[int32](400),
+						Action:   &armnetwork.AzureFirewallRCAction{Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeDeny)},
+						Rules:    []*armnetwork.AzureFirewallNetworkRule{netRule},
+					},
+				}
+				natCollection := &armnetwork.AzureFirewallNatRuleCollection{
+					Name: to.Ptr("unrelated-nat"),
+					Properties: &armnetwork.AzureFirewallNatRuleCollectionProperties{
+						Priority: to.Ptr[int32](500),
+						Rules: []*armnetwork.AzureFirewallNatRule{{
+							Name: to.Ptr("unrelated-nat"), TranslatedAddress: to.Ptr("10.2.0.4"), TranslatedPort: to.Ptr("443"),
+						}},
+					},
+				}
+				fw.Tags = map[string]*string{"owner": to.Ptr("another-test")}
+				fw.Properties.ThreatIntelMode = to.Ptr(armnetwork.AzureFirewallThreatIntelModeDeny)
+				fw.Properties.ApplicationRuleCollections[0].Properties.Priority = to.Ptr[int32](150)
+				fw.Properties.ApplicationRuleCollections[0].Properties.Rules = append(fw.Properties.ApplicationRuleCollections[0].Properties.Rules, appRule)
+				fw.Properties.NetworkRuleCollections[0].Properties.Rules = append(fw.Properties.NetworkRuleCollections[0].Properties.Rules, netRule)
+				fw.Properties.ApplicationRuleCollections = append(fw.Properties.ApplicationRuleCollections, appCollection)
+				fw.Properties.NetworkRuleCollections = append(fw.Properties.NetworkRuleCollections, netCollection)
+				fw.Properties.NatRuleCollections = []*armnetwork.AzureFirewallNatRuleCollection{natCollection}
+				checkPreserved = func(updated armnetwork.AzureFirewall) {
+					require.Equal(t, fw.Tags, updated.Tags)
+					require.Equal(t, fw.Properties.IPConfigurations, updated.Properties.IPConfigurations)
+					require.Equal(t, armnetwork.AzureFirewallThreatIntelModeDeny, *updated.Properties.ThreatIntelMode)
+					require.Equal(t, int32(150), *updated.Properties.ApplicationRuleCollections[0].Properties.Priority)
+					require.Contains(t, updated.Properties.ApplicationRuleCollections[0].Properties.Rules, appRule)
+					require.Contains(t, updated.Properties.NetworkRuleCollections[0].Properties.Rules, netRule)
+					require.Contains(t, updated.Properties.ApplicationRuleCollections, appCollection)
+					require.Contains(t, updated.Properties.NetworkRuleCollections, netCollection)
+					require.Equal(t, []*armnetwork.AzureFirewallNatRuleCollection{natCollection}, updated.Properties.NatRuleCollections)
+				}
 			}
 
 			updates := 0
@@ -105,6 +263,9 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 					require.True(t, firewallAppRulesUpToDate(updated))
 					require.True(t, firewallNetworkRulesUpToDate(updated))
 					require.Equal(t, publicIPID, *updated.Properties.IPConfigurations[0].Properties.PublicIPAddress.ID)
+					if checkPreserved != nil {
+						checkPreserved(updated)
+					}
 					updated.ID = fw.ID
 					updated.Properties.ProvisioningState = to.Ptr(armnetwork.ProvisioningStateSucceeded)
 					updated.Properties.IPConfigurations[0].Properties.PrivateIPAddress = to.Ptr("10.0.1.4")
@@ -122,6 +283,11 @@ func TestEnsureSharedFirewallReconcilesRules(t *testing.T) {
 			config.Azure = &config.AzureClient{AzureFirewall: client}
 
 			ip, err := ensureSharedFirewall(ctx, "rg", "westus3")
+			if tt.wantError != "" {
+				require.ErrorContains(t, err, tt.wantError)
+				require.Zero(t, updates)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, "10.0.1.4", ip)
 			if tt.wantUpdate {
@@ -192,4 +358,153 @@ func TestEnsureSharedInfraPreservesOtherClusterSubnets(t *testing.T) {
 	require.Equal(t, "bastion.example", infra.BastionDNSName)
 	require.Equal(t, "10.0.1.4", infra.FirewallIP)
 	require.Empty(t, deletedSubnets, "another run may have created its subnet before creating its cluster")
+}
+
+func TestEnsureSharedBastionRecreatesFailedBastion(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	for _, tt := range []struct {
+		name      string
+		state     string
+		dnsName   string
+		wantCalls []string
+		wantErr   string
+	}{
+		{name: "reuse succeeded", state: "Succeeded", dnsName: "bastion.example", wantCalls: []string{"GET bastion"}},
+		{
+			name: "recreate failed", state: "Failed",
+			wantCalls: []string{"GET bastion", "DELETE bastion", "PUT pip", "PUT bastion"},
+		},
+		{
+			name: "in-progress bastion reports its state", state: "Updating",
+			wantCalls: []string{"GET bastion"}, wantErr: "exists in state Updating but has no DNS name",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls []string
+			deleted := false
+			responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				resource := "bastion"
+				if strings.HasSuffix(req.URL.Path, "/publicIPAddresses/"+SharedBastionPIPName) {
+					resource = "pip"
+				} else {
+					require.True(t, strings.HasSuffix(req.URL.Path, "/bastionHosts/"+SharedBastionName), req.URL.Path)
+				}
+				calls = append(calls, req.Method+" "+resource)
+				switch {
+				case req.Method == http.MethodGet:
+					body := fmt.Sprintf(`{"properties":{"provisioningState":%q,"enableIpConnect":true}}`, tt.state)
+					if tt.dnsName != "" {
+						body = fmt.Sprintf(`{"properties":{"provisioningState":%q,"enableIpConnect":true,"dnsName":%q}}`, tt.state, tt.dnsName)
+					}
+					return gcResponse(req, http.StatusOK, body)
+				case req.Method == http.MethodDelete:
+					deleted = true
+					return gcResponse(req, http.StatusOK, "")
+				case req.Method == http.MethodPut && resource == "pip":
+					return gcResponse(req, http.StatusOK, `{"id":"/subscriptions/test/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/pip","properties":{"provisioningState":"Succeeded"}}`)
+				case req.Method == http.MethodPut:
+					require.True(t, deleted, "the failed bastion must be deleted before it is recreated")
+					return gcResponse(req, http.StatusOK, `{"properties":{"provisioningState":"Succeeded","dnsName":"new.bastion.example"}}`)
+				}
+				t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+				return nil
+			})
+			opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+			network, err := armnetwork.NewClientFactory("test", nil, opts)
+			require.NoError(t, err)
+			config.Azure = &config.AzureClient{
+				BastionHosts: network.NewBastionHostsClient(), PublicIPAddresses: network.NewPublicIPAddressesClient(),
+			}
+
+			dnsName, err := ensureSharedBastion(logging.WithLogger(t.Context(), t), "rg", "westus3")
+			require.Equal(t, tt.wantCalls, calls)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			if tt.state == "Failed" {
+				require.Equal(t, "new.bastion.example", dnsName)
+			} else {
+				require.Equal(t, tt.dnsName, dnsName)
+			}
+		})
+	}
+}
+
+func TestEnsureSubnetReappliesFailedSubnet(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	for _, state := range []string{"Succeeded", "Failed"} {
+		t.Run(state, func(t *testing.T) {
+			const natID = "/subscriptions/test/resourceGroups/rg/providers/Microsoft.Network/natGateways/nat"
+			puts := 0
+			responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+				require.True(t, strings.HasSuffix(req.URL.Path, "/subnets/AzureBastionSubnet"), req.URL.Path)
+				switch req.Method {
+				case http.MethodGet:
+					return gcResponse(req, http.StatusOK, fmt.Sprintf(
+						`{"name":"AzureBastionSubnet","properties":{"provisioningState":%q,"addressPrefix":"10.0.0.0/26","natGateway":{"id":%q}}}`, state, natID))
+				case http.MethodPut:
+					puts++
+					var subnet armnetwork.Subnet
+					require.NoError(t, json.NewDecoder(req.Body).Decode(&subnet))
+					require.Equal(t, "10.0.0.0/26", *subnet.Properties.AddressPrefix)
+					require.Equal(t, natID, *subnet.Properties.NatGateway.ID, "reapplying must keep the subnet's attachments")
+					return gcResponse(req, http.StatusOK, `{"name":"AzureBastionSubnet","properties":{"provisioningState":"Succeeded"}}`)
+				}
+				t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+				return nil
+			})
+			opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+			client, err := armnetwork.NewSubnetsClient("test", nil, opts)
+			require.NoError(t, err)
+			config.Azure = &config.AzureClient{Subnet: client}
+
+			require.NoError(t, ensureSubnet(logging.WithLogger(t.Context(), t), "rg", SharedVNetName, "AzureBastionSubnet", "10.0.0.0/26"))
+			if state == "Failed" {
+				require.Equal(t, 1, puts)
+			} else {
+				require.Zero(t, puts)
+			}
+		})
+	}
+}
+
+func TestReapplyFailedSubnetRereadsAfterConflict(t *testing.T) {
+	originalConfig, originalAzure := config.Config, config.Azure
+	t.Cleanup(func() { config.Config, config.Azure = originalConfig, originalAzure })
+	config.Config = &config.Configuration{SubscriptionID: "test", DefaultPollInterval: time.Millisecond}
+
+	gets, puts := 0, 0
+	responder := vmssCreationTestPolicy(func(req *http.Request) *http.Response {
+		switch req.Method {
+		case http.MethodGet:
+			gets++
+			if gets == 1 {
+				return gcResponse(req, http.StatusOK, `{"name":"s","properties":{"provisioningState":"Failed","addressPrefix":"10.0.0.0/26"}}`)
+			}
+			// Another run repaired the subnet and attached a route table during the backoff.
+			return gcResponse(req, http.StatusOK, `{"name":"s","properties":{"provisioningState":"Succeeded","addressPrefix":"10.0.0.0/26","routeTable":{"id":"rt"}}}`)
+		case http.MethodPut:
+			puts++
+			return gcResponse(req, http.StatusConflict, `{"error":{"code":"AnotherOperationInProgress","message":"conflict"}}`)
+		}
+		t.Fatalf("unexpected request: %s %s", req.Method, req.URL.Path)
+		return nil
+	})
+	opts := &arm.ClientOptions{ClientOptions: policy.ClientOptions{PerCallPolicies: []policy.Policy{responder}}}
+	client, err := armnetwork.NewSubnetsClient("test", nil, opts)
+	require.NoError(t, err)
+	config.Azure = &config.AzureClient{Subnet: client}
+
+	failed := armnetwork.Subnet{Properties: &armnetwork.SubnetPropertiesFormat{ProvisioningState: to.Ptr(armnetwork.ProvisioningStateFailed)}}
+	require.NoError(t, reapplyFailedSubnet(logging.WithLogger(t.Context(), t), "rg", SharedVNetName, "s", failed))
+	require.Equal(t, 1, puts, "a retry must not PUT a stale body over the repaired subnet")
+	require.Equal(t, 2, gets)
 }

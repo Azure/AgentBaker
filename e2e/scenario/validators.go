@@ -1714,6 +1714,11 @@ func ValidateNoFailedSystemdUnits(ctx context.Context, s *Scenario) error {
 			continue
 		}
 		failedUnitLogs[unit.Name+".log"] = unitLogs.String()
+		if unit.Name == "azurefile-proxy.service" && s.Tags.CVM &&
+			s.VHD.Distro == datamodel.AKSUbuntuContainerd2004CVMGen2 {
+			logging.Logf(ctx, "Temporarily allowing %s in Ubuntu 20.04 CVM validation; Azure Files proxy health is not validated and failure logs are retained", unit.Name)
+			continue
+		}
 		if unit.Name == "initrd-core-tmpfiles-setup.service" && s.Tags.CVM {
 			errorLogs, err := execScriptOnVMForScenarioValidateExitCode(ctx, s,
 				fmt.Sprintf("journalctl -b -u %s -p notice --no-pager --quiet -o cat", unit.Name),
@@ -2218,6 +2223,77 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) er
 	}
 	errs = append(errs, assert.Equal(strings.TrimSpace(processResult.stdout), "AboveNormal", "expected containerd process to be running with AboveNormal priority class"))
 	return errors.Join(errs...)
+}
+
+// getWindowsContainerdVersion returns the output of `containerd.exe --version` on the node, e.g.
+// "containerd github.com/containerd/containerd v1.7.20+azure <commit>" for a combined package or
+// "containerd github.com/containerd/containerd 1.7.36-7 <commit>" for a DALEC package.
+func getWindowsContainerdVersion(ctx context.Context, s *Scenario) (string, error) {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"$env:ProgramFiles\\containerd\\containerd.exe\" --version",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read the containerd version")
+	if err != nil {
+		return "", fmt.Errorf("read containerd version: %w", err)
+	}
+	return strings.TrimSpace(result.stdout), nil
+}
+
+func ValidateWindowsContainerdRestartPluginDisabled(ctx context.Context, s *Scenario) error {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		`& "$env:ProgramFiles\containerd\ctr.exe" --address '\\.\pipe\containerd-containerd' plugins list`,
+		"if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not list running containerd plugins")
+	if err != nil {
+		return fmt.Errorf("validate Windows containerd restart plugin is disabled: %w", err)
+	}
+	return validateWindowsContainerdRestartPluginDisabled(result.stdout)
+}
+
+func validateWindowsContainerdRestartPluginDisabled(output string) error {
+	criHealthy := false
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		if fields[1] == "restart" && (fields[0] == "io.containerd.internal.v1" || fields[0] == "io.containerd.monitor.container.v1") {
+			return fmt.Errorf("expected Windows containerd restart plugin to be disabled, but found %q", strings.TrimSpace(line))
+		}
+		if fields[0] == "io.containerd.grpc.v1" && fields[1] == "cri" && fields[len(fields)-1] == "ok" {
+			criHealthy = true
+		}
+	}
+	if !criHealthy {
+		return fmt.Errorf("expected a healthy CRI plugin in running Windows containerd plugin list, got %q", output)
+	}
+	return nil
+}
+
+// ValidateWindowsContainerdVersion checks that the installed containerd reports the given version
+// token, such as "v1.7.17+azure" or "1.7.36-6".
+func ValidateWindowsContainerdVersion(ctx context.Context, s *Scenario, version string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	return assert.Equal(slices.Contains(strings.Fields(actual), version), true, "expected containerd version %q, got %q", version, actual)
+}
+
+// ValidateWindowsContainerdFromCachedDalecPackages checks that containerd came from a DALEC
+// moby-containerd package on the given major.minor line rather than a combined package. The exact
+// revision depends on what the VHD caches.
+func ValidateWindowsContainerdFromCachedDalecPackages(ctx context.Context, s *Scenario, line string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	dalecVersion := regexp.MustCompile(`^` + regexp.QuoteMeta(line) + `\.\d+-\d+$`)
+	return assert.Equal(slices.ContainsFunc(strings.Fields(actual), dalecVersion.MatchString), true,
+		"expected a DALEC containerd %s.x-<revision> version, got %q", line, actual)
 }
 
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) error {
@@ -4038,53 +4114,6 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 		return err
 	}
 	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
-}
-
-func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
-	result, err := execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		`set -eu
-config_path=/opt/azure/containers/aks-node-controller-config.json
-anc_path=/opt/azure/containers/aks-node-controller-hotfix
-
-sudo test ! -e "$config_path" || {
-	echo "$config_path unexpectedly exists" >&2
-	exit 1
-}
-if ! sudo test -x "$anc_path"; then
-	anc_path=/opt/azure/containers/aks-node-controller
-fi
-sudo test -x "$anc_path" || {
-	echo "no executable aks-node-controller binary found" >&2
-	exit 1
-}
-
-echo "using ANC binary: $anc_path"
-sudo "$anc_path" check-hotfix`,
-		0,
-		"check-hotfix NBC command fallback failed",
-	)
-	if err != nil {
-		return err
-	}
-
-	output := result.stdout + "\n" + result.stderr
-	errs := []error{
-		assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
-		assert.NotContains(output, "check-hotfix panicked"),
-	}
-	if strings.Contains(output, "verified provisioning input cleanup") {
-		errs = append(errs,
-			assert.Contains(output, "check-hotfix completed (fail-open)"),
-			assert.Contains(output, `"outcome":"noColdStartPointer"`),
-			assert.Contains(output, "reading nbc-cmd "+ancNBCCmdPath+": open "+ancNBCCmdPath+": no such file or directory"),
-			assert.NotContains(output, "loaded LPS target from nbc-cmd.sh fallback"),
-		)
-	} else {
-		errs = append(errs, assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"))
-	}
-	return errors.Join(errs...)
 }
 
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled

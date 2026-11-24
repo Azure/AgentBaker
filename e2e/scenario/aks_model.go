@@ -299,7 +299,7 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			Action: &armnetwork.AzureFirewallRCAction{
 				Type: to.Ptr(armnetwork.AzureFirewallRCActionTypeAllow),
 			},
-			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule},
+			Rules: []*armnetwork.AzureFirewallApplicationRule{&aksAppRule, &blobStorageAppRule, &mooncakeMARRule, &dmcRule, getCVMFirewallRule()},
 		},
 	}
 
@@ -325,6 +325,23 @@ func getFirewall(ctx context.Context, location, firewallSubnetID, publicIPID str
 			NetworkRuleCollections:     netRuleCollections,
 			NatRuleCollections:         natRuleCollections,
 			IPConfigurations:           ipConfigurations,
+		},
+	}
+}
+
+func getCVMFirewallRule() *armnetwork.AzureFirewallApplicationRule {
+	return &armnetwork.AzureFirewallApplicationRule{
+		Name:            to.Ptr("cvm-validation-fqdn"),
+		SourceAddresses: []*string{to.Ptr(SharedVNetCIDR)},
+		Protocols: []*armnetwork.AzureFirewallApplicationRuleProtocol{{
+			ProtocolType: to.Ptr(armnetwork.AzureFirewallApplicationRuleProtocolTypeHTTPS),
+			Port:         to.Ptr[int32](443),
+		}},
+		TargetFqdns: []*string{
+			to.Ptr("github.com"),
+			to.Ptr("pypi.org"),
+			to.Ptr("files.pythonhosted.org"),
+			to.Ptr(strings.TrimPrefix(cvmAttestationIssuer, "https://")),
 		},
 	}
 }
@@ -719,15 +736,19 @@ func createPrivateAzureContainerRegistry(ctx context.Context, cluster *armcontai
 
 	acr, err := config.Azure.RegistriesClient.Get(ctx, resourceGroup, privateACRName, nil)
 	if err == nil {
-		err, recreateACR := shouldRecreateACR(ctx, resourceGroup, privateACRName)
-		if err != nil {
-			return fmt.Errorf("failed to check cache rules: %w", err)
+		if acr.Properties != nil && isFailedProvisioningState(acr.Properties.ProvisioningState) {
+			logging.Logf(ctx, "##vso[task.logissue type=warning;]Private ACR %s is in Failed state, deleting...", privateACRName)
+		} else {
+			err, recreateACR := shouldRecreateACR(ctx, resourceGroup, privateACRName)
+			if err != nil {
+				return fmt.Errorf("failed to check cache rules: %w", err)
+			}
+			if !recreateACR {
+				logging.Logf(ctx, "Private ACR already exists at id %s, skipping creation", *acr.ID)
+				return nil
+			}
+			logging.Logf(ctx, "Private ACR exists with the wrong cache deleting...")
 		}
-		if !recreateACR {
-			logging.Logf(ctx, "Private ACR already exists at id %s, skipping creation", *acr.ID)
-			return nil
-		}
-		logging.Logf(ctx, "Private ACR exists with the wrong cache deleting...")
 		if err := deletePrivateAzureContainerRegistry(ctx, resourceGroup, privateACRName); err != nil {
 			return fmt.Errorf("failed to delete private acr: %w", err)
 		}
@@ -878,8 +899,11 @@ func addCacheRulesToPrivateAzureContainerRegistry(ctx context.Context, resourceG
 func createPrivateEndpoint(ctx context.Context, nodeResourceGroup, privateEndpointName, privateACRName string, vnet VNet, location string) (*armnetwork.PrivateEndpoint, error) {
 	existingPE, err := config.Azure.PrivateEndpointClient.Get(ctx, nodeResourceGroup, privateEndpointName, nil)
 	if err == nil && existingPE.ID != nil {
-		logging.Logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
-		return &existingPE.PrivateEndpoint, nil
+		if existingPE.Properties == nil || !isFailedProvisioningState(existingPE.Properties.ProvisioningState) {
+			logging.Logf(ctx, "Private Endpoint already exists with ID: %s", *existingPE.ID)
+			return &existingPE.PrivateEndpoint, nil
+		}
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Private Endpoint %s is in Failed state; reapplying it", privateEndpointName)
 	}
 	if err != nil && !strings.Contains(err.Error(), "ResourceNotFound") {
 		return nil, fmt.Errorf("failed to get private endpoint: %w", err)
@@ -940,8 +964,11 @@ func createPrivateZone(ctx context.Context, nodeResourceGroup, privateZoneName s
 		privateZoneName,
 		nil,
 	)
-	if err == nil {
+	if err == nil && !privateZoneFailed(pzResp.PrivateZone) {
 		return &pzResp.PrivateZone, nil
+	}
+	if err == nil {
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Private DNS zone %s is in Failed state; reapplying it", privateZoneName)
 	}
 	return createPrivateZoneWithRetry(ctx, nodeResourceGroup, privateZoneName)
 }
@@ -964,7 +991,7 @@ func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZ
 			}
 			// zone may have been created by AKS or a previous attempt that got 409
 			resp, err := config.Azure.PrivateZonesClient.Get(ctx, nodeResourceGroup, privateZoneName, nil)
-			if err == nil {
+			if err == nil && !privateZoneFailed(resp.PrivateZone) {
 				return &resp.PrivateZone, nil
 			}
 		}
@@ -993,17 +1020,28 @@ func createPrivateZoneWithRetry(ctx context.Context, nodeResourceGroup, privateZ
 	return nil, fmt.Errorf("failed to create private dns zone %q after 5 attempts, last error: %w", privateZoneName, lastErr)
 }
 
+func privateZoneFailed(zone armprivatedns.PrivateZone) bool {
+	return zone.Properties != nil && isFailedProvisioningState(zone.Properties.ProvisioningState)
+}
+
+func privateDNSLinkFailed(link armprivatedns.VirtualNetworkLink) bool {
+	return link.Properties != nil && isFailedProvisioningState(link.Properties.ProvisioningState)
+}
+
 func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, privateZoneName string) error {
 	networkLinkName := "link-ABE2ETests"
-	_, err := config.Azure.VirutalNetworkLinksClient.Get(
+	existing, err := config.Azure.VirutalNetworkLinksClient.Get(
 		ctx,
 		resourceGroup,
 		privateZoneName,
 		networkLinkName,
 		nil,
 	)
-	if err == nil {
+	if err == nil && !privateDNSLinkFailed(existing.VirtualNetworkLink) {
 		return nil
+	}
+	if err == nil {
+		logging.Logf(ctx, "##vso[task.logissue type=warning;]Private DNS link %s is in Failed state; reapplying it", networkLinkName)
 	}
 
 	vnetRG := vnet.resourceGroup
@@ -1034,7 +1072,7 @@ func createPrivateDNSLink(ctx context.Context, vnet VNet, resourceGroup, private
 			case <-time.After(30 * time.Second):
 			}
 			// link may have been created by another concurrent run
-			if _, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, resourceGroup, privateZoneName, networkLinkName, nil); err == nil {
+			if resp, err := config.Azure.VirutalNetworkLinksClient.Get(ctx, resourceGroup, privateZoneName, networkLinkName, nil); err == nil && !privateDNSLinkFailed(resp.VirtualNetworkLink) {
 				return nil
 			}
 		}
