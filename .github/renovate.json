@@ -656,7 +656,8 @@
       "versioning": "semver",
       "automerge": false,
       "assignees": [
-        "team:aks-node-lifecycle"
+        "team:aks-node-lifecycle",
+        "rzlink"
       ],
       "reviewers": [
         "team:aks-node-lifecycle",
