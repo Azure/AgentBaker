@@ -4040,50 +4040,6 @@ func ValidateNodeHasLabel(ctx context.Context, s *Scenario, labelKey, expectedVa
 	return assert.Equal(actualValue, expectedValue, "expected node %q label %q to have value %q, but got %q", s.Runtime.VM.KubeName, labelKey, expectedValue, actualValue)
 }
 
-<<<<<<< HEAD
-func ValidateHotfixFromNBCCmd(ctx context.Context, s *Scenario) error {
-	result, err := execScriptOnVMForScenarioValidateExitCode(
-		ctx,
-		s,
-		`set -eu
-config_path=/opt/azure/containers/aks-node-controller-config.json
-nbc_cmd_path=/opt/azure/containers/aks-node-controller-nbc-cmd.sh
-anc_path=/opt/azure/containers/aks-node-controller-hotfix
-
-sudo test ! -e "$config_path" || {
-	echo "$config_path unexpectedly exists" >&2
-	exit 1
-}
-sudo test -e "$nbc_cmd_path" || {
-	echo "$nbc_cmd_path does not exist" >&2
-	exit 1
-}
-if ! sudo test -x "$anc_path"; then
-	anc_path=/opt/azure/containers/aks-node-controller
-fi
-sudo test -x "$anc_path" || {
-	echo "no executable aks-node-controller binary found" >&2
-	exit 1
-}
-
-echo "using ANC binary: $anc_path"
-sudo "$anc_path" check-hotfix`,
-		0,
-		"check-hotfix NBC command fallback failed",
-	)
-	if err != nil {
-		return err
-	}
-
-	output := result.stdout + "\n" + result.stderr
-	return errors.Join(
-		assert.Contains(output, "node config not found, trying nbc-cmd.sh fallback"),
-		assert.Contains(output, "loaded LPS target from nbc-cmd.sh fallback"),
-	)
-}
-
-=======
->>>>>>> a8c643d1e0 (test: fix filesystem corruption e2e (#10164))
 // ValidateScriptlessCSECmd checks if the node has scriptless cmd correctly enabled
 func ValidateScriptlessCSECmd(ctx context.Context, s *Scenario) error {
 	nbc := s.Runtime.NBC
