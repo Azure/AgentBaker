@@ -2220,6 +2220,77 @@ func ValidateContainerdWindowsPriorityClass(ctx context.Context, s *Scenario) er
 	return errors.Join(errs...)
 }
 
+// getWindowsContainerdVersion returns the output of `containerd.exe --version` on the node, e.g.
+// "containerd github.com/containerd/containerd v1.7.20+azure <commit>" for a combined package or
+// "containerd github.com/containerd/containerd 1.7.36-7 <commit>" for a DALEC package.
+func getWindowsContainerdVersion(ctx context.Context, s *Scenario) (string, error) {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		"& \"$env:ProgramFiles\\containerd\\containerd.exe\" --version",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not read the containerd version")
+	if err != nil {
+		return "", fmt.Errorf("read containerd version: %w", err)
+	}
+	return strings.TrimSpace(result.stdout), nil
+}
+
+func ValidateWindowsContainerdRestartPluginDisabled(ctx context.Context, s *Scenario) error {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		`& "$env:ProgramFiles\containerd\ctr.exe" --address '\\.\pipe\containerd-containerd' plugins list`,
+		"if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not list running containerd plugins")
+	if err != nil {
+		return fmt.Errorf("validate Windows containerd restart plugin is disabled: %w", err)
+	}
+	return validateWindowsContainerdRestartPluginDisabled(result.stdout)
+}
+
+func validateWindowsContainerdRestartPluginDisabled(output string) error {
+	criHealthy := false
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		if fields[1] == "restart" && (fields[0] == "io.containerd.internal.v1" || fields[0] == "io.containerd.monitor.container.v1") {
+			return fmt.Errorf("expected Windows containerd restart plugin to be disabled, but found %q", strings.TrimSpace(line))
+		}
+		if fields[0] == "io.containerd.grpc.v1" && fields[1] == "cri" && fields[len(fields)-1] == "ok" {
+			criHealthy = true
+		}
+	}
+	if !criHealthy {
+		return fmt.Errorf("expected a healthy CRI plugin in running Windows containerd plugin list, got %q", output)
+	}
+	return nil
+}
+
+// ValidateWindowsContainerdVersion checks that the installed containerd reports the given version
+// token, such as "v1.7.17+azure" or "1.7.36-6".
+func ValidateWindowsContainerdVersion(ctx context.Context, s *Scenario, version string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	return assert.Equal(slices.Contains(strings.Fields(actual), version), true, "expected containerd version %q, got %q", version, actual)
+}
+
+// ValidateWindowsContainerdFromCachedDalecPackages checks that containerd came from a DALEC
+// moby-containerd package on the given major.minor line rather than a combined package. The exact
+// revision depends on what the VHD caches.
+func ValidateWindowsContainerdFromCachedDalecPackages(ctx context.Context, s *Scenario, line string) error {
+	actual, err := getWindowsContainerdVersion(ctx, s)
+	if err != nil {
+		return err
+	}
+	dalecVersion := regexp.MustCompile(`^` + regexp.QuoteMeta(line) + `\.\d+-\d+$`)
+	return assert.Equal(slices.ContainsFunc(strings.Fields(actual), dalecVersion.MatchString), true,
+		"expected a DALEC containerd %s.x-<revision> version, got %q", line, actual)
+}
+
 func ValidateWindowsProcessHasCliArguments(ctx context.Context, s *Scenario, processName string, arguments []string) error {
 	steps := []string{
 		fmt.Sprintf("(Get-CimInstance Win32_Process -Filter \"name='%[1]s'\")[0].CommandLine", processName),
@@ -3720,51 +3791,7 @@ fi`)
 	return nil
 }
 
-func ValidateSSHDisabledAcrossReboot(ctx context.Context, s *Scenario) error {
-	if err := ValidateSSHServiceDisabled(ctx, s); err != nil {
-		return err
-	}
-	before, err := RunCommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
-	if err != nil {
-		return fmt.Errorf("read boot ID before SSH-disabled reboot: %w", err)
-	}
-	bootID := strings.TrimSpace(lo.FromPtr(before.Output))
-	bootIDPattern := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-	if !bootIDPattern.MatchString(bootID) {
-		return fmt.Errorf("invalid boot ID before SSH-disabled reboot: %q", bootID)
-	}
-	if _, err := RunCommand(ctx, s, fmt.Sprintf(rebootSSHDisabledNodeScript, bootID)); err != nil {
-		return fmt.Errorf("schedule SSH-disabled VM reboot: %w", err)
-	}
-	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		after, err := RunCommand(ctx, s, "cat /proc/sys/kernel/random/boot_id")
-		if err != nil {
-			logging.Logf(ctx, "waiting for VM agent after SSH-disabled reboot: %v", err)
-			return false, nil
-		}
-		afterID := strings.TrimSpace(lo.FromPtr(after.Output))
-		if !bootIDPattern.MatchString(afterID) {
-			return false, fmt.Errorf("invalid boot ID after SSH-disabled reboot: %q", afterID)
-		}
-		return afterID != bootID, nil
-	})
-	if err != nil {
-		return fmt.Errorf("wait for SSH-disabled VM reboot: %w", err)
-	}
-	err = wait.PollUntilContextTimeout(ctx, 15*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
-		if _, err := RunCommand(ctx, s, "systemctl is-active --quiet kubelet"); err != nil {
-			logging.Logf(ctx, "waiting for kubelet after SSH-disabled reboot: %v", err)
-			return false, nil
-		}
-		return true, nil
-	})
-	if err != nil {
-		return fmt.Errorf("wait for kubelet to become active after SSH-disabled reboot: %w", err)
-	}
-	return ValidateSSHServiceDisabled(ctx, s)
-}
-
-// ValidateSSHServiceDisabled checks persistent SSH blocking, inactivity and listeners.
+// ValidateSSHServiceDisabled validates that SSH services and sockets are disabled and stopped on the node
 func ValidateSSHServiceDisabled(ctx context.Context, s *Scenario) error {
 	command := validateSSHServiceDisabledScript
 	if s.IsWindows() {
@@ -4054,10 +4081,8 @@ func ValidateScriptlessNBCCSECmd(ctx context.Context, s *Scenario) error {
 	if !usesScriptlessNBCCSECmd(s) {
 		return nil
 	}
-	fileNameToCheck := "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"
 	var errs []error
 	errs = append(errs,
-		ValidateFileExists(ctx, s, fileNameToCheck),
 		ValidateFileHasContent(ctx, s, "/var/log/azure/aks-node-controller.output", "Using NBC command for scriptless phase 2"),
 	)
 	if s.Runtime.NBC != nil && s.Runtime.NBC.ScriptlessCSEProvisionMode {
@@ -4082,7 +4107,6 @@ func ValidateScriptlessPhase3(ctx context.Context, s *Scenario) error {
 	}
 	logFile := "/var/log/azure/aks-node-controller.output"
 	errs := []error{
-		ValidateFileExists(ctx, s, "/opt/azure/containers/aks-node-controller-config.json"),
 		ValidateFileDoesNotExist(ctx, s, "/opt/azure/containers/aks-node-controller-nbc-cmd.sh"),
 		ValidateFileHasContent(ctx, s, logFile, "Launching aks-node-controller with config"),
 		ValidateFileExcludesContent(ctx, s, logFile, "Launching aks-node-controller with nbc cmd"),

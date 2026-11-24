@@ -88,6 +88,8 @@ type App struct {
 	gpuComponentsFilePath string
 	// readyReportMarkerPath overrides the readiness handoff marker location for testing.
 	readyReportMarkerPath string
+	// provisionJSONFilePath overrides the cleanup failure status location for testing.
+	provisionJSONFilePath string
 	// goalStateReporter overrides native provisioning status reporting for testing.
 	goalStateReporter func(context.Context, bool, string) error
 	// checkHotfixFetcher overrides the real LPS hotfix-pointer GET for testing, letting
@@ -168,8 +170,8 @@ func (a *App) Run(ctx context.Context, args []string) int {
 				Usage: "Wait for provisioning to complete",
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					provisionStatusFiles := ProvisionStatusFiles{
-						ProvisionJSONFile:     osCfg.provisionJSONFilePath,
-						ProvisionCompleteFile: osCfg.provisionCompleteFilePath,
+						ProvisionJSONFile:     provisionJSONFilePath,
+						ProvisionCompleteFile: provisionCompleteFilePath,
 					}
 					provisionOutput, err := a.runProvisionWaitCommand(ctx, provisionStatusFiles)
 					_, _ = fmt.Fprintln(cmd.Root().Writer, provisionOutput)
@@ -718,13 +720,42 @@ func (a *App) Provision(ctx context.Context, flags ProvisionFlags) (*ProvisionRe
 	return provisionResult, err
 }
 
+func removeProvisioningInputs(flags ProvisionFlags) error {
+	var errs []error
+	for _, path := range []string{flags.NBCCmd, flags.ProvisionConfig} {
+		if path == "" {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			errs = append(errs, fmt.Errorf("remove provisioning input %s: %w", path, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// Persist cleanup failures atomically so status readers never see partial JSON.
+func writeProvisioningFile(path string, content []byte) error {
+	file, err := os.CreateTemp(filepath.Dir(path), ".aks-node-controller-input-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+	}()
+	if _, err := file.Write(content); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), path)
+}
+
 func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult, provisionErr error) {
 	markerPath := a.readyReportMarkerPath
 	if markerPath == "" {
-		markerPath = osCfg.readyReportMarkerPath
-	}
-	if markerPath == "" {
-		return
+		markerPath = readyReportMarkerPath
 	}
 	if _, err := os.Stat(markerPath); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -783,6 +814,29 @@ func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun boo
 		a.cmdRun = cmdRunnerDryRun
 	}
 	provisionResult, provisionErr = a.Provision(ctx, flags)
+	if dryRun || provisionErr != nil || provisionResult.ExitCode != "0" {
+		return provisionResult, provisionErr
+	}
+	// Environment comparison is the last consumer of provisioning inputs.
+	// PIS receives fresh inputs for nodePrep, so bake-time copies can also be removed.
+	if err := removeProvisioningInputs(flags); err != nil {
+		provisionErr = fmt.Errorf("clean up provisioning inputs: %w", err)
+		provisionResult.ExitCode = "240"
+		provisionResult.Error = provisionErr.Error()
+		data, persistErr := json.Marshal(provisionResult)
+		if persistErr == nil {
+			statusPath := a.provisionJSONFilePath
+			if statusPath == "" {
+				statusPath = provisionJSONFilePath
+			}
+			persistErr = writeProvisioningFile(statusPath, data)
+		}
+		if persistErr != nil {
+			provisionErr = errors.Join(provisionErr, fmt.Errorf("write cleanup failure status: %w", persistErr))
+		}
+		return provisionResult, provisionErr
+	}
+	slog.Info("Removed provisioning input files")
 
 	return provisionResult, provisionErr
 }
@@ -793,27 +847,27 @@ func (a *App) writeCompleteFileOnError(provisionResult *ProvisionResult, err err
 	if err == nil {
 		return
 	}
-	if _, statErr := os.Stat(osCfg.provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
+	if _, statErr := os.Stat(provisionJSONFilePath); statErr != nil && errors.Is(statErr, os.ErrNotExist) {
 		data, err := json.Marshal(provisionResult)
 		if err != nil {
 			slog.Error("failed to marshal provision result", "error", err)
 		}
-		baseDir := filepath.Dir(osCfg.provisionJSONFilePath)
+		baseDir := filepath.Dir(provisionJSONFilePath)
 		if writeErr := os.MkdirAll(baseDir, 0755); writeErr != nil {
 			slog.Error("failed to create directory for provision.json file", "path", baseDir, "error", writeErr)
 		}
-		if writeErr := os.WriteFile(osCfg.provisionJSONFilePath, data, 0600); writeErr != nil {
-			slog.Error("failed to write provision.json file", "path", osCfg.provisionJSONFilePath, "error", writeErr)
+		if writeErr := os.WriteFile(provisionJSONFilePath, data, 0600); writeErr != nil {
+			slog.Error("failed to write provision.json file", "path", provisionJSONFilePath, "error", writeErr)
 		}
 	}
-	if _, statErr := os.Stat(osCfg.provisionCompleteFilePath); statErr == nil {
+	if _, statErr := os.Stat(provisionCompleteFilePath); statErr == nil {
 		return // already exists
 	} else if !errors.Is(statErr, os.ErrNotExist) { // unexpected error
-		slog.Error("failed to stat provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", statErr)
+		slog.Error("failed to stat provision.complete file", "path", provisionCompleteFilePath, "error", statErr)
 		return
 	}
-	if writeErr := os.WriteFile(osCfg.provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
-		slog.Error("failed to write provision.complete file", "path", osCfg.provisionCompleteFilePath, "error", writeErr)
+	if writeErr := os.WriteFile(provisionCompleteFilePath, []byte{}, 0600); writeErr != nil {
+		slog.Error("failed to write provision.complete file", "path", provisionCompleteFilePath, "error", writeErr)
 	}
 }
 

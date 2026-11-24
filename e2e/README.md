@@ -21,21 +21,12 @@ Windows VHD-caching scenarios retain SSH access during the bake when enabled:
 function supports the `Enabled` parameter, `NodePrep` reapplies the current policy
 and keys, including on cached images. Only Windows scenarios that explicitly
 skip SSH connectivity validation use VMSS RunCommand for guest checks in both
-the bake and real-node stages.
+the bake and real-node stages. Linux behavior is unchanged.
 OpenSSH remains stopped and disabled while the live authorized keys and ACLs are
 prepared; provisioning only re-enables it after those steps succeed.
 The shared `Install-OpenSSH` implementation ships only in the versioned Windows
 CSE bundle, not in CustomData. Older bundles retain their existing SSH behavior
 and require an updated CSE bundle or VHD to receive this fix.
-
-Linux SSH-disabled scenarios use RunCommand to verify the persistent SSH block,
-schedule a guest reboot through RunCommand, confirm its boot ID changed, and check the block
-again after kubelet becomes active. CSE stops SSH listeners and uses an AKS-owned
-systemd condition without changing distribution enablement or administrator masks.
-SSH policy runs only in `nodePrep`, so image preparation leaves SSH defaults
-unchanged. This delays SSH policy enforcement until `nodePrep` on ordinary nodes
-as well. There is no activation history or automatic re-enable path; a code
-rollback alone does not remove a persisted block.
 
 ## Writing and extending scenarios
 
@@ -81,6 +72,14 @@ Use `<OS/image>_<distinguishing configuration>[_<lifecycle>]`, for example
 - Set VMSS properties through `VMConfigMutator`; keep its SKU and
   `nbc.AgentPoolProfile.VMSize` equal. See [vmss.go](scenario/vmss.go).
 - Use `Validator` to check the resulting node state.
+
+### Windows containerd restart plugin
+
+The Windows 2022/2025 base scenarios, combined containerd package scenario,
+Windows 2022 Kubernetes 1.33 scenario, and Windows VHD-caching scenarios inspect
+the running daemon with `ctr plugins list`. They require a healthy CRI plugin
+and reject both the containerd 1.x and 2.x restart plugins. This checks that
+the plugin is disabled in the running daemon, not just in its config file.
 
 ### PIS GPU coverage
 
@@ -385,11 +384,6 @@ functions — no separate setup script is needed.
 Shared setup does not delete cluster subnets: an empty subnet with no AKS cluster may belong
 to another runner that is still creating its cluster. The external resource-group garbage
 collector owns cleanup of abandoned subnets.
-
-VHD-caching setup deletes and recreates a gallery image definition only when Azure reports
-its provisioning state as `Failed`. It waits for deletion before recreating the definition
-and stops on deletion errors. It does not delete child image versions or definitions in
-other states.
 
 Bastion and Firewall provisioning run concurrently after sequential subnet setup.
 Windows Server Core and Nano Server pod checks run concurrently on the scenario node.

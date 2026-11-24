@@ -18,10 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-const (
-	DEFAULT_VMSKU            = "Standard_D2ds_v5"
-	DEFAULT_SIG_IMAGE_BRANCH = "refs/heads/dev"
-)
+const DEFAULT_VMSKU = "Standard_D2ds_v5"
 
 var (
 	// Config is populated before scenario goroutines start and is immutable after Initialize.
@@ -125,7 +122,7 @@ func DefaultConfiguration() *Configuration {
 		Parallel:               60,
 		OutputMode:             "auto",
 		SIGVersionTagName:      "branch",
-		SIGVersionTagValue:     DEFAULT_SIG_IMAGE_BRANCH,
+		SIGVersionTagValue:     "refs/heads/main",
 		SubscriptionID:         "8ecadfc9-d1a3-4ea4-b844-0d9f87e4d7c8",
 		TestGalleryImagePrefix: "abe2etest",
 		TestGalleryNamePrefix:  "abe2etest",

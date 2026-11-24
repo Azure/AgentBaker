@@ -69,6 +69,17 @@
       ]
     },
     {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-host-process-containers-base-image",
+          "latestVersion": "v1.0.0"
+        }
+      ]
+    },
+    {
       "downloadURL": "mcr.microsoft.com/oss/v2/kubernetes/autoscaler/addon-resizer:*",
       "amd64OnlyVersions": [],
       "multiArchVersionsV2": [
@@ -901,15 +912,15 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.3.7-4"
+                "latestVersion": "2.3.7-6"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "2.0.14-4"
+                "latestVersion": "2.0.14-6"
               },
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.7.36-5"
+                "latestVersion": "1.7.36-7"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/dalec-packages/moby-containerd/${versionNoBuild}/windows/amd64/moby-containerd_${version}_amd64.zip"
@@ -926,7 +937,7 @@
             "versionsV2": [
               {
                 "renovateTag": "<DO_NOT_UPDATE>",
-                "latestVersion": "1.37.0-6"
+                "latestVersion": "1.37.0-8"
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/${versionNoBuild}/windows/amd64/kubernetes-cri-tools_${version}_amd64.zip"
@@ -1160,7 +1171,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.4"
+                "latestVersion": "1.4.3"
               }
             ]
           },
@@ -1168,7 +1179,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.4"
+                "latestVersion": "1.4.3"
               }
             ]
           },
@@ -1176,7 +1187,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.4"
+                "latestVersion": "1.4.3"
               }
             ]
           }
