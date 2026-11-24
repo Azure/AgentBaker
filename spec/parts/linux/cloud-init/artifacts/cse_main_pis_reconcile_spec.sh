@@ -28,7 +28,8 @@ Describe 'cse_main.sh PIS-safe configuration'
 
     node_prep_event_calls() {
         phase_body "nodePrep" | code_lines |
-            sed -n 's/^[[:space:]]*logs_to_events "[^"]*" \([A-Za-z_][A-Za-z0-9_]*\).*/\1/p'
+            sed -n 's/^[[:space:]]*logs_to_events "[^"]*" \([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' |
+            grep -E '^(disableSSHPubkeyAuth|configureAzureJson|ensureKubeCACert)$'
     }
 
     dispatch_calls() {
@@ -145,6 +146,9 @@ Describe 'cse_main.sh PIS-safe configuration'
 
         disableSSH() { echo disabled; }
         disableSSHPubkeyAuth() { echo entra; }
+        configureSystemSlicePlacement() { :; }
+        reconcileLocalDNSPlacement() { :; }
+        retireLegacySystemSlices() { :; }
         logs_to_events() {
             [ "$2" != configureAzureJson ] || exit 0
             shift

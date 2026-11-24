@@ -1,5 +1,19 @@
 #!/bin/bash
 
+getServiceCgroup() {
+    local service control_group
+    for service in "$@"; do
+        if ! control_group=$(systemctl show "${service}" -p ControlGroup --value 2>/dev/null); then
+            continue
+        fi
+        if [ -n "${control_group}" ] && [ "${control_group}" != "/" ]; then
+            echo "${control_group#/}"
+            return
+        fi
+    done
+    echo "not-found"
+}
+
 # Publish a cgroup observation, splitting the named object only when necessary.
 # Each fragment is checked before any file is published.
 publishCgroupTelemetry() {
