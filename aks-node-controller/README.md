@@ -284,6 +284,9 @@ the steps below in order, and stops at the first failed step.
   the command as its last step. AIB templates (`vhdbuilder/prefetch/templates/optimize.json`
   and the aks-rp hotfix prefetch template) write `/tmp/DeprovisioningScript.sh`, which
   runs this command. AIB runs that file in place of its default deprovision.
+  AIB uploads its default file as the SSH user before customizers run, and
+  `fs.protected_regular` stops root from writing to that file in `/tmp`. Thus the
+  templates remove the file before they write it.
 - **`--keep-agent`** is for capture through RunCommand (VHD caching/PIS). RunCommand
   reports its status through WALinuxAgent, so the command does not stop or deprovision
   the agent. It keeps `/var/lib/waagent/provisioned`: on a clone, the agent detects the
