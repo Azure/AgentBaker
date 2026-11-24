@@ -5,6 +5,36 @@ import (
 	"testing"
 )
 
+func TestValidateWindowsContainerdRestartPluginDisabled(t *testing.T) {
+	const header = "TYPE ID PLATFORMS STATUS\r\n"
+	const cri = "io.containerd.grpc.v1 cri windows/amd64 ok\r\n"
+	for _, tc := range []struct {
+		name    string
+		output  string
+		wantErr string
+	}{
+		{name: "disabled with healthy CRI", output: header + cri},
+		{name: "unrelated internal plugin", output: header + "io.containerd.internal.v1 opt - ok\r\n" + cri},
+		{name: "legacy restart plugin loaded", output: header + cri + "io.containerd.internal.v1 restart - ok\r\n", wantErr: "restart plugin to be disabled"},
+		{name: "v2 restart plugin loaded", output: header + cri + "io.containerd.monitor.container.v1 restart - ok\r\n", wantErr: "restart plugin to be disabled"},
+		{name: "restart plugin errored rather than disabled", output: header + cri + "io.containerd.monitor.container.v1 restart - error\r\n", wantErr: "restart plugin to be disabled"},
+		{name: "empty output", wantErr: "healthy CRI plugin"},
+		{name: "header only", output: header, wantErr: "healthy CRI plugin"},
+		{name: "unhealthy CRI", output: header + "io.containerd.grpc.v1 cri windows/amd64 error\r\n", wantErr: "healthy CRI plugin"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateWindowsContainerdRestartPluginDisabled(tc.output)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("expected disabled restart plugin: %v", err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("got %v, want error containing %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateWindowsExporterMetrics(t *testing.T) {
 	if err := validateWindowsExporterMetrics(validWindowsExporterMetrics()); err != nil {
 		t.Fatalf("expected valid metrics: %v", err)

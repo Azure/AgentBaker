@@ -2235,6 +2235,39 @@ func getWindowsContainerdVersion(ctx context.Context, s *Scenario) (string, erro
 	return strings.TrimSpace(result.stdout), nil
 }
 
+func ValidateWindowsContainerdRestartPluginDisabled(ctx context.Context, s *Scenario) error {
+	command := strings.Join([]string{
+		"$ErrorActionPreference = 'Stop'",
+		`& "$env:ProgramFiles\containerd\ctr.exe" --address '\\.\pipe\containerd-containerd' plugins list`,
+		"if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+	}, "\n")
+	result, err := execScriptOnVMForScenarioValidateExitCode(ctx, s, command, 0, "could not list running containerd plugins")
+	if err != nil {
+		return fmt.Errorf("validate Windows containerd restart plugin is disabled: %w", err)
+	}
+	return validateWindowsContainerdRestartPluginDisabled(result.stdout)
+}
+
+func validateWindowsContainerdRestartPluginDisabled(output string) error {
+	criHealthy := false
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		if fields[1] == "restart" && (fields[0] == "io.containerd.internal.v1" || fields[0] == "io.containerd.monitor.container.v1") {
+			return fmt.Errorf("expected Windows containerd restart plugin to be disabled, but found %q", strings.TrimSpace(line))
+		}
+		if fields[0] == "io.containerd.grpc.v1" && fields[1] == "cri" && fields[len(fields)-1] == "ok" {
+			criHealthy = true
+		}
+	}
+	if !criHealthy {
+		return fmt.Errorf("expected a healthy CRI plugin in running Windows containerd plugin list, got %q", output)
+	}
+	return nil
+}
+
 // ValidateWindowsContainerdVersion checks that the installed containerd reports the given version
 // token, such as "v1.7.17+azure" or "1.7.36-6".
 func ValidateWindowsContainerdVersion(ctx context.Context, s *Scenario, version string) error {
