@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -111,4 +112,10 @@ func sanitizeURL(u string) string {
 		return u[:idx] + "?<redacted>"
 	}
 	return u
+}
+
+var cosiOutputURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
+
+func sanitizeCOSIOutput(output string) string {
+	return cosiOutputURLPattern.ReplaceAllStringFunc(output, sanitizeURL)
 }

@@ -21,7 +21,7 @@ parameters:
 
 jobs:
   - job: ${{ parameters.JOB_NAME }}
-    condition: and(succeeded(), in(dependencies.${{ parameters.DEPENDS_ON_JOB }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+    condition: and(succeeded(), in(dependencies.${{ parameters.DEPENDS_ON_JOB }}.result, 'Succeeded', 'SucceededWithIssues'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
     dependsOn: ${{ parameters.DEPENDS_ON_JOB }}
     timeoutInMinutes: 120
     pool:
@@ -30,6 +30,7 @@ jobs:
       ${{ else }}:
         name: $(POOL_NAME)
     variables:
+      SOURCE_BUNDLE_ARTIFACT: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['bundleCOSISource.SOURCE_BUNDLE_ARTIFACT'] ]
       CAPTURED_SIG_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportCapturedSigVersion.CAPTURED_SIG_VERSION'] ]
       IMAGE_VERSION: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportImageVersion.IMAGE_VERSION'] ]
       DESTINATION_STORAGE_CONTAINER: $[ dependencies.${{ parameters.DEPENDS_ON_JOB }}.outputs['exportDestinationStorageContainer.DESTINATION_STORAGE_CONTAINER'] ]
@@ -51,7 +52,7 @@ jobs:
       - task: DownloadPipelineArtifact@2
         displayName: Download AgentBaker source bundle
         inputs:
-          artifact: agentbaker-sources-${{ parameters.ARTIFACT_NAME }}
+          artifact: $(SOURCE_BUNDLE_ARTIFACT)
           path: $(Pipeline.Workspace)/agentbaker-sources
 
       # tar is present on both convert pool images, so the source bundle can be

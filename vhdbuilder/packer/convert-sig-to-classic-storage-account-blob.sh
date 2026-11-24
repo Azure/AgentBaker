@@ -11,6 +11,7 @@ required_env_vars=(
     "CAPTURED_SIG_VERSION"
     "OS_TYPE"
     "SIG_IMAGE_NAME"
+    "DESTINATION_STORAGE_CONTAINER"
 )
 
 for v in "${required_env_vars[@]}"
@@ -142,7 +143,11 @@ export AZCOPY_JOB_PLAN_LOCATION="$(pwd)/azcopy-job-plan-files/"
 mkdir -p "${AZCOPY_LOG_LOCATION}"
 mkdir -p "${AZCOPY_JOB_PLAN_LOCATION}"
 
-if ! azcopy copy "${sas}" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+# Avoid `if ! azcopy`: negation would make $? zero in the error branch.
+# Save the original failure status before running diagnostics below.
+if azcopy copy "${sas}" "${DESTINATION_STORAGE_CONTAINER}/${CAPTURED_SIG_VERSION}.vhd" --recursive=true ; then
+  :
+else
   azExitCode=$?
   # loop through azcopy log files
   shopt -s nullglob

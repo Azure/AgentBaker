@@ -94,6 +94,23 @@ func TestCheckTridentUpdateResult(t *testing.T) {
 	}
 }
 
+func TestSanitizeCOSIOutput(t *testing.T) {
+	status := "spec:\n  image:\n    url: \"https://storage.invalid/image.cosi?sig=private&sp=r\"\nstatus:\n  servicingState: provisioned\n  abActiveVolume: volume-b\n"
+	want := "spec:\n  image:\n    url: \"https://storage.invalid/image.cosi?<redacted>\"\nstatus:\n  servicingState: provisioned\n  abActiveVolume: volume-b\n"
+	require.Equal(t, want, sanitizeCOSIOutput(status))
+
+	t.Run("multiple URLs and ordinary question marks", func(t *testing.T) {
+		output := "retry? https://first.invalid/image?sig=first then https://second.invalid/image?sig=second\nservicingState: provisioned"
+		want := "retry? https://first.invalid/image?<redacted> then https://second.invalid/image?<redacted>\nservicingState: provisioned"
+		require.Equal(t, want, sanitizeCOSIOutput(output))
+	})
+
+	t.Run("status without URLs", func(t *testing.T) {
+		output := "servicingState: provisioned\nabActiveVolume: volume-b\n"
+		require.Equal(t, output, sanitizeCOSIOutput(output))
+	})
+}
+
 func TestLoadCOSIPublishingInfo(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("COSI_ARTIFACTS_DIR", dir)

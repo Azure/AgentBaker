@@ -36,14 +36,16 @@ steps:
         tar --exclude='./.git' \
             -czf "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz" .
         ls -lh "$(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz"
-      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+        echo "##vso[task.setvariable variable=SOURCE_BUNDLE_ARTIFACT;isOutput=true]agentbaker-sources-${{ parameters.artifactName }}-stage$(System.StageAttempt)-job$(System.JobAttempt)"
+      name: bundleCOSISource
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
       displayName: Bundle source for COSI convert
 
     - task: PublishPipelineArtifact@1
-      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
       displayName: Publish source bundle for COSI convert
       inputs:
-        artifactName: agentbaker-sources-${{ parameters.artifactName }}
+        artifactName: $(bundleCOSISource.SOURCE_BUNDLE_ARTIFACT)
         targetPath: $(Build.ArtifactStagingDirectory)/agentbaker-sources.tar.gz
 
   - task: UniversalPackages@0
@@ -284,13 +286,13 @@ steps:
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
       name: exportCapturedSigVersion
       displayName: Export Captured SIG Version for COSI convert
-      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
     - bash: |
         echo "##vso[task.setvariable variable=IMAGE_VERSION;isOutput=true]${IMAGE_VERSION}"
       name: exportImageVersion
       displayName: Export Image Version for COSI convert
-      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - task: AzureCLI@2
     inputs:
@@ -531,7 +533,8 @@ steps:
       )
     displayName: Copy to Immutable Storage Container
 
-  # The COSI convert jobs read the ACL VHD from the immutable container.
+  # Match TME's staging flow; other environments export to the final container.
+  # Prefetch already promotes its VHD, so only handle non-prefetched builds.
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - task: AzureCLI@2
       inputs:
@@ -547,7 +550,11 @@ steps:
           succeeded(),
           eq(variables.ENVIRONMENT, 'tme'),
           eq(variables.GENERATE_PUBLISHING_INFO, 'True'),
-          eq(variables['OS_SKU'], 'AzureContainerLinux')
+          eq(variables['OS_SKU'], 'AzureContainerLinux'),
+          or(
+            eq(variables.RUN_PREFETCH_OPTIMIZATION, 'False'),
+            eq(variables.PREFETCH_COMPATIBLE, 'False')
+          )
         )
       displayName: Copy ACL VHD to Immutable Storage Container
 
@@ -555,7 +562,7 @@ steps:
         echo "##vso[task.setvariable variable=DESTINATION_STORAGE_CONTAINER;isOutput=true]${DESTINATION_STORAGE_CONTAINER}"
       name: exportDestinationStorageContainer
       displayName: Export Destination Storage Container for COSI convert
-      condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
+      condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'), eq(variables['OS_SKU'], 'AzureContainerLinux'))
 
   - task: AzureCLI@2
     inputs:

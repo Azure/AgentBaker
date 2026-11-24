@@ -1,6 +1,57 @@
 #!/bin/bash
 # shellcheck disable=SC2329
 
+Describe 'Trident ACL Agent startup'
+  setup_agent_startup() {
+    MOCK_ENABLE_STATUS=0
+  }
+  BeforeEach 'setup_agent_startup'
+
+  isACL() {
+    [ "$1" = 'AZURELINUX' ] && [ "$2" = 'AZURECONTAINERLINUX' ]
+  }
+
+  enableTridentACLAgent() {
+    echo 'enableTridentACLAgent'
+    return "$MOCK_ENABLE_STATUS"
+  }
+
+  capture_benchmark() {
+    echo "benchmark $*"
+  }
+
+  run_agent_startup() (
+    export OS="$1" OS_VARIANT="$2" SCRIPT_NAME=pre-install-dependencies
+    # shellcheck disable=SC2016
+    eval "$(sed -n '/^if isACL "\$OS" "\$OS_VARIANT"; then$/,/^fi$/p' './vhdbuilder/packer/pre-install-dependencies.sh')"
+  )
+
+  It 'activates the ACL startup trigger and records its benchmark'
+    When call run_agent_startup AZURELINUX AZURECONTAINERLINUX
+    The status should be success
+    The output should equal "enableTridentACLAgent
+benchmark pre-install-dependencies_enable_trident_acl_agent"
+  End
+
+  Parameters
+    UBUNTU ''
+    AZURELINUX ''
+  End
+
+  It 'leaves non-ACL startup unchanged'
+    When call run_agent_startup "$1" "$2"
+    The status should be success
+    The output should equal ''
+  End
+
+  It 'fails the build when startup activation fails'
+    MOCK_ENABLE_STATUS=7
+    When call run_agent_startup AZURELINUX AZURECONTAINERLINUX
+    The status should equal 1
+    The output should equal 'enableTridentACLAgent'
+  End
+End
+
 Describe 'installAzureLinuxArm64DualKernel'
   BeforeAll "eval \"\$(sed -n '/^installAzureLinuxArm64DualKernel()/,/^}/p' './vhdbuilder/packer/pre-install-dependencies.sh')\""
 
