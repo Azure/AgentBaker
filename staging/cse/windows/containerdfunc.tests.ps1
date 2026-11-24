@@ -117,6 +117,7 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match $cniBinDir
         $content | Should -Match $cniConfDir
         $content | Should -Not -Match 'version = 3'
+        $content | Should -Match '(?m)^disabled_plugins = \["restart"\]\r?$'
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
@@ -149,6 +150,7 @@ Describe "Containerd Functions Tests" {
         $content | Should -Not -Match 'container_annotations'
         $content | Should -Not -Match 'pod_annotations'
         $content | Should -Not -Match 'version = 3'
+        $content | Should -Match '(?m)^disabled_plugins = \["restart"\]\r?$'
       }
     }
 
@@ -186,6 +188,7 @@ Describe "Containerd Functions Tests" {
         $content | Should -Match $cniBinDir
         $content | Should -Match $cniConfDir
         $content | Should -Match 'version = 3'
+        $content | Should -Match "(?m)^disabled_plugins = \['io\.containerd\.monitor\.container\.v1\.restart'\]\r?$"
         $content | Should -Match 'SandboxIsolation = 0'
       }
 
