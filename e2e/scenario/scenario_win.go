@@ -140,8 +140,118 @@ var _ = Register(&Scenario{
 				ValidateCiliumIsNotRunningWindows(ctx, s),
 				ValidateDotnetNotInstalledWindows(ctx, s),
 				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "CSEScriptsPackageUrl used for provision is https://packages.aks.azure.com/aks/windows/cse/aks-windows-cse-scripts-current.zip"),
+				validateContainerdFromCacheOnCurrentBuildVHD(ctx, s),
 				ValidateWindowsSystemServicesRestartConfiguration(ctx, s),
 				ValidateCollectWindowsLogsScript(ctx, s),
+			)
+		},
+	},
+})
+
+// Packages used by the containerd package selection scenarios, shared by their setup and validation.
+const (
+	// Not a stock package, so it is installed as requested instead of the cached DALEC packages.
+	combinedContainerdURL     = "https://packages.aks.azure.com/containerd/windows/v1.7.17-azure.1/binaries/containerd-v1.7.17-azure.1-windows-amd64.tar.gz"
+	combinedContainerdVersion = "v1.7.17+azure"
+
+	dalecPackagesURL = "https://packages.aks.azure.com/dalec-packages"
+	dalecHcsshimURL  = dalecPackagesURL + "/hcsshim/0.15.0/windows/amd64/hcsshim_0.15.0-1_amd64.zip"
+	// These revisions aren't cached on the VHD, so nodes have to download them.
+	uncachedDalecContainerdVersion = "1.7.36-6"
+	uncachedDalecContainerdURL     = dalecPackagesURL + "/moby-containerd/1.7.36/windows/amd64/moby-containerd_" + uncachedDalecContainerdVersion + "_amd64.zip"
+	uncachedDalecCrictlURL         = dalecPackagesURL + "/kubernetes-cri-tools/1.37.0/windows/amd64/kubernetes-cri-tools_1.37.0-7_amd64.zip"
+	// No build will ever target this architecture, so the URL never exists.
+	missingDalecContainerdURL = dalecPackagesURL + "/moby-containerd/1.7.36/windows/brokenarch/moby-containerd_1.7.36-6_brokenarch.zip"
+)
+
+const containerdSelectionSkipReason = "Windows containerd package selection scenarios require a VHD built with branch CSE and cached DALEC packages in the current pipeline run"
+
+func skipContainerdSelection(context.Context) string {
+	return skipUnlessCurrentBuildWindowsVHD(config.VHDWindows2022ContainerdGen2, containerdSelectionSkipReason)
+}
+
+// validateContainerdFromCacheOnCurrentBuildVHD checks that a stock containerd URL installed the DALEC 1.7
+// packages cached on the VHD. Older VHDs don't have them, so it only runs on this pipeline run's VHDs.
+func validateContainerdFromCacheOnCurrentBuildVHD(ctx context.Context, s *Scenario) error {
+	if skipContainerdSelection(ctx) != "" {
+		return nil
+	}
+	return errors.Join(
+		ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Installing containerd from cached DALEC packages"),
+		ValidateWindowsContainerdFromCachedDalecPackages(ctx, s, "1.7"),
+	)
+}
+
+func setWindowsContainerRuntimeComponentURLs(nbc *datamodel.NodeBootstrappingConfiguration, mobyContainerdURL string) {
+	kubernetesConfig := nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig
+	kubernetesConfig.WindowsHcsshimURL = dalecHcsshimURL
+	kubernetesConfig.WindowsMobyContainerdURL = mobyContainerdURL
+	kubernetesConfig.WindowsCrictlURL = uncachedDalecCrictlURL
+}
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdCombinedPackage",
+	Description: "Tests that a combined containerd package other than the stock ones is installed as requested instead of the cached DALEC packages",
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			nbc.ContainerService.Properties.OrchestratorProfile.KubernetesConfig.WindowsContainerdURL = combinedContainerdURL
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsContainerdVersion(ctx, s, combinedContainerdVersion),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdComponentPackages",
+	Description: "Tests that the DALEC component packages sent by RP are installed, including one that isn't cached on the VHD",
+	SkipIf:      skipContainerdSelection,
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setWindowsContainerRuntimeComponentURLs(nbc, uncachedDalecContainerdURL)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateWindowsContainerdVersion(ctx, s, uncachedDalecContainerdVersion),
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Installing containerd from the component packages requested by RP"),
+				// Neither revision is cached on the VHD, so both must have been downloaded. The host may be
+				// mapped to the cloud's mirror, so only the package path is matched.
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", strings.TrimPrefix(uncachedDalecContainerdURL, dalecPackagesURL)+" to "),
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", strings.TrimPrefix(uncachedDalecCrictlURL, dalecPackagesURL)+" to "),
+				ValidateFileExcludesContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Failed to get containerd component package"),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
+			)
+		},
+	},
+})
+
+var _ = Register(&Scenario{
+	Name:        "Windows2022Gen2_ContainerdComponentPackagesFallback",
+	Description: "Tests that a node falls back to the cached DALEC packages when a component package sent by RP doesn't exist",
+	SkipIf:      skipContainerdSelection,
+	Config: Config{
+		Cluster:         ClusterAzureNetwork,
+		VHD:             config.VHDWindows2022ContainerdGen2,
+		VMConfigMutator: EmptyVMConfigMutator,
+		BootstrapConfigMutator: func(_ *Cluster, nbc *datamodel.NodeBootstrappingConfiguration) {
+			setWindowsContainerRuntimeComponentURLs(nbc, missingDalecContainerdURL)
+		},
+		Validator: func(ctx context.Context, s *Scenario) error {
+			return errors.Join(
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Failed to get containerd component package "+missingDalecContainerdURL),
+				ValidateFileExcludesContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Installing containerd from the component packages requested by RP"),
+				ValidateFileHasContent(ctx, s, "/AzureData/CustomDataSetupScript.log", "Installing containerd from cached DALEC packages"),
+				ValidateWindowsContainerdFromCachedDalecPackages(ctx, s, "1.7"),
+				ValidateContainerdWindowsPriorityClass(ctx, s),
 			)
 		},
 	},
@@ -763,7 +873,12 @@ func newWindowsCredentialProviderScenario(name string, vhd *config.Image, minor 
 }
 
 func skipWindowsCredentialProvider(vhd *config.Image) string {
-	const reason = "Windows credential-provider scenarios require a VHD built with branch CSE in the current pipeline run"
+	return skipUnlessCurrentBuildWindowsVHD(vhd, "Windows credential-provider scenarios require a VHD built with branch CSE in the current pipeline run")
+}
+
+// skipUnlessCurrentBuildWindowsVHD returns a skip reason unless the scenario uses a VHD built in this
+// pipeline run, which is the only way to know it has this branch's CSE scripts and cached components.
+func skipUnlessCurrentBuildWindowsVHD(vhd *config.Image, reason string) string {
 	// Explicit versions and metadata take precedence over the gallery tag selector.
 	if vhd.Version != "" || config.Config.VHDMetadataFile != "" {
 		return reason + "; pinned versions and VHD metadata overrides do not establish that provenance"
