@@ -210,17 +210,24 @@ def entry_key(entry: ComponentEntry) -> tuple:
     return entry.identity
 
 
-def match_base_entries(base_entries: list, head_entries: list) -> list:
+@dataclass
+class BaseEntryMatch:
+    entry: Optional[ComponentEntry] = None
+    ambiguous: bool = False
+
+
+def match_base_entries(base_entries: list, head_entries: list) -> list[BaseEntryMatch]:
     """Match unchanged rows first, then unambiguous version updates.
 
     Some image rows share every selector (no explicit minor/track field).
     Preserve these as a group rather than overwriting them in a keyed dict.
+    Mark unresolved rows with remaining base candidates as ambiguous, not new.
     """
     base_by_key = {}
     for entry in base_entries:
         base_by_key.setdefault(entry_key(entry), []).append(entry)
 
-    matches = [None] * len(head_entries)
+    matches = [BaseEntryMatch() for _ in head_entries]
     unmatched_by_key = {}
     for index, entry in enumerate(head_entries):
         key = entry_key(entry)
@@ -230,7 +237,7 @@ def match_base_entries(base_entries: list, head_entries: list) -> list:
                 candidate.latest_version == entry.latest_version
                 and candidate.previous_latest_version == entry.previous_latest_version
             ):
-                matches[index] = candidates.pop(candidate_index)
+                matches[index] = BaseEntryMatch(entry=candidates.pop(candidate_index))
                 break
         else:
             unmatched_by_key.setdefault(key, []).append(index)
@@ -240,7 +247,10 @@ def match_base_entries(base_entries: list, head_entries: list) -> list:
         # With multiple changed rows and no distinguishing selector, do not
         # guess which base row's retained prior release belongs to which head.
         if len(indexes) == 1 and len(candidates) == 1:
-            matches[indexes[0]] = candidates[0]
+            matches[indexes[0]] = BaseEntryMatch(entry=candidates[0])
+        elif candidates:
+            for index in indexes:
+                matches[index] = BaseEntryMatch(ambiguous=True)
     return matches
 
 
@@ -451,7 +461,8 @@ def main() -> int:
     # Each row: (path, line_number, raw_line, previous_latest_version, recommendation)
     suggestions = []
 
-    for entry, base_entry in zip(head_entries, base_matches):
+    for entry, base_match in zip(head_entries, base_matches):
+        base_entry = base_match.entry
         changed = (
             base_entry is None
             or base_entry.latest_version != entry.latest_version
@@ -475,6 +486,14 @@ def main() -> int:
                 f"release {'.'.join(map(str, latest.release))}. "
                 f"previousLatestVersion must reference a genuinely prior release."
             )
+            if base_match.ambiguous:
+                note = (
+                    "multiple base rows share these selectors; cannot establish the retained "
+                    "prior release. Set previousLatestVersion manually."
+                )
+                print(f"::warning::{entry.path}: {note}")
+                findings.append((entry, kind, None, note))
+                continue
         else:
             kind = "stale"
 

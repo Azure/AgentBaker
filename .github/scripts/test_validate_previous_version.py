@@ -83,11 +83,13 @@ class ChangeDetectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = pathlib.Path(directory) / "components.json"
             suggestions_path = pathlib.Path(directory) / "suggestions.json"
+            report_path = pathlib.Path(directory) / "report.md"
             path.write_text(json.dumps(head, indent=2) + "\n", encoding="utf-8")
             with (
                 patch.object(sys, "argv", [
                     str(SCRIPT), "--base", "base", "--file", str(path),
                     "--suggestions", str(suggestions_path),
+                    "--report", str(report_path),
                 ]),
                 patch.object(validator, "load_json_at_ref", return_value=self.base),
                 patch.object(validator, "lookup_available_versions", return_value=available_versions) as lookup,
@@ -96,6 +98,7 @@ class ChangeDetectionTests(unittest.TestCase):
                 result = validator.main()
             self.suggestions = json.loads(suggestions_path.read_text(encoding="utf-8"))
             self.head_lines = path.read_text(encoding="utf-8").splitlines()
+            self.report = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
             return result, lookup.call_count
 
     def test_unrelated_package_insertion_and_reordering_are_unchanged(self):
@@ -206,10 +209,10 @@ class ChangeDetectionTests(unittest.TestCase):
         matches = validator.match_base_entries(
             validator.collect_entries(self.base), validator.collect_entries(head),
         )
-        self.assertEqual("v1.35.2-2-azlinux3", matches[0].latest_version)
+        self.assertEqual("v1.35.2-2-azlinux3", matches[0].entry.latest_version)
 
         head_versions.append(copy.deepcopy(head_versions[1]))
-        self.assertEqual((1, 2), self.validate(head))
+        self.assertEqual((1, 0), self.validate(head))
 
     def test_multiple_changed_rows_without_selectors_do_not_guess_base_release(self):
         head = copy.deepcopy(self.base)
@@ -220,13 +223,56 @@ class ChangeDetectionTests(unittest.TestCase):
                     if data is head:
                         version["latestVersion"] = version["latestVersion"].replace("-2-", "-3-")
 
-        self.assertEqual((1, 4), self.validate(head))
+        self.assertEqual((1, 0), self.validate(head))
         self.assertEqual(
-            [None] * 4,
+            [validator.BaseEntryMatch(ambiguous=True)] * 4,
             validator.match_base_entries(
                 validator.collect_entries(self.base), validator.collect_entries(head),
             ),
         )
+
+    def test_ambiguous_revision_updates_report_collisions_without_changing_retained_release(self):
+        self.base = {"ContainerImages": [{
+            "downloadURL": "mcr.microsoft.com/example:*",
+            "multiArchVersionsV2": [
+                {
+                    "renovateTag": self.tag,
+                    "latestVersion": f"v{minor}.2-2-azlinux3",
+                    "previousLatestVersion": f"v{minor}.0-1-azlinux3",
+                }
+                for minor in ("1.34", "1.35")
+            ],
+        }]}
+        head = copy.deepcopy(self.base)
+        for version in head["ContainerImages"][0]["multiArchVersionsV2"]:
+            version["previousLatestVersion"] = version["latestVersion"]
+            version["latestVersion"] = version["latestVersion"].replace("-2-", "-3-")
+        available = [
+            f"v{minor}.{patch}-4-azlinux3"
+            for minor in ("1.34", "1.35")
+            for patch in (0, 1)
+        ]
+
+        self.assertEqual((1, 0), self.validate(head, available))
+        self.assertEqual([], self.suggestions)
+        for index in range(2):
+            self.assertIn(f"root.ContainerImages[0].multiArchVersionsV2[{index}]", self.report)
+        self.assertIn("cannot establish the retained prior release", self.report)
+        self.assertNotIn("v1.34.1-4-azlinux3", self.report)
+        self.assertNotIn("v1.35.1-4-azlinux3", self.report)
+
+        for new_entry in (False, True):
+            with self.subTest(new_entry=new_entry):
+                if new_entry:
+                    self.base = {}
+                else:
+                    self.base["ContainerImages"][0]["multiArchVersionsV2"].pop()
+                single_head = copy.deepcopy(head)
+                single_head["ContainerImages"][0]["multiArchVersionsV2"].pop()
+                self.assertEqual((1, 1), self.validate(single_head, available))
+                expected = "v1.34.1-4-azlinux3" if new_entry else "v1.34.0-4-azlinux3"
+                self.assertEqual(1, len(self.suggestions))
+                self.assertIn(expected, self.suggestions[0]["new_line"])
 
 
 if __name__ == "__main__":
