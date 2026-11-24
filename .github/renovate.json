@@ -659,7 +659,8 @@
         "team:aks-node-lifecycle"
       ],
       "reviewers": [
-        "team:aks-node-lifecycle"
+        "team:aks-node-lifecycle",
+        "rzlink"
       ]
     },
     {

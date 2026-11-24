@@ -384,7 +384,6 @@ Take `kubernetes-binaries` as an example. If you view all the tags from this lis
 
 Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`.
 
-The Windows Cilium Networking package (`wcn/package`) also uses this manager. Its package rule accepts stable `X.Y.Z-amd64` tags and stores only `X.Y.Z` in `latestVersion`; the VHD build adds the architecture suffix. Updates follow the existing policy (minor updates disabled), require manual approval, and are assigned to `team:aks-node-lifecycle`.
 
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
