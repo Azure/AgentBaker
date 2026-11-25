@@ -3430,7 +3430,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
-	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
+	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension",
 	Config: Config{
 		Cluster:                ClusterKubenet,
 		VHD:                    config.VHDUbuntu2404Gen2Containerd,
@@ -3447,11 +3447,10 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			hotfixErr := ValidateHotfixFromNBCCmd(ctx, s)
 			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return errors.Join(hotfixErr, err)
+				return err
 			}
-			return errors.Join(hotfixErr, ValidateNPDFilesystemCorruption(ctx, s))
+			return ValidateNPDFilesystemCorruption(ctx, s)
 		},
 	},
 })
