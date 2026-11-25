@@ -279,6 +279,39 @@ steps:
     condition: always()
     displayName: Set Post-Build Variables
 
+  # Packer tags candidates at creation. If a build path misses the tag, hide the
+  # version before failing the job; repairing it must not mask that failure.
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: $(VHD_ARM_SERVICE_CONNECTION)
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -euo pipefail
+        shopt -s nocasematch
+        version_id_re='^/subscriptions/([^/]+)/resourceGroups/([^/]+)/providers/Microsoft\.Compute/galleries/([^/]+)/images/([^/]+)/versions/([^/]+)$'
+        if [[ ! "${MANAGED_SIG_ID:-}" =~ ${version_id_re} ]]; then
+          echo "##vso[task.logissue type=error]MANAGED_SIG_ID isn't a gallery image version ID, so the candidate image can't be hidden from other E2E runs."
+          exit 1
+        fi
+        version_args=(--subscription "${BASH_REMATCH[1]}" --resource-group "${BASH_REMATCH[2]}" --gallery-name "${BASH_REMATCH[3]}"
+          --gallery-image-definition "${BASH_REMATCH[4]}" --gallery-image-version "${BASH_REMATCH[5]}" --only-show-errors)
+        hidden="$(az sig image-version show "${version_args[@]}" --query 'tags."abe2e-ignore"' --output tsv)"
+        if [ "${hidden}" != "true" ]; then
+          echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} was created without abe2e-ignore=true. Hiding it before failing the job; check the candidate Packer template."
+          az sig image-version update "${version_args[@]}" --set tags.abe2e-ignore=true --force-string --output none
+          hidden="$(az sig image-version show "${version_args[@]}" --query 'tags."abe2e-ignore"' --output tsv)"
+          if [ "${hidden}" != "true" ]; then
+            echo "##vso[task.logissue type=error]${MANAGED_SIG_ID} still has no abe2e-ignore=true tag after repair, so other E2E runs can still pick it."
+            exit 1
+          fi
+          echo "Hidden ${MANAGED_SIG_ID} after a missed creation tag; this job still fails."
+          exit 1
+        fi
+        echo "Verified ${MANAGED_SIG_ID} was created with abe2e-ignore=true"
+    condition: and(succeeded(), eq(variables.ACL_CANDIDATE_IMAGE, 'true'))
+    displayName: Verify candidate image was tagged at creation
+
   - ${{ if parameters.ENABLE_COSI_PUBLISHING }}:
     - bash: |
         echo "##vso[task.setvariable variable=CAPTURED_SIG_VERSION;isOutput=true]${CAPTURED_SIG_VERSION}"
