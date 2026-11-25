@@ -80,10 +80,13 @@ for services whose cgroup does not exist yet. The five-minute invocations are
 unaffected, and no `Wants=` or `Requires=` is declared, so a collector still
 runs when kubelet or containerd never start.
 
-CSE `enableAndStartCgroupTelemetry` enables and restarts only the timers. A
-timer whose `OnBootSec=` is in the past elapses on activation, so it starts the
-collector at once. If the collector is already running, the start request does
-nothing. CSE must not restart the services directly: that stops a running
+CSE `enableAndStartCgroupTelemetry` enables and restarts only the timers. On
+first activation, a timer whose `OnBootSec=` is in the past elapses at once and
+starts the collector. If the collector is already running, the start request
+does nothing. If the timer already fired in this boot (for example, a VHD that
+enabled the timers at bake time, or a CSE rerun), systemd keeps the boot trigger
+disabled after the restart, and the next run is the five-minute calendar tick.
+CSE must not restart the services directly: that stops a running
 collector with SIGTERM, starts its `OnFailure=` execution telemetry while the
 service starts again, and leaves the telemetry unit failed.
 

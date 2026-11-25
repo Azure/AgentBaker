@@ -952,7 +952,7 @@ enableAndStartCgroupTelemetry() {
         units+=(cgroup-cpu-telemetry.timer cgroup-pressure-telemetry.timer)
     fi
 
-    # Start only the timers: their OnBootSec=0 elapses on activation and starts the
+    # Start only the timers. On first activation, OnBootSec=0 elapses and starts the
     # service without killing a run in progress. Restarting a running service sends
     # SIGTERM, which triggers its OnFailure= telemetry collector.
     for unit in "${units[@]}"; do
