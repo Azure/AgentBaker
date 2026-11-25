@@ -9,8 +9,8 @@ set -euo pipefail
 #   SUBSCRIPTION_ID. This lets a calling pipeline override the subscription at runtime
 #   (e.g. a queue-time variable) since compile-time template expressions cannot see such overrides.
 # * DefaultWorkingDirectory: this variable contains the default working directory. Likely "." is sufficient
-# * VHD_BUILD_ID - the build identifier for the pipeline. This is optional and if it is missing then the latest build from
-#   the main branch is used.
+# * VHD_BUILD_ID - the build identifier for the pipeline. This is optional. If it is missing, runs for main or dev
+#   (pushes, schedules, and PRs targeting them) use the latest VHDs built from that branch; other runs use the e2e default.
 # * IGNORE_SCENARIOS_WITH_MISSING_VHD: a true/false flag that indicates if the build should fail if the VHD is missing.
 # * BUILD_SRC_DIR: the src directory for the repository. Probably the same as DefaultWorkingDirectory.
 # * E2E_FAILED_TESTS_RETRY_COUNT: the number of times the runner retries failed scenarios. Defaults to 0.
@@ -84,8 +84,27 @@ if [ -n "${VHD_BUILD_ID}" ]; then
   echo "VHD_BUILD_ID is specified (${VHD_BUILD_ID}). Running tests using VHDs from that build"
   export SIG_VERSION_TAG_NAME=buildId
   export SIG_VERSION_TAG_VALUE=$VHD_BUILD_ID
+elif [ -n "${SIG_VERSION_TAG_VALUE:-}" ]; then
+  echo "SIG_VERSION_TAG_VALUE is specified (${SIG_VERSION_TAG_VALUE}). Running tests with the given SIG version tag selector"
 else
-  echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
+  # Each long-lived branch must test the VHDs built from it, so PRs use their target branch.
+  if [ "${BUILD_REASON:-}" = "PullRequest" ]; then
+    SIG_BRANCH="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+  else
+    SIG_BRANCH="${BUILD_SOURCEBRANCH:-}"
+  fi
+  # GitHub PRs give the target branch without the refs/heads/ prefix.
+  SIG_BRANCH="refs/heads/${SIG_BRANCH#refs/heads/}"
+  case "${SIG_BRANCH}" in
+    refs/heads/main | refs/heads/dev)
+      echo "Running tests using the latest VHDs built from ${SIG_BRANCH}"
+      export SIG_VERSION_TAG_NAME=branch
+      export SIG_VERSION_TAG_VALUE="${SIG_BRANCH}"
+      ;;
+    *)
+      echo "VHD_BUILD_ID is not specified. Running tests with default SIG version tag selectors."
+      ;;
+  esac
 fi
 
 if [ -n "${SIG_GALLERY_NAME}" ]; then

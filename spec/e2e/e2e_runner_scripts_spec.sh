@@ -25,6 +25,7 @@ case "${1:-}" in
     ;;
   run)
     printf 'runner-env <%s> <%s>\n' "${TIMEOUT:-}" "${PARALLEL:-}" >> "${COMMAND_LOG}"
+    printf 'sig-selector <%s> <%s>\n' "${SIG_VERSION_TAG_NAME:-}" "${SIG_VERSION_TAG_VALUE:-}" >> "${COMMAND_LOG}"
     ;;
   test)
     if [ "${FAIL_GO_TEST:-0}" = "1" ]; then
@@ -112,6 +113,45 @@ EOF
     The contents of file "${COMMAND_LOG}" should include 'go <test> <-count=1> <./...>'
     The contents of file "${COMMAND_LOG}" should include 'go <run> <.> <run> <--parallel> <60> <--suite-timeout> <75m> <--retries> <2> <--log-dir> <scenario-logs-12345> <--junit-file>'
     The contents of file "${COMMAND_LOG}" should include '<--output> <grouped>'
+  End
+
+  Parameters
+    PullRequest 'main' '' '' 'sig-selector <branch> <refs/heads/main>'
+    PullRequest 'refs/heads/dev' '' '' 'sig-selector <branch> <refs/heads/dev>'
+    PullRequest 'official/v20261120' '' '' 'sig-selector <> <>'
+    Schedule '' 'refs/heads/main' '' 'sig-selector <branch> <refs/heads/main>'
+    IndividualCI '' 'refs/heads/dev' '' 'sig-selector <branch> <refs/heads/dev>'
+    Manual '' 'refs/heads/feature' '' 'sig-selector <> <>'
+    Schedule '' 'refs/heads/main' '123' 'sig-selector <buildId> <123>'
+  End
+  It "selects VHDs for build reason $1, PR target '$2', source '$3', VHD build '$4'"
+    When run env -u SIG_VERSION_TAG_NAME -u SIG_VERSION_TAG_VALUE \
+      SUBSCRIPTION_ID='test-subscription' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      BUILD_REASON="$1" \
+      SYSTEM_PULLREQUEST_TARGETBRANCH="$2" \
+      BUILD_SOURCEBRANCH="$3" \
+      VHD_BUILD_ID="$4" \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be success
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include "$5"
+  End
+
+  It 'keeps an explicit SIG version tag selector'
+    When run env \
+      SUBSCRIPTION_ID='test-subscription' \
+      DefaultWorkingDirectory="${TEST_REPO}" \
+      BUILD_SRC_DIR="${TEST_REPO}" \
+      BUILD_REASON='PullRequest' \
+      SYSTEM_PULLREQUEST_TARGETBRANCH='main' \
+      SIG_VERSION_TAG_NAME='buildId' \
+      SIG_VERSION_TAG_VALUE='456' \
+      bash "${ROOT_DIR}/.pipelines/scripts/e2e_run.sh"
+    The status should be success
+    The output should be present
+    The contents of file "${COMMAND_LOG}" should include 'sig-selector <buildId> <456>'
   End
 
   It 'stops the pipeline before CLI execution when unit tests fail'
