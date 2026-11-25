@@ -650,6 +650,25 @@
         "docker"
       ],
       "matchPackageNames": [
+        "wcn/package"
+      ],
+      "extractVersion": "^(?<version>\\d+\\.\\d+\\.\\d+)-amd64$",
+      "versioning": "semver",
+      "automerge": false,
+      "assignees": [
+        "team:aks-node-lifecycle",
+        "rzlink"
+      ],
+      "reviewers": [
+        "team:aks-node-lifecycle",
+        "rzlink"
+      ]
+    },
+    {
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
         "oss/v2/kubernetes/*-sysext",
         "aks-secure-tls-bootstrap/v2/aks-secure-tls-bootstrap-client-sysext",
         "azurecontainerregistry/v2/artifact-streaming-sysext"

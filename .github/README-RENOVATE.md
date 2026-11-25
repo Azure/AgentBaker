@@ -384,6 +384,7 @@ Take `kubernetes-binaries` as an example. If you view all the tags from this lis
 
 Packages in `components.json` are onboarded now: `oss/binaries/kubernetes/kubernetes-node`, `oss/binaries/kubernetes/azure-acr-credential-provider`, etc. You will see a new tag `OCI_registry` in `renovateTag`.
 
+
 Continue using `kubernetes-binaries` as an example. Here is a block of version information defined as follows.
 ```
 {
