@@ -69,7 +69,7 @@ var fullInstallCSEThresholds = CSETimingThresholds{
 		"configureKubeletAndKubectl":  45 * time.Second, // prod p99=44.39s
 		"ensureContainerd":            5 * time.Second,  // prod p99=2.80s; slightly higher for full install
 		"ensureKubelet":               15 * time.Second, // prod p99=10.01s; slightly higher for full install
-		"installStandaloneContainerd": 5 * time.Second,  // prod p99=0.46s; bumped for E2E variance
+		"installStandaloneContainerd": 60 * time.Second, // allow revision upgrades; match installContainerRuntime budget
 
 		// Kubelet install variants
 		"installKubeletKubectlFromPkg": 57 * time.Second, // prod p99=56.59s
@@ -134,7 +134,7 @@ var fullInstallCSEThresholdsUbuntu2404 = CSETimingThresholds{
 		"configureKubeletAndKubectl":  46 * time.Second, // prod p99=45.94s
 		"ensureContainerd":            3 * time.Second,  // prod p99=1.84s
 		"ensureKubelet":               11 * time.Second, // prod p99=10.50s
-		"installStandaloneContainerd": 5 * time.Second,
+		"installStandaloneContainerd": 60 * time.Second, // allow revision upgrades; match installContainerRuntime budget
 
 		"installKubeletKubectlFromPkg": 45 * time.Second, // prod p99=44.51s
 		"installKubeletKubectlFromURL": 16 * time.Second,
@@ -193,7 +193,7 @@ var fullInstallCSEThresholdsUbuntu2604Minimal = CSETimingThresholds{
 		"configureKubeletAndKubectl":  46 * time.Second, // prod p99=45.94s
 		"ensureContainerd":            3 * time.Second,  // prod p99=1.84s
 		"ensureKubelet":               11 * time.Second, // prod p99=10.50s
-		"installStandaloneContainerd": 5 * time.Second,
+		"installStandaloneContainerd": 60 * time.Second, // allow revision upgrades; match installContainerRuntime budget
 
 		"installKubeletKubectlFromPkg": 45 * time.Second, // prod p99=44.51s
 		"installKubeletKubectlFromURL": 16 * time.Second,
