@@ -371,7 +371,7 @@ Describe 'RCV1P batched certificate retrieval'
         # shellcheck disable=SC1090
         __SOURCED__=1 . <(sed "s|/root/AzureCACertificates|$TEST_DIR/certs|g" \
             ./parts/linux/cloud-init/artifacts/init-aks-cloud.sh)
-        CERT_RESPONSE='{"requests":[{"ResouceFileName": "first.crt"},{"ResouceFileName": "second.crt"}]}'
+        CERT_RESPONSE='{"requests":[{"ResouceFileName":"first.crt"},{"ResouceFileName":"second.crt"}]}'
         CURL_MODE=success
     }
     cleanup_rcv1p() { rm -rf "$TEST_DIR"; }
@@ -443,7 +443,7 @@ Describe 'RCV1P batched certificate retrieval'
         case "$CURL_MODE" in transport) return 7 ;; esac
     }
 
-    It 'maps out-of-order results to their filenames'
+    It 'parses compact JSON once and maps out-of-order results to their filenames'
         When call process_cert_operations operationrequestsroot
         The status should be success
         The stdout should be blank
@@ -452,6 +452,37 @@ Describe 'RCV1P batched certificate retrieval'
         The contents of file "$TEST_DIR/certs/second.crt" should eq certificate-second-1
         The lines of contents of file "$TEST_DIR/calls" should eq 2
         The contents of file "$TEST_DIR/calls" should include 'batch 2'
+    End
+
+    It 'rejects traversal and control characters without losing a valid filename'
+        CERT_RESPONSE='[{"ResouceFileName":"../outside.crt"},{"ResouceFileName":"nested/bad.crt"},{"ResouceFileName":"bad\nname.crt"},{"ResouceFileName":"nul\u0000.crt"},{"ResouceFileName":false},{"ResouceFileName":"first.crt"}]'
+        When call process_cert_operations operationrequestsroot
+        The status should be success
+        The stdout should include 'rejecting certificate filename'
+        The stderr should be blank
+        The path "$TEST_DIR/outside.crt" should not be exist
+        The contents of file "$TEST_DIR/certs/first.crt" should eq certificate-first-0
+        The contents of file "$TEST_DIR/calls" should include 'batch 1'
+    End
+
+    Describe 'invalid operation lists'
+        Parameters
+            '{"ResouceFileName":"first.crt"'
+            '{}'
+            '{"ResouceFileName":"first.crt"}{"ResouceFileName":"second.crt"}'
+        End
+        It 'does not download files from an invalid or empty list'
+            CERT_RESPONSE=$1
+            When call process_cert_operations operationrequestsroot
+            The status should eq 1
+            The stdout should include 'No certificate filenames'
+            if [ "$1" = '{}' ]; then
+                The stderr should be blank
+            else
+                The stderr should be present
+            fi
+            The path "$TEST_DIR/certs/first.crt" should not be exist
+        End
     End
 
     It 'preserves response bodies containing newlines and a numeric last line'
