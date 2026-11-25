@@ -56,6 +56,15 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_workflow_enables_anc_script_delivery(self):
+        repository = Path(__file__).resolve().parents[1]
+        workflow = (repository / ".github/workflows/hotfix-generate.yml").read_text()
+        self.assertIn(
+            'python3 hotfix/hotfix_generate.py "origin/${GITHUB_BASE_REF}" '
+            '--use-anc-for-scripts',
+            workflow,
+        )
+
     def test_production_renderer_omits_empty_platform_payloads(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
@@ -560,6 +569,40 @@ write_files:
                 hotfix_generate.write_hotfix_file("", "")
                 self.assertFalse(target.exists())
 
+    def test_write_hotfix_file_retains_other_pointers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "hotfix.json"
+            original = {
+                "version": "202610.01.2",
+                "scripts_version": "202610.01.3",
+                "hotfixes": {"202610.01": "202610.01.4", "202611.13": "202611.13.1"},
+            }
+            target.write_text(json.dumps(original))
+            with mock.patch.object(hotfix_generate, "TARGET_FILE", str(target)):
+                hotfix_generate.write_hotfix_file("202611.13.2", "")
+                self.assertEqual(
+                    {**original, "hotfixes": {
+                        "202610.01": "202610.01.4", "202611.13": "202611.13.2"
+                    }},
+                    json.loads(target.read_text()),
+                )
+                hotfix_generate.write_hotfix_file("", "202611.13.2")
+                result = json.loads(target.read_text())
+                self.assertEqual("202611.13.2", result["scripts_version"])
+                self.assertEqual("202610.01.4", result["hotfixes"]["202610.01"])
+                self.assertEqual("202611.13.2", result["hotfixes"]["202611.13"])
+                self.assertEqual(original["version"], result["version"])
+
+    def test_invalid_existing_hotfixes_are_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / "hotfix.json"
+            original = '{"hotfixes": "invalid"}'
+            target.write_text(original)
+            with mock.patch.object(hotfix_generate, "TARGET_FILE", str(target)):
+                with self.assertRaises(hotfix_generate.GenerationError):
+                    hotfix_generate.write_hotfix_file("202611.13.1", "")
+                self.assertEqual(original, target.read_text())
+
     def test_resolve_hotfix_versions_defaults_scripts_to_scripts_version(self):
         with mock.patch.object(
             hotfix_generate,
@@ -576,21 +619,26 @@ write_files:
                 ),
             )
 
-    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
-        with mock.patch.object(
-            hotfix_generate,
-            "bump_version",
-            return_value="202608.14.1",
-        ):
-            self.assertEqual(
-                ("202608.14.1", "202608.14.1"),
-                hotfix_generate.resolve_hotfix_versions(
-                    "202608.14.0",
-                    anc_changed=False,
-                    script_hotfix_changed=True,
-                    use_anc_for_scripts=True,
-                ),
-            )
+    def test_resolve_hotfix_versions_gates_anc_script_delivery(self):
+        for base, enabled in (("202611.12", False), ("202611.13", True),
+                              ("202701.01", True)):
+            with self.subTest(base=base), mock.patch.object(
+                hotfix_generate, "bump_version", return_value=f"{base}.1"
+            ):
+                self.assertEqual(
+                    (f"{base}.1" if enabled else "", f"{base}.1"),
+                    hotfix_generate.resolve_hotfix_versions(
+                        f"{base}.0", anc_changed=False,
+                        script_hotfix_changed=True, use_anc_for_scripts=True,
+                    ),
+                )
+                self.assertEqual(
+                    (f"{base}.1", f"{base}.1"),
+                    hotfix_generate.resolve_hotfix_versions(
+                        f"{base}.0", anc_changed=True,
+                        script_hotfix_changed=True, use_anc_for_scripts=True,
+                    ),
+                )
 
     def test_resolve_hotfix_versions_keeps_independent_anc_hotfix(self):
         with mock.patch.object(

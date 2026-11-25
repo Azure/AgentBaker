@@ -33,6 +33,15 @@ write_files:
   content: {{GetVariableProperty "cloudInitData" "initAKSCloud" | GetCloudInitFileContent}}
 {{end}}
 
+
+# ---- hotfix-scripts: auto-generated ----
+- path: /opt/azure/containers/provision.sh
+  permissions: "0744"
+  {{GetCloudInitFileEncodingLine}}
+  owner: root
+  content: {{GetVariableProperty "cloudInitData" "provisionScript" | GetCloudInitFileContent}}
+
+# ---- end hotfix-scripts ----
 {{- else }}
 - path: {{GetCSEHelpersScriptFilepath}}
   permissions: "0744"
