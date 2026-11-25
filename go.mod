@@ -8,7 +8,6 @@ require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/coreos/butane v0.29.0
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.41.0
@@ -29,7 +28,6 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/coreos/ignition/v2 v2.28.0 // indirect
 	github.com/coreos/vcontext v0.0.0-20260306102053-7a68b5426c74 // indirect
-	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect

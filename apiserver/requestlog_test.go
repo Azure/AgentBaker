@@ -3,6 +3,7 @@ package apiserver
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,10 +13,8 @@ import (
 )
 
 func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
-	var buf, defaultBuf bytes.Buffer
-	previous := slog.Default()
-	slog.SetDefault(NewJSONLogger(&defaultBuf, ContextlessTraceSource))
-	t.Cleanup(func() { slog.SetDefault(previous) })
+	var buf bytes.Buffer
+	defaultBuf := captureDefaultLogger(t)
 
 	api, err := NewAPIServer(&Options{Addr: ":8080", RequestLogger: NewJSONLogger(&buf, IncomingRequestTraceSource)})
 	if err != nil {
@@ -23,9 +22,7 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodPost, RoutePathLatestSIGImageConfig+"?sig=secret", strings.NewReader("not json"))
-	request.Header.Set(operationIDHeader, "op-id")
-	request.Header.Set(correlationIDHeader, "corr-id")
-	request.Header.Set(clientRequestIDHeader, "client-id")
+	setRequestIDHeaders(request)
 	response := httptest.NewRecorder()
 	api.NewRouter().ServeHTTP(response, request)
 
@@ -33,13 +30,8 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected 2 records, got %d: %s", len(records), buf.String())
 	}
-	requestIDs := map[string]string{
-		"operationID":     "op-id",
-		"correlationID":   "corr-id",
-		"clientRequestID": "client-id",
-	}
 	for _, record := range records {
-		assertFields(t, record, requestIDs)
+		assertFields(t, record, wantRequestIDs)
 		assertFields(t, record, map[string]string{
 			"source":        IncomingRequestTraceSource,
 			"httpMethod":    http.MethodPost,
@@ -62,16 +54,71 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 		t.Errorf("expected durationInMilliseconds string, got %v", end["durationInMilliseconds"])
 	}
 
-	handlerRecords := decodeRecords(t, &defaultBuf)
+	handlerRecords := decodeRecords(t, defaultBuf)
 	if len(handlerRecords) != 1 {
 		t.Fatalf("expected 1 handler record, got %d: %s", len(handlerRecords), defaultBuf.String())
 	}
-	assertFields(t, handlerRecords[0], requestIDs)
+	assertFields(t, handlerRecords[0], wantRequestIDs)
 	assertFields(t, handlerRecords[0], map[string]string{
 		"source": ContextlessTraceSource,
 		"level":  "ERROR",
 		"msg":    "decode request body",
 	})
+}
+
+func TestRecoveryHandlerLogsPanicWithRequestIDs(t *testing.T) {
+	defaultBuf := captureDefaultLogger(t)
+
+	request := httptest.NewRequest(http.MethodPost, RoutePathNodeBootstrapData, nil)
+	setRequestIDHeaders(request)
+	response := httptest.NewRecorder()
+	recoveryHandler()(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		panic("boom")
+	})).ServeHTTP(response, request)
+
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, response.Code)
+	}
+	records := decodeRecords(t, defaultBuf)
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d: %s", len(records), defaultBuf.String())
+	}
+	assertFields(t, records[0], wantRequestIDs)
+	assertFields(t, records[0], map[string]string{
+		"level": "ERROR",
+		"msg":   "recovered panic",
+		"panic": "boom",
+	})
+	if stack, _ := records[0]["stack"].(string); !strings.Contains(stack, "TestRecoveryHandlerLogsPanicWithRequestIDs") {
+		t.Errorf("expected stack to contain the panicking test, got %q", stack)
+	}
+}
+
+var wantRequestIDs = map[string]string{
+	"operationID":     "op-id",
+	"correlationID":   "corr-id",
+	"clientRequestID": "client-id",
+}
+
+func setRequestIDHeaders(r *http.Request) {
+	r.Header.Set(operationIDHeader, wantRequestIDs["operationID"])
+	r.Header.Set(correlationIDHeader, wantRequestIDs["correlationID"])
+	r.Header.Set(clientRequestIDHeader, wantRequestIDs["clientRequestID"])
+}
+
+// captureDefaultLogger redirects the default slog logger to a buffer. slog.SetDefault also
+// redirects the log package, and restoring the previous default does not undo that.
+func captureDefaultLogger(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var buf bytes.Buffer
+	previous, previousWriter, previousFlags := slog.Default(), log.Writer(), log.Flags()
+	slog.SetDefault(NewJSONLogger(&buf, ContextlessTraceSource))
+	t.Cleanup(func() {
+		slog.SetDefault(previous)
+		log.SetOutput(previousWriter)
+		log.SetFlags(previousFlags)
+	})
+	return &buf
 }
 
 func assertFields(t *testing.T, record map[string]any, want map[string]string) {

@@ -1,9 +1,10 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
+	"runtime/debug"
 
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -78,8 +79,20 @@ func handleOK(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// recoveryHandler logs panics with the request IDs, so that a stack trace can be joined to its
+// request trace.
 func recoveryHandler() mux.MiddlewareFunc {
-	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					requestLogger(r).Error("recovered panic", "panic", fmt.Sprint(err), "stack", string(debug.Stack()))
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func timeoutHandler() mux.MiddlewareFunc {
