@@ -234,7 +234,7 @@ if [ "${OS_TYPE,,}" = "windows" ]; then
     --resource-group "$TEST_VM_RESOURCE_GROUP_NAME" \
     --scripts "@$SCRIPT_PATH" \
     --output json \
-    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}" "validatecontainerBaseImageFromUrl=${CONTAINTER_BASE_URLS_EXISTING}")
+    --parameters "windowsSKU=${WINDOWS_SKU}" "skipValidateReofferUpdate=${SKIPVALIDATEREOFFERUPDATE}" "validatecontainerBaseImageFromUrl=${CONTAINTER_BASE_URLS_EXISTING}" "requireSignedCseScripts=${REQUIRE_SIGNED_CSE_SCRIPTS:-false}")
   # An example of failed run-command output:
   # {
   #   "value": [

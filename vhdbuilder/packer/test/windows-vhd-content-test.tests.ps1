@@ -226,3 +226,55 @@ Test-PrivatePackageSignature
         ($result -join "`n") | Should -Match "not signed"
     }
 }
+
+Describe 'Test-CSEScriptsSignature' {
+    BeforeEach {
+        Mock Write-ErrorWithTimestamp {}
+        Mock Write-OutputWithTimestamp {}
+        Mock Test-Path { $false }
+        Mock Expand-Archive {}
+        $global:cacheDir = 'c:\akse-cache'
+    }
+
+    It 'checks the PowerShell scripts in the cached CSE scripts package' {
+        Mock Get-UnsignedBinariesInDirectory { @() }
+        $requireSignedCseScripts = 'true'
+
+        Test-CSEScriptsSignature
+
+        Should -Invoke Expand-Archive -Times 1 -Exactly -ParameterFilter { $Path -like '*aks-windows-cse-scripts-current.zip' }
+        Should -Invoke Get-UnsignedBinariesInDirectory -Times 1 -Exactly -ParameterFilter { ($IncludeList -join ',') -eq '*.ps1,*.psm1,*.psd1' }
+        Should -Invoke Write-ErrorWithTimestamp -Times 0 -Exactly
+    }
+
+    It 'reports scripts without valid signatures, without failing, when the build does not require signed scripts' {
+        Mock Get-UnsignedBinariesInDirectory { @([PSCustomObject]@{ Path = 'c:\CSEScriptsSignatureCheck\all.ps1'; Status = 'NotSigned' }) }
+        $requireSignedCseScripts = 'false'
+
+        Test-CSEScriptsSignature
+
+        Should -Invoke Write-ErrorWithTimestamp -Times 0 -Exactly
+        Should -Invoke Write-OutputWithTimestamp -Times 1 -Exactly -ParameterFilter { $Message -like '*not required*all.ps1 (NotSigned)*' }
+    }
+
+    It 'fails when the build requires signed scripts and a script does not have a valid signature' {
+        # Test-CSEScriptsSignature calls `exit 1`, so run it in a child pwsh process (see Test-PrivatePackageSignature tests).
+        $childScript = @"
+`$content = Get-Content '$PSScriptRoot\windows-vhd-content-test.ps1' -Raw
+`$content = `$content -replace [regex]::Escape('. c:\k\windows-vhd-configuration.ps1'), ''
+`$content = `$content -replace '(?s)Write-OutputWithTimestamp "Starting Tests".*', ''
+Invoke-Expression `$content
+function Write-ErrorWithTimestamp(`$m) { Write-Host `$m }
+function Write-OutputWithTimestamp(`$m) { Write-Host `$m }
+function Test-Path { param(`$Path) `$false }
+function Expand-Archive { param(`$Path, `$DestinationPath, [switch]`$Force, `$ErrorAction) }
+function Get-UnsignedBinariesInDirectory { param(`$Directory, `$IncludeList) @( [PSCustomObject]@{ Path = 'c:\CSEScriptsSignatureCheck\all.ps1'; Status = 'HashMismatch' } ) }
+`$global:cacheDir = 'c:\akse-cache'
+`$requireSignedCseScripts = 'true'
+Test-CSEScriptsSignature
+"@
+        $result = & pwsh -NoProfile -Command $childScript 2>&1
+        $LASTEXITCODE | Should -Be 1
+        ($result -join "`n") | Should -Match 'all\.ps1 \(HashMismatch\)'
+    }
+}

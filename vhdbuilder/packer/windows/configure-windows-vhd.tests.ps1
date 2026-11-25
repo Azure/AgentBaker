@@ -297,3 +297,79 @@ Describe 'Get-ContainerImages test isolation' {
         Test-Path Function:\crictl | Should -BeFalse
     }
 }
+
+Describe 'Register-ExpandVolumeTask' {
+    BeforeAll {
+        # Stubs so the scheduled task cmdlets can be mocked on any runner; New-JobTrigger is not in PowerShell 7.
+        function New-ScheduledTaskAction { param($Execute, $Argument) }
+        function New-ScheduledTaskPrincipal { param($UserId, $LogonType, $RunLevel) }
+        function New-JobTrigger { param([switch]$AtStartup) }
+        function New-ScheduledTask { param($Action, $Principal, $Trigger, $Description) }
+        function Register-ScheduledTask { param($TaskName, $InputObject) }
+
+        function New-CSEPackage {
+            param([string]$Path, [hashtable]$Entries)
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::Open($Path, [System.IO.Compression.ZipArchiveMode]::Create)
+            try {
+                foreach ($name in $Entries.Keys) {
+                    $stream = $zip.CreateEntry($name).Open()
+                    try {
+                        $stream.Write($Entries[$name], 0, $Entries[$name].Length)
+                    }
+                    finally {
+                        $stream.Dispose()
+                    }
+                }
+            }
+            finally {
+                $zip.Dispose()
+            }
+        }
+    }
+
+    BeforeEach {
+        $script:testDir = Join-Path ([System.IO.Path]::GetTempPath()) "pester-expand-volume-$(New-Guid)"
+        $script:originalCacheDir = $global:cacheDir
+        $script:originalAksToolsDir = $global:aksToolsDir
+        $global:cacheDir = Join-Path $script:testDir 'akse-cache'
+        $global:aksToolsDir = Join-Path $script:testDir 'aks-tools'
+        New-Item -ItemType Directory -Path $global:cacheDir -Force | Out-Null
+        $script:csePackage = Join-Path $global:cacheDir 'aks-windows-cse-scripts-current.zip'
+
+        Mock Write-Log {}
+        Mock New-ScheduledTaskAction { 'action' }
+        Mock New-ScheduledTaskPrincipal { 'principal' }
+        Mock New-JobTrigger { 'trigger' }
+        Mock New-ScheduledTask { 'definition' }
+        Mock Register-ScheduledTask {}
+    }
+
+    AfterEach {
+        $global:cacheDir = $script:originalCacheDir
+        $global:aksToolsDir = $script:originalAksToolsDir
+        [System.IO.Directory]::Delete($script:testDir, $true)
+    }
+
+    It 'installs the task script from the cached CSE scripts package byte for byte, keeping its signature' {
+        $signedScript = [System.Text.Encoding]::UTF8.GetBytes("Write-Output 'expand'`r`n# SIG # Begin signature block`r`n# MIIo`r`n# SIG # End signature block`r`n")
+        New-CSEPackage -Path $script:csePackage -Entries @{
+            'provisioningscripts/expand-volume.ps1' = $signedScript
+            'provisioningscripts/kubeletstart.ps1'  = [System.Text.Encoding]::UTF8.GetBytes('kubelet')
+        }
+
+        Register-ExpandVolumeTask
+
+        $taskScriptPath = Join-Path $global:aksToolsDir 'expand-volume.ps1'
+        [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($taskScriptPath)) | Should -BeExactly ([Convert]::ToBase64String($signedScript))
+        Should -Invoke New-ScheduledTaskAction -Times 1 -Exactly -ParameterFilter { $Execute -eq 'powershell.exe' -and $Argument -eq "-File `"$taskScriptPath`"" }
+        Should -Invoke Register-ScheduledTask -Times 1 -Exactly -ParameterFilter { $TaskName -eq 'aks-expand-volume' }
+    }
+
+    It 'fails without registering the task when the CSE scripts package lacks the task script' {
+        New-CSEPackage -Path $script:csePackage -Entries @{ 'provisioningscripts/kubeletstart.ps1' = [System.Text.Encoding]::UTF8.GetBytes('kubelet') }
+
+        { Register-ExpandVolumeTask } | Should -Throw '*provisioningscripts/expand-volume.ps1 not found*'
+        Should -Invoke Register-ScheduledTask -Times 0 -Exactly
+    }
+}

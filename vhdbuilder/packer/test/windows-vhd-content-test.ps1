@@ -8,7 +8,9 @@
 param (
     $windowsSKU,
     $skipValidateReofferUpdate,
-    $validatecontainerBaseImageFromUrl = $false
+    $validatecontainerBaseImageFromUrl = $false,
+    # "true" when the VHD caches CSE scripts signed by aks-rp's windows-cse-sign pipeline.
+    $requireSignedCseScripts = $false
 )
 
 # On a rare occasion, these functions aren't imported properly. So let's pre-define them.
@@ -362,6 +364,37 @@ function Test-PrivatePackageSignature {
     }
 
     Write-OutputWithTimestamp "All private (AzCopy) package signatures validated successfully."
+}
+
+function Test-CSEScriptsSignature {
+    # Release VHD builds cache CSE scripts signed by aks-rp's windows-cse-sign pipeline and set
+    # $requireSignedCseScripts. Other builds cache unsigned scripts, so only report those.
+    $package = [IO.Path]::Combine($global:cacheDir, "aks-windows-cse-scripts-current.zip")
+    $installDir = "c:\CSEScriptsSignatureCheck"
+    if (Test-Path $installDir) {
+        Remove-Item -Path $installDir -Recurse -Force
+    }
+
+    try {
+        Expand-Archive -Path $package -DestinationPath $installDir -Force -ErrorAction Stop
+    }
+    catch {
+        Write-ErrorWithTimestamp "Failed to expand the CSE scripts package ${package}: $($_.Exception.Message)"
+        exit 1
+    }
+
+    $notSignedList = @(Get-UnsignedBinariesInDirectory -Directory $installDir -IncludeList @("*.ps1", "*.psm1", "*.psd1"))
+    if ($notSignedList.Count -eq 0) {
+        Write-OutputWithTimestamp "All PowerShell scripts in $package have valid signatures"
+        return
+    }
+
+    $details = ($notSignedList | ForEach-Object { "$([IO.Path]::GetFileName($_.Path)) ($($_.Status))" }) -join ", "
+    if ("$requireSignedCseScripts" -eq "true") {
+        Write-ErrorWithTimestamp "$($notSignedList.Count) PowerShell scripts in $package do not have valid signatures: $details"
+        exit 1
+    }
+    Write-OutputWithTimestamp "$($notSignedList.Count) PowerShell scripts in $package do not have valid signatures (not required for this build): $details"
 }
 
 function Test-PatchInstalled {
@@ -869,3 +902,6 @@ Test-ValidateImageBinarySignature
 
 Write-OutputWithTimestamp "Test: PrivatePackageSignature"
 Test-PrivatePackageSignature
+
+Write-OutputWithTimestamp "Test: CSEScriptsSignature"
+Test-CSEScriptsSignature
