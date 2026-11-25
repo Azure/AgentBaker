@@ -3,7 +3,7 @@ package starter
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +11,15 @@ import (
 	"github.com/Azure/agentbaker/apiserver"
 	"github.com/spf13/cobra"
 )
+
+// The log collector routes JSON stdout lines to Kusto tables by "source". init runs before
+// the importing main, so its early log calls are JSON too. SetDefault also redirects the
+// standard library log package.
+//
+//nolint:gochecknoinits // logging must be configured before any log call.
+func init() {
+	slog.SetDefault(apiserver.NewJSONLogger(os.Stdout, apiserver.ContextlessTraceSource))
+}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute(configurators ...apiserver.OptionConfigurator) {
@@ -22,7 +31,7 @@ func Execute(configurators ...apiserver.OptionConfigurator) {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Println(err)
+		slog.Error("execute agentbaker command", "error", err)
 		os.Exit(1)
 	}
 }
@@ -34,7 +43,9 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	options = &apiserver.Options{}
+	options = &apiserver.Options{
+		RequestLogger: apiserver.NewJSONLogger(os.Stdout, apiserver.IncomingRequestTraceSource),
+	}
 )
 
 // startCmd represents the start command.
@@ -44,7 +55,7 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := startHelper(cmd, args)
 		if err != nil {
-			log.Println(err.Error())
+			slog.Error("start agentbaker", "error", err)
 			os.Exit(1)
 		}
 	},
@@ -59,20 +70,20 @@ func startHelper(_ *cobra.Command, _ []string) error {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGTERM)
 		<-signals
-		log.Println("received SIGTERM. Terminating...")
+		slog.Info("received SIGTERM, terminating")
 		shutdown()
 	}()
 
 	api, err := apiserver.NewAPIServer(options)
 	if err != nil {
-		log.Println(ctx, err.Error())
+		slog.Error("create APIServer", "error", err)
 		return err
 	}
 
 	errorPipeline := make(chan error)
 
 	go func() {
-		log.Printf("Serving API on %s\n", options.Addr)
+		slog.Info("serving API", "addr", options.Addr)
 		errorPipeline <- api.ListenAndServe(ctx)
 	}()
 

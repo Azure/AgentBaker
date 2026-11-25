@@ -1,10 +1,9 @@
 package apiserver
 
 import (
+	"fmt"
 	"net/http"
-
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
+	"runtime/debug"
 )
 
 // Route defines the route specifics.
@@ -19,31 +18,18 @@ type Route struct {
 type Routes []Route
 
 // NewRouter returns a new router with defaults.
-func (api *APIServer) NewRouter() *mux.Router {
-	router := mux.NewRouter().StrictSlash(true)
+func (api *APIServer) NewRouter() http.Handler {
+	router := http.NewServeMux()
+	// Each API route gets its own request trace with its name; unmatched requests get none.
+	route := func(method, path, name string, h http.HandlerFunc) {
+		router.Handle(method+" "+path, requestLogging(api.Options.RequestLogger, name, timeoutHandler(recoveryHandler(h))))
+	}
+	route(http.MethodPost, RoutePathNodeBootstrapData, "GetNodeBootstrapData", api.GetNodeBootstrapData)
+	route(http.MethodPost, RoutePathLatestSIGImageConfig, "GetLatestSigImageConfig", api.GetLatestSigImageConfig)
+	route(http.MethodPost, RoutePathDistroSIGImageConfig, "GetDistroSigImageConfig", api.GetDistroSigImageConfig)
 
-	router.
-		Methods("POST").
-		Path(RoutePathNodeBootstrapData).
-		Name("GetNodeBootstrapData").
-		HandlerFunc(api.GetNodeBootstrapData)
+	router.Handle("GET /healthz", timeoutHandler(recoveryHandler(http.HandlerFunc(healthz))))
 
-	router.
-		Methods("POST").
-		Path(RoutePathLatestSIGImageConfig).
-		Name("GetLatestSigImageConfig").
-		HandlerFunc(api.GetLatestSigImageConfig)
-
-	router.
-		Methods("POST").
-		Path(RoutePathDistroSIGImageConfig).
-		Name("GetDistroSigImageConfig").
-		HandlerFunc(api.GetDistroSigImageConfig)
-
-	router.Methods("GET").Path("/healthz").Name("healthz").HandlerFunc(healthz)
-
-	// global timeout and panic handlers.
-	//
 	// No authentication middleware (JWT/mTLS/API-key) is intentionally added here;
 	// this is a risk-accepted By-Design decision, not an oversight.
 	//
@@ -64,8 +50,6 @@ func (api *APIServer) NewRouter() *mux.Router {
 	//
 	// If this router is ever exposed beyond the trusted RP-only network boundary,
 	// authentication middleware must be added here.
-	router.Use(timeoutHandler(), recoveryHandler())
-
 	return router
 }
 
@@ -78,12 +62,20 @@ func handleOK(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func recoveryHandler() mux.MiddlewareFunc {
-	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))
+// recoveryHandler logs panics with the request IDs, so that a stack trace can be joined to its
+// request trace.
+func recoveryHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				requestLogger(r).Error("recovered panic", "panic", fmt.Sprint(err), "stack", string(debug.Stack()))
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
-func timeoutHandler() mux.MiddlewareFunc {
-	return func(h http.Handler) http.Handler {
-		return http.TimeoutHandler(h, defaultTimeout, "")
-	}
+func timeoutHandler(h http.Handler) http.Handler {
+	return http.TimeoutHandler(h, defaultTimeout, "")
 }

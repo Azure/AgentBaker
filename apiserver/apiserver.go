@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -27,6 +27,8 @@ type OptionConfigurator func(opts *Options)
 type Options struct {
 	Addr    string
 	Toggles toggles.Toggles
+	// RequestLogger receives incoming request traces. If nil, traces are discarded.
+	RequestLogger *slog.Logger
 }
 
 func (o *Options) validate() error {
@@ -105,7 +107,7 @@ func (api *APIServer) ListenAndServe(ctx context.Context) error {
 		errors <- svr.ListenAndServe()
 	}()
 
-	log.Printf("Starting APIServer at %s\n", api.Options.Addr)
+	slog.Info("starting APIServer", "addr", api.Options.Addr)
 	select {
 	case <-ctx.Done():
 		return svr.Shutdown(context.WithoutCancel(ctx))
