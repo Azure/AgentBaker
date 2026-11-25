@@ -3,7 +3,6 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/Azure/agentbaker/pkg/agent"
@@ -21,14 +20,14 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 
 	err := json.NewDecoder(r.Body).Decode(&config)
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("decode request body", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("create AgentBaker", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -43,14 +42,14 @@ func (api *APIServer) GetLatestSigImageConfig(w http.ResponseWriter, r *http.Req
 		Region:         config.Region,
 	})
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("get latest SIG image config", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	result, err := json.Marshal(latestSigConfig)
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("marshal response", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

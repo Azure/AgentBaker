@@ -3,7 +3,6 @@ package starter
 
 import (
 	"context"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -32,7 +31,7 @@ func Execute(configurators ...apiserver.OptionConfigurator) {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
-		log.Println(err)
+		slog.Error("execute agentbaker command", "error", err)
 		os.Exit(1)
 	}
 }
@@ -56,7 +55,7 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		err := startHelper(cmd, args)
 		if err != nil {
-			log.Println(err.Error())
+			slog.Error("start agentbaker", "error", err)
 			os.Exit(1)
 		}
 	},
@@ -71,20 +70,20 @@ func startHelper(_ *cobra.Command, _ []string) error {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGTERM)
 		<-signals
-		log.Println("received SIGTERM. Terminating...")
+		slog.Info("received SIGTERM, terminating")
 		shutdown()
 	}()
 
 	api, err := apiserver.NewAPIServer(options)
 	if err != nil {
-		log.Println(ctx, err.Error())
+		slog.Error("create APIServer", "error", err)
 		return err
 	}
 
 	errorPipeline := make(chan error)
 
 	go func() {
-		log.Printf("Serving API on %s\n", options.Addr)
+		slog.Info("serving API", "addr", options.Addr)
 		errorPipeline <- api.ListenAndServe(ctx)
 	}()
 

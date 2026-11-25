@@ -2,7 +2,7 @@ package toggles
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 )
@@ -56,7 +56,7 @@ func (e *Entity) String() string {
 func marshalToString(obj any) string {
 	raw, err := json.Marshal(obj)
 	if err != nil {
-		log.Printf("error marshalling JSON object for logs: %s", err)
+		slog.Error("marshal JSON object for logs", "error", err)
 		return ""
 	}
 	return string(raw)

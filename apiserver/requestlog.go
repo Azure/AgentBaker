@@ -46,12 +46,8 @@ func requestLogging(logger *slog.Logger) mux.MiddlewareFunc {
 			}
 
 			start := time.Now()
-			reqLogger := logger.With(
-				"operationID", r.Header.Get(operationIDHeader),
-				"correlationID", r.Header.Get(correlationIDHeader),
-				"clientRequestID", r.Header.Get(clientRequestIDHeader),
+			reqLogger := logger.With(requestIDAttrs(r)...).With(
 				"httpMethod", r.Method,
-				// Path only: query strings may carry secrets.
 				"targetURI", r.URL.EscapedPath(),
 				"routeName", routeName,
 				"operationName", routeName,
@@ -69,6 +65,20 @@ func requestLogging(logger *slog.Logger) mux.MiddlewareFunc {
 				"durationInMilliseconds", strconv.FormatInt(time.Since(start).Milliseconds(), 10),
 			)
 		})
+	}
+}
+
+// requestLogger returns the default logger with the request IDs, so that handler logs can be
+// joined to the request trace.
+func requestLogger(r *http.Request) *slog.Logger {
+	return slog.Default().With(requestIDAttrs(r)...)
+}
+
+func requestIDAttrs(r *http.Request) []any {
+	return []any{
+		"operationID", r.Header.Get(operationIDHeader),
+		"correlationID", r.Header.Get(correlationIDHeader),
+		"clientRequestID", r.Header.Get(clientRequestIDHeader),
 	}
 }
 

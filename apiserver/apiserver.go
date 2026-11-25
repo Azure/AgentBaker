@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -108,7 +107,7 @@ func (api *APIServer) ListenAndServe(ctx context.Context) error {
 		errors <- svr.ListenAndServe()
 	}()
 
-	log.Printf("Starting APIServer at %s\n", api.Options.Addr)
+	slog.Info("starting APIServer", "addr", api.Options.Addr)
 	select {
 	case <-ctx.Done():
 		return svr.Shutdown(context.WithoutCancel(ctx))

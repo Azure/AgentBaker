@@ -3,6 +3,7 @@ package apiserver
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -11,7 +12,11 @@ import (
 )
 
 func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
-	var buf bytes.Buffer
+	var buf, defaultBuf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(NewJSONLogger(&defaultBuf, ContextlessTraceSource))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+
 	api, err := NewAPIServer(&Options{Addr: ":8080", RequestLogger: NewJSONLogger(&buf, IncomingRequestTraceSource)})
 	if err != nil {
 		t.Fatal(err)
@@ -28,21 +33,20 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	if len(records) != 2 {
 		t.Fatalf("expected 2 records, got %d: %s", len(records), buf.String())
 	}
+	requestIDs := map[string]string{
+		"operationID":     "op-id",
+		"correlationID":   "corr-id",
+		"clientRequestID": "client-id",
+	}
 	for _, record := range records {
-		for key, want := range map[string]string{
-			"source":          IncomingRequestTraceSource,
-			"operationID":     "op-id",
-			"correlationID":   "corr-id",
-			"clientRequestID": "client-id",
-			"httpMethod":      http.MethodPost,
-			"targetURI":       RoutePathLatestSIGImageConfig,
-			"routeName":       "GetLatestSigImageConfig",
-			"operationName":   "GetLatestSigImageConfig",
-		} {
-			if record[key] != want {
-				t.Errorf("record %v: expected %s=%q, got %v", record["msg"], key, want, record[key])
-			}
-		}
+		assertFields(t, record, requestIDs)
+		assertFields(t, record, map[string]string{
+			"source":        IncomingRequestTraceSource,
+			"httpMethod":    http.MethodPost,
+			"targetURI":     RoutePathLatestSIGImageConfig,
+			"routeName":     "GetLatestSigImageConfig",
+			"operationName": "GetLatestSigImageConfig",
+		})
 	}
 	if records[0]["msg"] != "AgentBakerHttpRequestStart" || records[1]["msg"] != "AgentBakerHttpRequestEnd" {
 		t.Fatalf("unexpected messages: %v, %v", records[0]["msg"], records[1]["msg"])
@@ -56,6 +60,26 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	}
 	if _, ok := end["durationInMilliseconds"].(string); !ok {
 		t.Errorf("expected durationInMilliseconds string, got %v", end["durationInMilliseconds"])
+	}
+
+	handlerRecords := decodeRecords(t, &defaultBuf)
+	if len(handlerRecords) != 1 {
+		t.Fatalf("expected 1 handler record, got %d: %s", len(handlerRecords), defaultBuf.String())
+	}
+	assertFields(t, handlerRecords[0], requestIDs)
+	assertFields(t, handlerRecords[0], map[string]string{
+		"source": ContextlessTraceSource,
+		"level":  "ERROR",
+		"msg":    "decode request body",
+	})
+}
+
+func assertFields(t *testing.T, record map[string]any, want map[string]string) {
+	t.Helper()
+	for key, value := range want {
+		if record[key] != value {
+			t.Errorf("record %v: expected %s=%q, got %v", record["msg"], key, value, record[key])
+		}
 	}
 }
 

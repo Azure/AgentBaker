@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -41,14 +40,14 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 
 	err := json.NewDecoder(r.Body).Decode(&config)
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("decode request body", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	agentBaker, err := agent.NewAgentBaker()
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("create AgentBaker", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -59,7 +58,7 @@ func (api *APIServer) GetNodeBootstrapData(w http.ResponseWriter, r *http.Reques
 
 	nodeBootStrapping, err := agentBaker.GetNodeBootstrapping(ctx, &config)
 	if err != nil {
-		log.Println(err.Error())
+		requestLogger(r).Error("get node bootstrapping", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
