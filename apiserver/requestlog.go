@@ -18,8 +18,9 @@ const (
 	// ContextlessTraceSource is the source for logs that are not tied to a request.
 	ContextlessTraceSource = "AcsContextlessTraceLog"
 
-	operationIDHeader   = "x-ms-acs-operation-id"
-	correlationIDHeader = "x-ms-correlation-request-id"
+	operationIDHeader     = "x-ms-acs-operation-id"
+	correlationIDHeader   = "x-ms-correlation-request-id"
+	clientRequestIDHeader = "x-ms-client-request-id"
 
 	healthzRouteName = "healthz"
 )
@@ -30,6 +31,9 @@ func NewJSONLogger(w io.Writer, source string) *slog.Logger {
 }
 
 func requestLogging(logger *slog.Logger) mux.MiddlewareFunc {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			routeName := ""
@@ -45,9 +49,12 @@ func requestLogging(logger *slog.Logger) mux.MiddlewareFunc {
 			reqLogger := logger.With(
 				"operationID", r.Header.Get(operationIDHeader),
 				"correlationID", r.Header.Get(correlationIDHeader),
+				"clientRequestID", r.Header.Get(clientRequestIDHeader),
 				"httpMethod", r.Method,
-				"targetURI", r.URL.String(),
+				// Path only: query strings may carry secrets.
+				"targetURI", r.URL.EscapedPath(),
 				"routeName", routeName,
+				"operationName", routeName,
 				"userAgent", r.UserAgent(),
 				"clientRemoteAddr", r.RemoteAddr,
 			)

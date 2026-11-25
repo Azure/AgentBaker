@@ -68,10 +68,6 @@ func NewAPIServer(o *Options) (*APIServer, error) {
 		return nil, err
 	}
 
-	if o.RequestLogger == nil {
-		o.RequestLogger = slog.New(slog.DiscardHandler)
-	}
-
 	s := &APIServer{
 		Options:                   o,
 		nodeBootstrapLimiter:      make(chan struct{}, maxConcurrentRequests),

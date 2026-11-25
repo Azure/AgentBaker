@@ -17,9 +17,10 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	request := httptest.NewRequest(http.MethodPost, RoutePathLatestSIGImageConfig, strings.NewReader("not json"))
+	request := httptest.NewRequest(http.MethodPost, RoutePathLatestSIGImageConfig+"?sig=secret", strings.NewReader("not json"))
 	request.Header.Set(operationIDHeader, "op-id")
 	request.Header.Set(correlationIDHeader, "corr-id")
+	request.Header.Set(clientRequestIDHeader, "client-id")
 	response := httptest.NewRecorder()
 	api.NewRouter().ServeHTTP(response, request)
 
@@ -29,11 +30,14 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	}
 	for _, record := range records {
 		for key, want := range map[string]string{
-			"source":        IncomingRequestTraceSource,
-			"operationID":   "op-id",
-			"correlationID": "corr-id",
-			"httpMethod":    http.MethodPost,
-			"routeName":     "GetLatestSigImageConfig",
+			"source":          IncomingRequestTraceSource,
+			"operationID":     "op-id",
+			"correlationID":   "corr-id",
+			"clientRequestID": "client-id",
+			"httpMethod":      http.MethodPost,
+			"targetURI":       RoutePathLatestSIGImageConfig,
+			"routeName":       "GetLatestSigImageConfig",
+			"operationName":   "GetLatestSigImageConfig",
 		} {
 			if record[key] != want {
 				t.Errorf("record %v: expected %s=%q, got %v", record["msg"], key, want, record[key])
