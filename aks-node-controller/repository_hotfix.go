@@ -419,12 +419,10 @@ func isRetryableRepositoryDownloadError(err error) bool {
 	if err == nil || isIntegrityError(err) || errors.Is(err, context.Canceled) {
 		return false
 	}
-	var unsupported *unsupportedRepositoryError
-	if errors.As(err, &unsupported) {
+	if _, ok := errors.AsType[*unsupportedRepositoryError](err); ok {
 		return false
 	}
-	var statusErr *repositoryHTTPStatusError
-	if errors.As(err, &statusErr) {
+	if statusErr, ok := errors.AsType[*repositoryHTTPStatusError](err); ok {
 		return statusErr.statusCode >= http.StatusInternalServerError ||
 			statusErr.statusCode == http.StatusTooManyRequests ||
 			statusErr.statusCode == http.StatusRequestTimeout

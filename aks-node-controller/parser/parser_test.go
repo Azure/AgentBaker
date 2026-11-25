@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestCloudInitHandoff(t *testing.T) {
@@ -83,8 +82,8 @@ echo "containerd containerd.io %s test"
 `, version)), 0755))
 			t.Setenv("PATH", dir)
 			cfg := &aksnodeconfigv1.Configuration{ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
-				ImagePullWithSyncFs:      proto.Bool(false),
-				ImagePullProgressTimeout: proto.String("0s"),
+				ImagePullWithSyncFs:      new(false),
+				ImagePullProgressTimeout: new("0s"),
 			}}
 			cmd, err := BuildCSECmd(context.Background(), cfg, nil)
 			require.NoError(t, err)
@@ -118,7 +117,7 @@ func TestBuildCSECmd(t *testing.T) {
 				aksNodeConfig.GpuConfig.GpuInstanceProfile = "MIG7g"
 				aksNodeConfig.GpuConfig.MigStrategy = "Single"
 				// Skip GPU driver install
-				aksNodeConfig.GpuConfig.EnableNvidia = to.Ptr(false)
+				aksNodeConfig.GpuConfig.EnableNvidia = new(false)
 				aksNodeConfig.VmSize = "Standard_ND96asr_v4"
 			},
 			validator: func(cmd *exec.Cmd) {
@@ -178,7 +177,7 @@ oom_score = -999
 			folder:     "AKSUbuntu2204+SSHStatusOn",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.EnableSsh = to.Ptr(true)
+				aksNodeConfig.EnableSsh = new(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -190,7 +189,7 @@ oom_score = -999
 			folder:     "AKSUbuntu2204+DisablePubkeyAuth",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.DisablePubkeyAuth = to.Ptr(true)
+				aksNodeConfig.DisablePubkeyAuth = new(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -202,7 +201,7 @@ oom_score = -999
 			folder:     "AKSUbuntu2204+EnablePubkeyAuth",
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
-				aksNodeConfig.DisablePubkeyAuth = to.Ptr(false)
+				aksNodeConfig.DisablePubkeyAuth = new(false)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -258,15 +257,15 @@ oom_score = -999
 			k8sVersion: "1.24.2",
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.ClusterConfig.CloudProviderConfig = &aksnodeconfigv1.CloudProviderConfig{
-					Backoff:              to.Ptr(false),
+					Backoff:              new(false),
 					BackoffMode:          "v1",
 					BackoffRetries:       to.Ptr[int32](9),
-					BackoffExponent:      to.Ptr(1.5),
+					BackoffExponent:      new(1.5),
 					BackoffDuration:      to.Ptr[int32](12),
-					BackoffJitter:        to.Ptr(0.5),
-					RateLimit:            to.Ptr(false),
-					RateLimitQps:         to.Ptr(3.2),
-					RateLimitQpsWrite:    to.Ptr(4.2),
+					BackoffJitter:        new(0.5),
+					RateLimit:            new(false),
+					RateLimitQps:         new(3.2),
+					RateLimitQpsWrite:    new(4.2),
 					RateLimitBucket:      to.Ptr[int32](42),
 					RateLimitBucketWrite: to.Ptr[int32](43),
 				}
@@ -300,8 +299,8 @@ oom_score = -999
 						NetCoreSomaxconn:             to.Ptr[int32](1638499),
 						NetCoreRmemDefault:           to.Ptr[int32](456000),
 						NetCoreWmemDefault:           to.Ptr[int32](89000),
-						NetIpv4TcpTwReuse:            to.Ptr(true),
-						NetIpv4IpLocalPortRange:      to.Ptr("32768 65400"),
+						NetIpv4TcpTwReuse:            new(true),
+						NetIpv4IpLocalPortRange:      new("32768 65400"),
 						NetIpv4TcpMaxSynBacklog:      to.Ptr[int32](1638498),
 						NetIpv4NeighDefaultGcThresh1: to.Ptr[int32](10001),
 					},
@@ -326,7 +325,7 @@ oom_score = -999
 			aksNodeConfigUpdator: func(aksNodeConfig *aksnodeconfigv1.Configuration) {
 				aksNodeConfig.IsKata = true
 				aksNodeConfig.EnableUnattendedUpgrade = true
-				aksNodeConfig.NeedsCgroupv2 = to.Ptr(true)
+				aksNodeConfig.NeedsCgroupv2 = new(true)
 			},
 			validator: func(cmd *exec.Cmd) {
 				vars := environToMap(cmd.Env)
@@ -343,7 +342,7 @@ oom_score = -999
 				aksNodeConfig.LocalDnsProfile = &aksnodeconfigv1.LocalDnsProfile{
 					EnableLocalDns:                      true,
 					EnableHostsPlugin:                   true,
-					HostsPluginRefreshIntervalInSeconds: to.Ptr(int32(30)),
+					HostsPluginRefreshIntervalInSeconds: new(int32(30)),
 				}
 			},
 			validator: func(cmd *exec.Cmd) {
@@ -429,7 +428,7 @@ oom_score = -999
 						"--cgroups-per-qos":                   "true",
 						"--tls-cert-file":                     "/etc/kubernetes/certs/kubeletserver.crt",
 						"--tls-private-key-file":              "/etc/kubernetes/certs/kubeletserver.key",
-						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+						"--tls-cipher-suites":                 "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 						"--max-pods":                          "110",
 						"--node-status-update-frequency":      "10s",
 						"--image-gc-high-threshold":           "85",
@@ -800,7 +799,7 @@ func TestContractCompatibilityHandledByProtobuf(t *testing.T) {
 
 	t.Run("with missing fields in json should be set with default values", func(t *testing.T) {
 		aksNodeConfigUT := loadAKSNodeConfig("./testdata/test_aksnodeconfig_fields_missing.json")
-		assert.Equal(t, "", aksNodeConfigUT.GetLinuxAdminUsername())
+		assert.Empty(t, aksNodeConfigUT.GetLinuxAdminUsername())
 
 		// if an optional (explicit presence) bool field is unset, it will be set to nil by protobuf by default.
 		// Here we don't use the getter because getter is nil safe and will default to false.
@@ -931,7 +930,7 @@ func TestBuildCSECmd_DetectsContainerdV2FromSystem(t *testing.T) {
 		t.Run(fmt.Sprintf("isKata=%t", isKata), func(t *testing.T) {
 			config := &aksnodeconfigv1.Configuration{
 				IsKata:           isKata,
-				NeedsCgroupv2:    to.Ptr(true),
+				NeedsCgroupv2:    new(true),
 				ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{},
 			}
 
@@ -974,7 +973,7 @@ func TestBuildCSECmd_FallsBackToV1WhenContainerdDetectionFails(t *testing.T) {
 	vars := environToMap(cmd.Env)
 
 	// Version should remain empty (detection failed gracefully).
-	assert.Equal(t, "", vars["CONTAINERD_VERSION"])
+	assert.Empty(t, vars["CONTAINERD_VERSION"])
 
 	// Verify the v1 containerd config template was used (uses "io.containerd.grpc.v1.cri" path).
 	containerdConfig, err := getBase64DecodedValue([]byte(vars["CONTAINERD_CONFIG_NO_GPU_CONTENT"]))

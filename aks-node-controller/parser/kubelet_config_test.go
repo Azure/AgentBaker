@@ -25,7 +25,7 @@ func TestKubeletConfigFileFieldsRoundTrip(t *testing.T) {
 		{
 			name: "explicit false and zero duration",
 			config: &aksnodeconfigv1.KubeletConfigFileConfig{
-				EnableServer:          proto.Bool(false),
+				EnableServer:          new(false),
 				RuntimeRequestTimeout: "0s",
 			},
 			want: `{"enableServer": false, "runtimeRequestTimeout": "0s"}`,
@@ -33,7 +33,7 @@ func TestKubeletConfigFileFieldsRoundTrip(t *testing.T) {
 		{
 			name: "linux fields and taints",
 			config: &aksnodeconfigv1.KubeletConfigFileConfig{
-				EnableServer:             proto.Bool(true),
+				EnableServer:             new(true),
 				VolumePluginDir:          "/etc/kubernetes/volumeplugins",
 				CgroupDriver:             "systemd",
 				RuntimeRequestTimeout:    "2m",
@@ -107,9 +107,10 @@ func TestKubeletConfigFileLegacyOutputUnchanged(t *testing.T) {
 			ApiVersion:     "kubelet.config.k8s.io/v1beta1",
 			Address:        "0.0.0.0",
 			EventRecordQps: proto.Int32(0),
-			CpuCfsQuota:    proto.Bool(false),
+			CpuCfsQuota:    new(false),
 		},
 	}
+	//nolint:testifylint // byte-exact legacy output
 	require.Equal(t, `{
     "kind": "KubeletConfiguration",
     "apiVersion": "kubelet.config.k8s.io/v1beta1",
@@ -117,7 +118,7 @@ func TestKubeletConfigFileLegacyOutputUnchanged(t *testing.T) {
     "eventRecordQPS": 0,
     "cpuCFSQuota": false
 }`, getKubeletConfigFileContent(config))
-	require.Equal(t, "", getKubeletConfigFileContent(nil))
+	require.Empty(t, getKubeletConfigFileContent(nil))
 	require.Equal(t, "{}", getKubeletConfigFileContent(&aksnodeconfigv1.KubeletConfig{}))
 }
 

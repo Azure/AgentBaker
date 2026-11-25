@@ -260,7 +260,7 @@ func rpmReleaseVersion(versionID string) string {
 }
 
 func rpmReleaseSuffix(info platformInfo) (string, error) {
-	major := strings.SplitN(info.VersionID, ".", 2)[0]
+	major, _, _ := strings.Cut(info.VersionID, ".")
 	switch {
 	case info.ID == osReleaseIDAzureLinux && major == "3":
 		return "azl3", nil
@@ -334,7 +334,7 @@ func parseMSOSSRepository(reposDir string) (rpmRepository, error) {
 func parseINISections(contents string) map[string]map[string]string {
 	sections := map[string]map[string]string{}
 	var current map[string]string
-	for _, rawLine := range strings.Split(strings.ReplaceAll(contents, "\r\n", "\n"), "\n") {
+	for rawLine := range strings.SplitSeq(strings.ReplaceAll(contents, "\r\n", "\n"), "\n") {
 		line := strings.TrimSpace(rawLine)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
@@ -358,7 +358,7 @@ func parseINISections(contents string) map[string]map[string]string {
 
 func localGPGKeyPaths(value string) ([]string, error) {
 	var paths []string
-	for _, field := range strings.Fields(value) {
+	for field := range strings.FieldsSeq(value) {
 		u, err := url.Parse(field)
 		if err != nil {
 			return nil, newUnsupportedRepositoryError("parse RPM gpgkey %q: %v", field, err)

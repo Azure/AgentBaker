@@ -36,7 +36,7 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 		"--cgroups-per-qos":              "true",
 		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 		"--max-pods":                     "110",
 		"--node-status-update-frequency": "10s",
 		"--image-gc-high-threshold":      "85",
@@ -60,17 +60,17 @@ func TestGetKubeletConfigFileFromFlags(t *testing.T) {
 	}
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
-		SeccompDefault:        to.BoolPtr(true),
+		SeccompDefault:        new(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -178,7 +178,7 @@ func getExampleKcWithNodeStatusReportFrequency() map[string]string {
 		"--cgroups-per-qos":              "true",
 		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 		"--max-pods":                     "110",
 		"--node-status-update-frequency": "10s",
 		"--node-status-report-frequency": "5m0s",
@@ -212,7 +212,7 @@ func getExampleKcWithContainerLogMaxSize() map[string]string {
 		"--cgroups-per-qos":              "true",
 		"--tls-cert-file":                "/etc/kubernetes/certs/kubeletserver.crt",
 		"--tls-private-key-file":         "/etc/kubernetes/certs/kubeletserver.key",
-		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256", //nolint:lll
+		"--tls-cipher-suites":            "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_256_GCM_SHA384,TLS_RSA_WITH_AES_128_GCM_SHA256",
 		"--max-pods":                     "110",
 		"--node-status-update-frequency": "10s",
 		"--image-gc-high-threshold":      "85",
@@ -541,13 +541,13 @@ func TestGetKubeletConfigFileFlagsWithNodeStatusReportFrequency(t *testing.T) {
 	kc := getExampleKcWithNodeStatusReportFrequency()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		PodMaxPids:            to.Int32Ptr(12345),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
@@ -561,13 +561,13 @@ func TestGetKubeletConfigFileFromFlagsWithContainerLogMaxSize(t *testing.T) {
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		PodMaxPids:            to.Int32Ptr(12345),
 	}
@@ -582,17 +582,17 @@ func TestGetKubeletConfigFileCustomKCShouldOverrideValuesPassedInKc(t *testing.T
 	kc := getExampleKcWithContainerLogMaxSize()
 	customKc := &datamodel.CustomKubeletConfig{
 		CPUManagerPolicy:      "static",
-		CPUCfsQuota:           to.BoolPtr(false),
+		CPUCfsQuota:           new(false),
 		CPUCfsQuotaPeriod:     "200ms",
 		ImageGcHighThreshold:  to.Int32Ptr(90),
 		ImageGcLowThreshold:   to.Int32Ptr(70),
 		TopologyManagerPolicy: "best-effort",
 		AllowedUnsafeSysctls:  &[]string{"kernel.msg*", "net.ipv4.route.min_pmtu"},
-		FailSwapOn:            to.BoolPtr(false),
+		FailSwapOn:            new(false),
 		ContainerLogMaxFiles:  to.Int32Ptr(99),
 		ContainerLogMaxSizeMB: to.Int32Ptr(1000),
 		PodMaxPids:            to.Int32Ptr(12345),
-		SeccompDefault:        to.BoolPtr(true),
+		SeccompDefault:        new(true),
 	}
 	configFileStr := GetKubeletConfigFileContent(kc, customKc)
 	diff := cmp.Diff(expectedKubeletJSON, configFileStr)
@@ -804,7 +804,7 @@ func TestIsTLSBootstrappingEnabledWithHardCodedToken(t *testing.T) {
 			reason:            "agent pool TLS bootstrap token not set",
 		},
 		{
-			tlsBootstrapToken: to.StringPtr("foobar.foobar"),
+			tlsBootstrapToken: new("foobar.foobar"),
 			expected:          true,
 			reason:            "supported",
 		},
@@ -828,7 +828,7 @@ func TestGetTLSBootstrapTokenForKubeConfig(t *testing.T) {
 			expected: "",
 		},
 		{
-			token:    to.StringPtr("foo.bar"),
+			token:    new("foo.bar"),
 			expected: "foo.bar",
 		},
 	}
@@ -976,7 +976,7 @@ var _ = Describe("Test GetOrderedKubeletConfigFlagString", func() {
 			EnableKubeletConfigFile: true,
 			AgentPoolProfile: &datamodel.AgentPoolProfile{
 				CustomKubeletConfig: &datamodel.CustomKubeletConfig{
-					SeccompDefault: to.BoolPtr(false),
+					SeccompDefault: new(false),
 				},
 			},
 		}
@@ -1109,7 +1109,6 @@ var _ = Describe("Assert datamodel.CSEStatus can be used to parse output JSON", 
 	})
 })
 
-//nolint:lll
 var _ = Describe("Test removeComments", func() {
 
 	It("Should leave lines without comments unchanged", func() {
@@ -1421,7 +1420,7 @@ func discoverCSEScripts(t *testing.T) []string {
 }
 
 func TestGzipWriterPoolDoesNotMixPayloads(t *testing.T) {
-	for i := 0; i < 16; i++ {
+	for i := range 16 {
 		payload := strings.Repeat(string(rune('a'+i)), 4096)
 		t.Run(string(rune('a'+i)), func(t *testing.T) {
 			t.Parallel()
@@ -1453,7 +1452,7 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 		t.Skip("bash not available, skipping syntax check")
 	}
 
-	tmpFile, err := os.CreateTemp("", "cse-roundtrip-*.sh")
+	tmpFile, err := os.CreateTemp(t.TempDir(), "cse-roundtrip-*.sh")
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
@@ -1473,7 +1472,7 @@ func cseValidateBashSyntax(t *testing.T, script string, decoded []byte) {
 	}
 }
 
-func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) { //nolint:gocognit
+func TestValidateAndSetNodeBootstrappingConfiguration_StreamingConnectionIdleTimeout(t *testing.T) {
 	testCases := []struct {
 		name          string
 		version       string
@@ -1724,7 +1723,7 @@ func TestValidateAndSetLinuxNodeBootstrappingConfiguration_RuntimeClassInImageCr
 					FeatureGates map[string]bool `json:"featureGates"`
 				}
 				require.NoError(t, json.Unmarshal([]byte(GetKubeletConfigFileContent(config.KubeletConfig, nil)), &file))
-				require.Equal(t, strKeyValToMapBool(tc.wantGates, ",", "="), file.FeatureGates)
+				require.Equal(t, strKeyValToMapBool(tc.wantGates), file.FeatureGates)
 			})
 		}
 	}
@@ -1890,4 +1889,9 @@ func TestGetSSHPublicKeysPowerShell(t *testing.T) {
 			}
 		})
 	}
+}
+
+// getBase64EncodedGzippedCustomScript will return a base64 of the CSE.
+func getBase64EncodedGzippedCustomScript(csFilename string, config *datamodel.NodeBootstrappingConfiguration) string {
+	return getBase64EncodedGzippedCustomScriptFromStr(getCustomScript(csFilename, config))
 }

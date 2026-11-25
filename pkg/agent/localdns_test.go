@@ -679,9 +679,9 @@ testdomain567.com:53 {
 						CacheDurationInSeconds:        to.Int32Ptr(3600),
 						ServeStaleDurationInSeconds:   to.Int32Ptr(3600),
 						ServeStale:                    "Immediate",
-						FailfastAllUnhealthyUpstreams: to.BoolPtr(false),
+						FailfastAllUnhealthyUpstreams: new(false),
 						HealthCheck: &datamodel.LocalDNSHealthCheck{
-							Duration: to.StringPtr("1s"),
+							Duration: new("1s"),
 						},
 					},
 				},
@@ -699,17 +699,17 @@ testdomain567.com:53 {
 				VnetDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
 					QueryLogging: "Log", Protocol: "PreferUDP", ForwardDestination: "VnetDNS", ForwardPolicy: "Sequential",
 					MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
-					FailfastAllUnhealthyUpstreams: to.BoolPtr(true),
+					FailfastAllUnhealthyUpstreams: new(true),
 					HealthCheck: &datamodel.LocalDNSHealthCheck{
-						Duration: to.StringPtr("1s"),
-						NoRec:    to.BoolPtr(true),
-						Domain:   to.StringPtr("health.local."),
+						Duration: new("1s"),
+						NoRec:    new(true),
+						Domain:   new("health.local."),
 					},
 				}},
 				KubeDNSOverrides: map[string]*datamodel.LocalDNSOverrides{".": {
 					QueryLogging: "Error", Protocol: "PreferUDP", ForwardDestination: "ClusterCoreDNS", ForwardPolicy: "Sequential",
 					MaxConcurrent: to.Int32Ptr(1000), CacheDurationInSeconds: to.Int32Ptr(3600), ServeStaleDurationInSeconds: to.Int32Ptr(3600), ServeStale: "Immediate",
-					HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: to.StringPtr("2s"), Domain: to.StringPtr("")},
+					HealthCheck: &datamodel.LocalDNSHealthCheck{Duration: new("2s"), Domain: new("")},
 				}},
 			}
 			localDNSCoreFile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, false)
@@ -914,7 +914,7 @@ func TestGenerateLocalDNSCoreFileLoadBalance(t *testing.T) {
 			corefile, err := GenerateLocalDNSCoreFile(config, config.AgentPoolProfile, includeHosts)
 			require.NoError(t, err)
 			// Check each server block, including custom zones, rather than only the root block.
-			for _, block := range strings.Split(corefile, "\n}\n") {
+			for block := range strings.SplitSeq(corefile, "\n}\n") {
 				if strings.Contains(block, "\n    forward . ") {
 					require.Equal(t, 1, strings.Count(block, "\n    loadbalance\n"), block)
 					require.Contains(t, block, "policy sequential")

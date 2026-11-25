@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/Azure/agentbaker/pkg/agent/datamodel"
 	"github.com/Azure/agentbaker/pkg/agent/toggles"
@@ -34,8 +35,7 @@ func (agentBaker *agentBakerImpl) WithToggles(toggles toggles.Toggles) *agentBak
 	return agentBaker
 }
 
-//nolint:revive, nolintlint // ctx is not used, but may be in the future
-func (agentBaker *agentBakerImpl) GetNodeBootstrapping(ctx context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
+func (agentBaker *agentBakerImpl) GetNodeBootstrapping(_ context.Context, config *datamodel.NodeBootstrappingConfiguration) (*datamodel.NodeBootstrapping, error) {
 	// validate and fix input before passing config to the template generator.
 	if config.AgentPoolProfile.IsWindows() {
 		validateAndSetWindowsNodeBootstrappingConfiguration(config)
@@ -123,9 +123,7 @@ func (agentBaker *agentBakerImpl) GetDistroSigImageConfig(
 	e := toggles.NewEntityFromEnvironmentInfo(envInfo)
 
 	allDistros := map[datamodel.Distro]datamodel.SigImageConfig{}
-	for distro, sigConfig := range allAzureSigConfig.SigWindowsImageConfig {
-		allDistros[distro] = sigConfig
-	}
+	maps.Copy(allDistros, allAzureSigConfig.SigWindowsImageConfig)
 
 	for distro, sigConfig := range allAzureSigConfig.SigCBLMarinerImageConfig {
 		imageVersion := agentBaker.toggles.GetLinuxNodeImageVersion(e, distro)

@@ -53,7 +53,7 @@ func TestSysctlConfigUnmarshalsInt64FsFileMax(t *testing.T) {
 
 func TestGetCustomEnvironmentJSON(t *testing.T) {
 	properties := getMockProperitesWithCustomClouEnv()
-	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}` //nolint: lll
+	expectedRet := `{"name":"AzureStackCloud","Name":"AzureStackCloud","mcrURL":"mcr.microsoft.fakecustomcloud","repoDepotEndpoint":"https://repodepot.azure.microsoft.fakecustomcloud/ubuntu","managementPortalURL":"https://portal.azure.microsoft.fakecustomcloud/","serviceManagementEndpoint":"https://management.core.microsoft.fakecustomcloud/","resourceManagerEndpoint":"https://management.azure.microsoft.fakecustomcloud/","activeDirectoryEndpoint":"https://login.microsoftonline.microsoft.fakecustomcloud/","keyVaultEndpoint":"https://vault.cloudapi.microsoft.fakecustomcloud/","graphEndpoint":"https://graph.cloudapi.microsoft.fakecustomcloud/","storageEndpointSuffix":"core.microsoft.fakecustomcloud","sqlDatabaseDNSSuffix":"database.cloudapi.microsoft.fakecustomcloud","keyVaultDNSSuffix":"vault.cloudapi.microsoft.fakecustomcloud","resourceManagerVMDNSSuffix":"cloudapp.azure.microsoft.fakecustomcloud/","containerRegistryDNSSuffix":".azurecr.microsoft.fakecustomcloud","cosmosDBDNSSuffix":"documents.core.microsoft.fakecustomcloud/","tokenAudience":"https://management.core.microsoft.fakecustomcloud/","resourceIdentifiers":{}}`
 	actual, err := properties.GetCustomEnvironmentJSON(false)
 	if err != nil {
 		t.Error(err)
@@ -115,7 +115,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    "coredns",
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 							},
 						},
 					},
@@ -131,7 +131,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 							},
 						},
 					},
@@ -162,7 +162,7 @@ func TestPropertiesIsIPMasqAgentDisabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 							},
 						},
 					},
@@ -274,7 +274,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -296,7 +296,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(false),
+								Enabled: new(false),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -321,7 +321,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -346,7 +346,7 @@ func TestIsIPMasqAgentEnabled(t *testing.T) {
 						Addons: []KubernetesAddon{
 							{
 								Name:    IPMASQAgentAddonName,
-								Enabled: to.BoolPtr(true),
+								Enabled: new(true),
 								Containers: []KubernetesContainerSpec{
 									{
 										Name: IPMASQAgentAddonName,
@@ -648,7 +648,7 @@ func TestGetSubnetName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						AvailabilityProfile: VirtualMachineScaleSets,
-						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
+						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
 				},
 			},
@@ -677,14 +677,14 @@ func TestIsNextGenNetworkingEnabled(t *testing.T) {
 		{
 			name: "NextGenNetworkingEnabled is true",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingEnabled: to.BoolPtr(true),
+				NextGenNetworkingEnabled: new(true),
 			},
 			expected: true,
 		},
 		{
 			name: "NextGenNetworkingEnabled is false",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingEnabled: to.BoolPtr(false),
+				NextGenNetworkingEnabled: new(false),
 			},
 			expected: false,
 		},
@@ -716,7 +716,7 @@ func TestGetNextGenNetworkingConfig(t *testing.T) {
 		{
 			name: "NextGenNetworkingConfig is set",
 			profile: &AgentPoolWindowsProfile{
-				NextGenNetworkingConfig: to.StringPtr("config"),
+				NextGenNetworkingConfig: new("config"),
 			},
 			expected: "config",
 		},
@@ -792,7 +792,7 @@ func TestProperties_GetVirtualNetworkName(t *testing.T) {
 						Name:                "agentpool",
 						VMSize:              "Standard_D2_v2",
 						AvailabilityProfile: VirtualMachineScaleSets,
-						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
+						VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 					},
 				},
 			},
@@ -845,7 +845,7 @@ func TestProperties_GetVNetResourceGroupName(t *testing.T) {
 				Name:                "agentpool",
 				VMSize:              "Standard_D2_v2",
 				AvailabilityProfile: VirtualMachineScaleSets,
-				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet", //nolint: lll
+				VnetSubnetID:        "/subscriptions/SUBSCRIPTION_ID/resourceGroups/RESOURCE_GROUP_NAME/providers/Microsoft.Network/virtualNetworks/ExampleCustomVNET/subnets/BazAgentSubnet",
 			},
 		},
 	}
@@ -1881,7 +1881,7 @@ func TestHasStorageProfile(t *testing.T) {
 					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(true),
+							Enabled: new(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: ManagedDisks,
 							},
@@ -1908,7 +1908,7 @@ func TestHasStorageProfile(t *testing.T) {
 					OrchestratorType: Kubernetes,
 					KubernetesConfig: &KubernetesConfig{
 						PrivateCluster: &PrivateCluster{
-							Enabled: to.BoolPtr(true),
+							Enabled: new(true),
 							JumpboxProfile: &PrivateJumpboxProfile{
 								StorageProfile: StorageAccount,
 							},
@@ -2018,7 +2018,6 @@ func TestLinuxProfile(t *testing.T) {
 	}
 }
 
-//nolint:gocognit
 func TestWindowsProfile(t *testing.T) {
 	trueVar := true
 	w := WindowsProfile{}
@@ -2069,10 +2068,10 @@ func TestWindowsProfile(t *testing.T) {
 			},
 		},
 		WindowsImageSourceURL:       "testCustomImage",
-		IsCredentialAutoGenerated:   to.BoolPtr(true),
-		EnableAHUB:                  to.BoolPtr(true),
-		EnableCSIProxy:              to.BoolPtr(true),
-		AlwaysPullWindowsPauseImage: to.BoolPtr(true),
+		IsCredentialAutoGenerated:   new(true),
+		EnableAHUB:                  new(true),
+		EnableCSIProxy:              new(true),
+		AlwaysPullWindowsPauseImage: new(true),
 	}
 
 	if !w.HasSecrets() || !w.HasCustomImage() {
@@ -2093,8 +2092,8 @@ func TestWindowsProfile(t *testing.T) {
 		WindowsDockerVersion:      "18.03.1-ee-3",
 		WindowsSku:                "Datacenter-Core-1809-with-Containers-smalldisk",
 		SSHEnabled:                &trueVar,
-		IsCredentialAutoGenerated: to.BoolPtr(false),
-		EnableAHUB:                to.BoolPtr(false),
+		IsCredentialAutoGenerated: new(false),
+		EnableAHUB:                new(false),
 		ContainerdWindowsRuntimes: &ContainerdWindowsRuntimes{
 			DefaultSandboxIsolation: "hyperv",
 			RuntimeHandlers: []RuntimeHandlers{
@@ -2103,7 +2102,7 @@ func TestWindowsProfile(t *testing.T) {
 			},
 		},
 		WindowsGmsaPackageUrl:   "windows-gmsa-package-url",
-		WindowsSecureTlsEnabled: to.BoolPtr(false),
+		WindowsSecureTlsEnabled: new(false),
 	}
 
 	dv = w.GetWindowsDockerVersion()
@@ -2562,7 +2561,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2574,7 +2573,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2586,7 +2585,7 @@ func TestKubernetesConfigIsAddonEnabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2631,7 +2630,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    IPMASQAgentAddonName,
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2643,7 +2642,7 @@ func TestKubernetesConfigIsIPMasqAgentDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    IPMASQAgentAddonName,
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2673,7 +2672,7 @@ func TestGetAddonByName(t *testing.T) {
 				Name:    containerMonitoringAddonName,
 				Enabled: &b,
 				Config: map[string]string{
-					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace", //nolint:lll
+					"logAnalyticsWorkspaceResourceId": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/test-workspace-rg/providers/Microsoft.OperationalInsights/workspaces/test-workspace",
 				},
 			},
 		},
@@ -2756,7 +2755,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(false),
+						Enabled: new(false),
 					},
 				},
 			},
@@ -2768,7 +2767,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "foo",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2780,7 +2779,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 				Addons: []KubernetesAddon{
 					{
 						Name:    "bar",
-						Enabled: to.BoolPtr(true),
+						Enabled: new(true),
 					},
 				},
 			},
@@ -2798,7 +2797,7 @@ func TestKubernetesConfigIsAddonDisabled(t *testing.T) {
 }
 
 func TestKubernetesConfigGetOrderedKubeletConfigString(t *testing.T) {
-	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"` //nolint:lll
+	alphabetizedStringForPowershell := `"--address=0.0.0.0", "--allow-privileged=true", "--anonymous-auth=false", "--authorization-mode=Webhook", "--cgroups-per-qos=true", "--client-ca-file=/etc/kubernetes/certs/ca.crt", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60", "--kubeconfig=/var/lib/kubelet/kubeconfig", "--pod-manifest-path=/etc/kubernetes/manifests"`
 	cases := []struct {
 		name                  string
 		config                *NodeBootstrappingConfiguration
@@ -2887,13 +2886,13 @@ func TestKubernetesAddonIsEnabled(t *testing.T) {
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(false),
+				Enabled: new(false),
 			},
 			expected: false,
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(true),
+				Enabled: new(true),
 			},
 			expected: true,
 		},
@@ -2917,13 +2916,13 @@ func TestKubernetesAddonIsDisabled(t *testing.T) {
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(false),
+				Enabled: new(false),
 			},
 			expected: true,
 		},
 		{
 			a: &KubernetesAddon{
-				Enabled: to.BoolPtr(true),
+				Enabled: new(true),
 			},
 			expected: false,
 		},
@@ -3125,7 +3124,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--healthz-bind-address=0.0.0.0", "--healthz-port=0"`, //nolint:lll
+			expected: `"--address=127.0.0.1", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--healthz-bind-address=0.0.0.0", "--healthz-port=0"`,
 		},
 		{
 			name: "custom configuration does not override default KubeletConfig",
@@ -3158,7 +3157,7 @@ func TestGetOrderedKubeletConfigStringForPowershell(t *testing.T) {
 				ContainerLogMaxSizeMB: to.Int32Ptr(1024),
 				ContainerLogMaxFiles:  to.Int32Ptr(20),
 			},
-			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`, //nolint:lll
+			expected: `"--address=0.0.0.0", "--allow-privileged=true", "--cloud-config=c:\k\azure.json", "--container-log-max-files=20", "--container-log-max-size=1024Mi", "--event-qps=100", "--image-gc-high-threshold=80", "--image-gc-low-threshold=60"`,
 		},
 	}
 
@@ -3305,7 +3304,7 @@ func TestLocalDNSProfileMethods(t *testing.T) {
 	tests := []struct {
 		name             string
 		agentPoolProfile *AgentPoolProfile
-		expectedData     interface{}
+		expectedData     any
 		expectedError    bool
 	}{
 		{
@@ -3680,7 +3679,7 @@ func TestAKSKubeletConfigurationFieldsRoundTrip(t *testing.T) {
 		{
 			name: "explicit false and zero duration",
 			config: AKSKubeletConfiguration{
-				EnableServer:          to.BoolPtr(false),
+				EnableServer:          new(false),
 				RuntimeRequestTimeout: "0s",
 			},
 			want: `{
@@ -3693,7 +3692,7 @@ func TestAKSKubeletConfigurationFieldsRoundTrip(t *testing.T) {
 		{
 			name: "linux fields and taints",
 			config: AKSKubeletConfiguration{
-				EnableServer:             to.BoolPtr(true),
+				EnableServer:             new(true),
 				VolumePluginDir:          "/etc/kubernetes/volumeplugins",
 				CgroupDriver:             "systemd",
 				RuntimeRequestTimeout:    "2m",
@@ -3754,10 +3753,11 @@ func TestAKSKubeletConfigurationLegacyOutputUnchanged(t *testing.T) {
 		APIVersion:     "kubelet.config.k8s.io/v1beta1",
 		Address:        "0.0.0.0",
 		EventRecordQPS: to.Int32Ptr(0),
-		CPUCFSQuota:    to.BoolPtr(false),
+		CPUCFSQuota:    new(false),
 	}
 	content, err := json.Marshal(config)
 	require.NoError(t, err)
+	//nolint:testifylint // byte-exact legacy output
 	require.Equal(t, `{"kind":"KubeletConfiguration","apiVersion":"kubelet.config.k8s.io/v1beta1","address":"0.0.0.0",`+
 		`"authentication":{"x509":{},"webhook":{},"anonymous":{}},`+
 		`"authorization":{"webhook":{}},"eventRecordQPS":0,"cpuCFSQuota":false}`, string(content))
@@ -3766,4 +3766,68 @@ func TestAKSKubeletConfigurationLegacyOutputUnchanged(t *testing.T) {
 	withEmptyTaints, err := json.Marshal(config)
 	require.NoError(t, err)
 	require.Equal(t, content, withEmptyTaints)
+}
+
+func getMockProperitesWithCustomClouEnv() Properties {
+	properties := Properties{
+
+		CustomCloudEnv: &CustomCloudEnv{
+			Name:                         "akscustom",
+			McrURL:                       "mcr.microsoft.fakecustomcloud",
+			RepoDepotEndpoint:            "https://repodepot.azure.microsoft.fakecustomcloud/ubuntu",
+			ManagementPortalURL:          "https://portal.azure.microsoft.fakecustomcloud/",
+			PublishSettingsURL:           "",
+			ServiceManagementEndpoint:    "https://management.core.microsoft.fakecustomcloud/",
+			ResourceManagerEndpoint:      "https://management.azure.microsoft.fakecustomcloud/",
+			ActiveDirectoryEndpoint:      "https://login.microsoftonline.microsoft.fakecustomcloud/",
+			GalleryEndpoint:              "",
+			KeyVaultEndpoint:             "https://vault.cloudapi.microsoft.fakecustomcloud/",
+			GraphEndpoint:                "https://graph.cloudapi.microsoft.fakecustomcloud/",
+			ServiceBusEndpoint:           "",
+			BatchManagementEndpoint:      "",
+			StorageEndpointSuffix:        "core.microsoft.fakecustomcloud",
+			SQLDatabaseDNSSuffix:         "database.cloudapi.microsoft.fakecustomcloud",
+			TrafficManagerDNSSuffix:      "",
+			KeyVaultDNSSuffix:            "vault.cloudapi.microsoft.fakecustomcloud",
+			ServiceBusEndpointSuffix:     "",
+			ServiceManagementVMDNSSuffix: "",
+			ResourceManagerVMDNSSuffix:   "cloudapp.azure.microsoft.fakecustomcloud/",
+			ContainerRegistryDNSSuffix:   ".azurecr.microsoft.fakecustomcloud",
+			CosmosDBDNSSuffix:            "documents.core.microsoft.fakecustomcloud/",
+			TokenAudience:                "https://management.core.microsoft.fakecustomcloud/",
+			ResourceIdentifiers: ResourceIdentifiers{
+				Graph:               "",
+				KeyVault:            "",
+				Datalake:            "",
+				Batch:               "",
+				OperationalInsights: "",
+				Storage:             "",
+			},
+		},
+	}
+	return properties
+}
+
+func getMockAddon(name string) KubernetesAddon {
+	return KubernetesAddon{
+		Name: name,
+		Containers: []KubernetesContainerSpec{
+			{
+				Name:           name,
+				CPURequests:    "50m",
+				MemoryRequests: "150Mi",
+				CPULimits:      "50m",
+				MemoryLimits:   "150Mi",
+			},
+		},
+		Pools: []AddonNodePoolsConfig{
+			{
+				Name: "pool1",
+				Config: map[string]string{
+					"min-nodes": "3",
+					"max-nodes": "3",
+				},
+			},
+		},
+	}
 }

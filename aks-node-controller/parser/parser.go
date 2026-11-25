@@ -18,8 +18,7 @@ import (
 var (
 	//go:embed templates/cse_cmd.sh.gtpl
 	bootstrapTrigger         string
-	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(getFuncMap()).Parse(bootstrapTrigger)) //nolint:gochecknoglobals
-
+	bootstrapTriggerTemplate = template.Must(template.New("triggerBootstrapScript").Funcs(getFuncMap()).Parse(bootstrapTrigger))
 )
 
 func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (string, error) {
@@ -30,14 +29,13 @@ func executeBootstrapTemplate(inputContract *aksnodeconfigv1.Configuration) (str
 	return buffer.String(), nil
 }
 
-//nolint:funlen
 func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuConfig *gpu.GPUConfiguration) map[string]string {
 	// streamingConnectionIdleTimeout was removed from KubeletConfiguration in k8s 1.34+.
 	// Clear it from both KubeletFlags and KubeletConfigFileConfig so it doesn't appear
 	// on the command line or in the marshaled config file JSON.
 	if IsKubernetesVersionGe(config.GetKubernetesVersion(), "1.34.0") {
 		if kc := config.GetKubeletConfig(); kc != nil {
-			delete(kc.KubeletFlags, "--streaming-connection-idle-timeout")
+			delete(kc.GetKubeletFlags(), "--streaming-connection-idle-timeout")
 			if kcfg := kc.GetKubeletConfigFileConfig(); kcfg != nil {
 				kcfg.StreamingConnectionIdleTimeout = ""
 			}
@@ -96,7 +94,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"CONTAINERD_DOWNLOAD_URL_BASE":                         config.GetContainerdConfig().GetContainerdDownloadUrlBase(),
 		"USER_ASSIGNED_IDENTITY_ID":                            config.GetAuthConfig().GetAssignedIdentityId(),
 		"API_SERVER_NAME":                                      config.GetApiServerConfig().GetApiServerName(),
-		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)),
+		"IS_VHD":                                               fmt.Sprintf("%v", getIsVHD(config.IsVhd)), //nolint:protogetter // nil means VHD; GetIsVhd() returns false for nil
 		"GPU_NODE":                                             fmt.Sprintf("%v", getEnableNvidia(config)),
 		"SGX_NODE":                                             fmt.Sprintf("%v", getIsSgxEnabledSKU(config.GetVmSize())),
 		"MIG_NODE":                                             fmt.Sprintf("%v", isMIGNode),
@@ -227,7 +225,7 @@ func getCSEEnv(ctx context.Context, config *aksnodeconfigv1.Configuration, gpuCo
 		"REPO_DEPOT_ENDPOINT":                          repoDepotEndpoint,
 	}
 
-	for i, cert := range config.CustomCaCerts {
+	for i, cert := range config.GetCustomCaCerts() {
 		env[fmt.Sprintf("CUSTOM_CA_CERT_%d", i)] = removeNewlines(cert)
 	}
 	return env
@@ -274,7 +272,7 @@ func getCloudProviderSettings(config *aksnodeconfigv1.Configuration) cloudProvid
 	if cloudProviderConfig.Backoff != nil {
 		settings.backoff = cloudProviderConfig.GetBackoff()
 	}
-	if cloudProviderConfig.BackoffMode != "" {
+	if cloudProviderConfig.GetBackoffMode() != "" {
 		settings.backoffMode = cloudProviderConfig.GetBackoffMode()
 	}
 	if cloudProviderConfig.BackoffRetries != nil {

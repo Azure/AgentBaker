@@ -184,6 +184,6 @@ func TestRepositoryTelemetryPackageManagerInstallFailure(t *testing.T) {
 	require.Len(t, fallback, 1)
 	assert.Equal(t, "unavailable", fallback[0].Reason)
 	assert.Equal(t, "packageManager", fallback[0].Route)
-	assert.False(t, strings.Contains(fallback[0].Error, "SHA-256"))
-	assert.False(t, strings.Contains(fallback[0].Error, "tamper"))
+	assert.NotContains(t, fallback[0].Error, "SHA-256")
+	assert.NotContains(t, fallback[0].Error, "tamper")
 }

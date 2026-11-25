@@ -45,7 +45,7 @@ func boundedRepositoryTelemetryText(text string, limit int) string {
 	}
 	text = strings.ToValidUTF8(text, "")
 	for {
-		encoded, _ := json.Marshal(text)
+		encoded, _ := json.Marshal(text) //nolint:errchkjson // marshaling a string cannot fail
 		if len(encoded) <= limit {
 			return text
 		}

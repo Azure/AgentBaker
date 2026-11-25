@@ -40,4 +40,4 @@ func configForOS(goos string) osConfig {
 	return linuxConfig()
 }
 
-var osCfg = configForOS(runtime.GOOS) //nolint:gochecknoglobals // read-only OS-specific paths resolved once at startup
+var osCfg = configForOS(runtime.GOOS) // read-only OS-specific paths resolved once at startup

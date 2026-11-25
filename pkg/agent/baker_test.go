@@ -153,7 +153,7 @@ write_files:
 
 			require.NoError(t, err)
 			require.Contains(t, rendered, "- path: "+test.expected)
-			require.False(t, strings.Contains(rendered, "{{"))
+			require.NotContains(t, rendered, "{{")
 		})
 	}
 }
@@ -629,14 +629,14 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 		Expect(normalizeResourceGroupNameForLabel("hel(lo")).To(Equal("hel-lo"))
 		Expect(normalizeResourceGroupNameForLabel("hel)lo")).To(Equal("hel-lo"))
 		var s string
-		for i := 0; i < 63; i++ {
+		for range 63 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s)).To(Equal(s))
 		Expect(normalizeResourceGroupNameForLabel(s + "1")).To(Equal(s))
 
 		s = ""
-		for i := 0; i < 62; i++ {
+		for range 62 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "(")).To(Equal(s + "z"))
@@ -651,7 +651,7 @@ var _ = Describe("Test normalizeResourceGroupNameForLabel", func() {
 		Expect(normalizeResourceGroupNameForLabel("-")).To(Equal("-z"))
 
 		s = ""
-		for i := 0; i < 61; i++ {
+		for range 61 {
 			s += "0"
 		}
 		Expect(normalizeResourceGroupNameForLabel(s + "-")).To(Equal(s + "-z"))
@@ -1691,18 +1691,18 @@ var _ = Describe("getLinuxNodeBootstrappingPayload", func() {
 		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
 		Expect(err).NotTo(HaveOccurred())
 
-		var ignition map[string]interface{}
+		var ignition map[string]any
 		Expect(json.Unmarshal(decodedPayload, &ignition)).To(Succeed())
 
-		storage, ok := ignition["storage"].(map[string]interface{})
+		storage, ok := ignition["storage"].(map[string]any)
 		Expect(ok).To(BeTrue())
 
-		files, ok := storage["files"].([]interface{})
+		files, ok := storage["files"].([]any)
 		Expect(ok).To(BeTrue())
 		expectedCount := 3
 		foundHotfix := false
 		for _, f := range files {
-			if file, ok := f.(map[string]interface{}); ok {
+			if file, ok := f.(map[string]any); ok {
 				if path, ok := file["path"].(string); ok && path == aksHotfixJSONFilepath {
 					foundHotfix = true
 					break
@@ -2334,4 +2334,25 @@ func decodeButaneResource(resource base0_5.Resource) ([]byte, error) {
 		}
 	}
 	return contents, nil
+}
+
+// This function does the same processing.
+func normalizeResourceGroupNameForLabel(resourceGroupName string) string {
+	truncated := resourceGroupName
+	truncated = strings.ReplaceAll(truncated, "(", "-")
+	truncated = strings.ReplaceAll(truncated, ")", "-")
+	const maxKubernetesLabelLength = 63
+	if len(truncated) > maxKubernetesLabelLength {
+		truncated = truncated[0:maxKubernetesLabelLength]
+	}
+
+	if strings.HasSuffix(truncated, "-") ||
+		strings.HasSuffix(truncated, "_") ||
+		strings.HasSuffix(truncated, ".") {
+		if len(truncated) > maxKubernetesLabelLength-1 {
+			return truncated[0:len(truncated)-1] + "z"
+		}
+		return truncated + "z"
+	}
+	return truncated
 }

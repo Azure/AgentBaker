@@ -13,8 +13,8 @@ func TestContainerdImagePullValidationWithoutKubelet(t *testing.T) {
 		cfg := &aksnodeconfigv1.Configuration{
 			Version: "v1",
 			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{
-				ImagePullWithSyncFs:      proto.Bool(false),
-				ImagePullProgressTimeout: proto.String(timeout),
+				ImagePullWithSyncFs:      new(false),
+				ImagePullProgressTimeout: new(timeout),
 			},
 		}
 		require.NoError(t, validateAndNormalize(cfg))
@@ -24,7 +24,7 @@ func TestContainerdImagePullValidationWithoutKubelet(t *testing.T) {
 	for _, timeout := range []string{"", "-1s", "invalid", "5", "999999999999999999999h", "5m\n"} {
 		cfg := &aksnodeconfigv1.Configuration{
 			Version:          "v1",
-			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: proto.String(timeout)},
+			ContainerdConfig: &aksnodeconfigv1.ContainerdConfig{ImagePullProgressTimeout: new(timeout)},
 		}
 		require.ErrorContains(t, validateAndNormalize(cfg), "containerd_config.image_pull_progress_timeout")
 	}

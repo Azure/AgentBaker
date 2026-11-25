@@ -10,7 +10,6 @@ import (
 
 const Nvidia470CudaDriverVersion = "cuda-470.82.01"
 
-//nolint:gochecknoglobals
 var (
 	NvidiaCudaDriverVersion    string
 	NvidiaCudaLTSDriverVersion string
@@ -97,21 +96,21 @@ func gpuImageRepo(downloadURL string) string {
 	return repo
 }
 
-//nolint:gochecknoinits
 func init() {
 	if err := LoadConfig(); err != nil {
 		panic(fmt.Sprintf("Failed to load configuration: %v", err))
 	}
 }
 
-/* convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
+/*
+	convergedGPUDriverSizes : these sizes use a "converged" driver to support both cuda/grid workloads.
+
 how do you figure this out? ask HPC or find out by trial and error.
 installing vanilla cuda drivers will fail to install with opaque errors.
 nvidia-bug-report.sh may be helpful, but usually it tells you the pci card id is incompatible.
 That sends me to HPC folks.
 see https://github.com/Azure/azhpc-extensions/blob/daaefd78df6f27012caf30f3b54c3bd6dc437652/NvidiaGPU/resources.json
 */
-//nolint:gochecknoglobals
 var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nv6ads_a10_v5":   true,
 	"standard_nv12ads_a10_v5":  true,
@@ -124,7 +123,9 @@ var ConvergedGPUDriverSizes = map[string]bool{
 	"standard_nc32ads_a10_v4":  true,
 }
 
-/* RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
+/*
+	RTXPro6000GPUDriverSizes : NC_RTXPRO6000BSE_v6 (RTX PRO 6000 Blackwell Server
+
 Edition) SKUs require the GRID v20 (595.x) driver, published as the
 aks-gpu-grid-v20 image. All other GRID SKUs continue to use aks-gpu-grid.
 The family ships General Purpose (ds) and Compute Optimized (lds) sizes across
@@ -138,7 +139,6 @@ are retained as backward-compat aliases so driver selection stays correct if an
 older node pool or template still reports them (same physical GPU, same grid-v20
 driver). Azure no longer deploys the preview sizes.
 */
-//nolint:gochecknoglobals
 var RTXPro6000GPUDriverSizes = map[string]bool{
 	// GA sizes (General Purpose "ds" + Compute Optimized "lds").
 	"standard_nc24lds_xl_rtxpro6000bse_v6":  true,
@@ -159,7 +159,6 @@ var RTXPro6000GPUDriverSizes = map[string]bool{
 	"standard_nc320lds_xl_rtxpro6000bse_v6": true,
 }
 
-//nolint:gochecknoglobals
 var FabricManagerGPUSizes = map[string]bool{
 	// A100
 	"standard_nd96asr_v4":        true,

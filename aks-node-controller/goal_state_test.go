@@ -44,8 +44,8 @@ func TestSendHealthReport(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var posted atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "WALinuxAgent", r.Header.Get("x-ms-agent-name"))
-				assert.Equal(t, "2012-11-30", r.Header.Get("x-ms-version"))
+				assert.Equal(t, "WALinuxAgent", r.Header.Get("X-Ms-Agent-Name"))
+				assert.Equal(t, "2012-11-30", r.Header.Get("X-Ms-Version"))
 				if r.Method == http.MethodGet {
 					assert.Equal(t, "/machine/?comp=goalstate", r.URL.RequestURI())
 					_, _ = io.WriteString(w, testGoalState)

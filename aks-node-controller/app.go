@@ -349,7 +349,7 @@ func buildCmdFromProvisionConfig(ctx context.Context, path string, gpuComponents
 		return nil, fmt.Errorf("validate provision config: %w", err)
 	}
 
-	if config.Version == "v0" {
+	if config.GetVersion() == "v0" {
 		slog.Error("v0 version is deprecated, please use v1 instead")
 	}
 
@@ -532,7 +532,7 @@ func sysctlContentEqual(a, b string) bool {
 // into a map, trimming whitespace from both key and value.
 func parseSysctlPairs(content string) map[string]string {
 	result := make(map[string]string)
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -809,7 +809,7 @@ func (a *App) reportProvisionStatus(ctx context.Context, result *ProvisionResult
 // It returns an error describing any failure; callers should pass that error to
 // writeCompleteFileOnError so the sentinel file can be written on fail-fast paths.
 //
-//nolint:nonamedreturns // Deferred panic recovery must update the returned result and error.
+// Deferred panic recovery must update the returned result and error.
 func (a *App) runProvision(ctx context.Context, flags ProvisionFlags, dryRun bool) (provisionResult *ProvisionResult, provisionErr error) {
 	provisionResult = &ProvisionResult{}
 
@@ -974,8 +974,7 @@ func errToExitCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	var exitErr ExitCoder
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[ExitCoder](err); ok {
 		return exitErr.ExitCode()
 	}
 	return 1

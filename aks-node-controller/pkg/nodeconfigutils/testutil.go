@@ -32,7 +32,7 @@ func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, de
 	case fd.IsList():
 		// Handle repeated fields - add 2 elements
 		list := msg.Mutable(fd).List()
-		for j := 0; j < 2; j++ {
+		for j := range 2 {
 			if fd.Kind() == protoreflect.MessageKind {
 				// For repeated message fields, create new message and populate it
 				elem := list.NewElement()
@@ -46,7 +46,7 @@ func setFieldValue(msg protoreflect.Message, fd protoreflect.FieldDescriptor, de
 	case fd.IsMap():
 		// Handle map fields - add 2 entries
 		mapVal := msg.Mutable(fd).Map()
-		for j := 0; j < 2; j++ {
+		for j := range 2 {
 			key := getDefaultKeyForKind(fd.MapKey().Kind(), j)
 			if fd.MapValue().Kind() == protoreflect.MessageKind {
 				// For map values that are messages, create and populate
