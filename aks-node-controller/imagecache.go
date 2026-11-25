@@ -35,7 +35,7 @@ const (
 	imageCachePullTimeout    = 2 * time.Minute
 	imageCacheOverallTimeout = 5 * time.Minute
 	imageCacheFetchAttempts  = 3
-	imageCacheConcurrency    = 4
+	imageCacheConcurrency    = 10
 	defaultImageFetcherPath  = "/opt/azure/containers/image-fetcher"
 	defaultImageCacheStatus  = "/opt/azure/containers/image-cache-status.json"
 	agentPoolLabelKey        = "kubernetes.azure.com/agentpool"
