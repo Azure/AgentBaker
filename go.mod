@@ -8,7 +8,6 @@ require (
 	github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
 	github.com/coreos/butane v0.29.0
 	github.com/google/go-cmp v0.7.0
-	github.com/gorilla/mux v1.8.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.41.0
 	github.com/pkg/errors v0.9.1

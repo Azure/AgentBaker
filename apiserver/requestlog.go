@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/gorilla/mux"
 )
 
 // Log sources and field names follow the AKS Kusto schema. The AKS log collector routes
@@ -21,8 +19,6 @@ const (
 	operationIDHeader     = "x-ms-acs-operation-id"
 	correlationIDHeader   = "x-ms-correlation-request-id"
 	clientRequestIDHeader = "x-ms-client-request-id"
-
-	healthzRouteName = "healthz"
 )
 
 // NewJSONLogger returns a logger that writes JSON lines with the given source.
@@ -30,42 +26,27 @@ func NewJSONLogger(w io.Writer, source string) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(w, nil)).With("source", source)
 }
 
-func requestLogging(logger *slog.Logger) mux.MiddlewareFunc {
+func requestLogging(logger *slog.Logger, routeName string, next http.Handler) http.Handler {
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			routeName := ""
-			if route := mux.CurrentRoute(r); route != nil {
-				routeName = route.GetName()
-			}
-			if routeName == healthzRouteName {
-				next.ServeHTTP(w, r)
-				return
-			}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w}
+		next.ServeHTTP(rec, r)
 
-			start := time.Now()
-			reqLogger := logger.With(requestIDAttrs(r)...).With(
-				"httpMethod", r.Method,
-				"targetURI", r.URL.EscapedPath(),
-				"routeName", routeName,
-				"operationName", routeName,
-				"userAgent", r.UserAgent(),
-				"clientRemoteAddr", r.RemoteAddr,
-			)
-			reqLogger.Info("AgentBakerHttpRequestStart")
-
-			rec := &statusRecorder{ResponseWriter: w}
-			next.ServeHTTP(rec, r)
-
-			reqLogger.Info("AgentBakerHttpRequestEnd",
-				"StatusCode", strconv.Itoa(rec.statusCode),
-				"contentLength", strconv.Itoa(rec.contentLength),
-				"durationInMilliseconds", strconv.FormatInt(time.Since(start).Milliseconds(), 10),
-			)
-		})
-	}
+		logger.Info("AgentBakerHttpRequest", append(requestIDAttrs(r),
+			"httpMethod", r.Method,
+			"targetURI", r.URL.EscapedPath(),
+			"routeName", routeName,
+			"operationName", routeName,
+			"userAgent", r.UserAgent(),
+			"clientRemoteAddr", r.RemoteAddr,
+			"StatusCode", strconv.Itoa(rec.statusCode),
+			"contentLength", strconv.Itoa(rec.contentLength),
+			"durationInMilliseconds", strconv.FormatInt(time.Since(start).Milliseconds(), 10),
+		)...)
+	})
 }
 
 // requestLogger returns the default logger with the request IDs, so that handler logs can be

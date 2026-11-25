@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
+func TestRequestLoggingWritesRequestTrace(t *testing.T) {
 	var buf bytes.Buffer
 	defaultBuf := captureDefaultLogger(t)
 
@@ -27,31 +27,23 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	api.NewRouter().ServeHTTP(response, request)
 
 	records := decodeRecords(t, &buf)
-	if len(records) != 2 {
-		t.Fatalf("expected 2 records, got %d: %s", len(records), buf.String())
+	if len(records) != 1 {
+		t.Fatalf("expected 1 record, got %d: %s", len(records), buf.String())
 	}
-	for _, record := range records {
-		assertFields(t, record, wantRequestIDs)
-		assertFields(t, record, map[string]string{
-			"source":        IncomingRequestTraceSource,
-			"httpMethod":    http.MethodPost,
-			"targetURI":     RoutePathLatestSIGImageConfig,
-			"routeName":     "GetLatestSigImageConfig",
-			"operationName": "GetLatestSigImageConfig",
-		})
-	}
-	if records[0]["msg"] != "AgentBakerHttpRequestStart" || records[1]["msg"] != "AgentBakerHttpRequestEnd" {
-		t.Fatalf("unexpected messages: %v, %v", records[0]["msg"], records[1]["msg"])
-	}
-	end := records[1]
-	if end["StatusCode"] != "400" {
-		t.Errorf("expected StatusCode 400, got %v", end["StatusCode"])
-	}
-	if want := strconv.Itoa(response.Body.Len()); end["contentLength"] != want {
-		t.Errorf("expected contentLength %s, got %v", want, end["contentLength"])
-	}
-	if _, ok := end["durationInMilliseconds"].(string); !ok {
-		t.Errorf("expected durationInMilliseconds string, got %v", end["durationInMilliseconds"])
+	trace := records[0]
+	assertFields(t, trace, wantRequestIDs)
+	assertFields(t, trace, map[string]string{
+		"source":        IncomingRequestTraceSource,
+		"msg":           "AgentBakerHttpRequest",
+		"httpMethod":    http.MethodPost,
+		"targetURI":     RoutePathLatestSIGImageConfig,
+		"routeName":     "GetLatestSigImageConfig",
+		"operationName": "GetLatestSigImageConfig",
+		"StatusCode":    "400",
+		"contentLength": strconv.Itoa(response.Body.Len()),
+	})
+	if _, ok := trace["durationInMilliseconds"].(string); !ok {
+		t.Errorf("expected durationInMilliseconds string, got %v", trace["durationInMilliseconds"])
 	}
 
 	handlerRecords := decodeRecords(t, defaultBuf)
@@ -72,7 +64,7 @@ func TestRecoveryHandlerLogsPanicWithRequestIDs(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, RoutePathNodeBootstrapData, nil)
 	setRequestIDHeaders(request)
 	response := httptest.NewRecorder()
-	recoveryHandler()(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	recoveryHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("boom")
 	})).ServeHTTP(response, request)
 
@@ -130,18 +122,26 @@ func assertFields(t *testing.T, record map[string]any, want map[string]string) {
 	}
 }
 
-func TestRequestLoggingSkipsHealthz(t *testing.T) {
+func TestRequestLoggingSkipsNonAPIRequests(t *testing.T) {
 	var buf bytes.Buffer
 	api, err := NewAPIServer(&Options{Addr: ":8080", RequestLogger: NewJSONLogger(&buf, IncomingRequestTraceSource)})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	response := httptest.NewRecorder()
-	api.NewRouter().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-
-	if response.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
+	for _, tc := range []struct {
+		method, path string
+		wantStatus   int
+	}{
+		{http.MethodGet, "/healthz", http.StatusOK},
+		{http.MethodPost, "/unknown", http.StatusNotFound},
+		{http.MethodGet, RoutePathNodeBootstrapData, http.StatusMethodNotAllowed},
+	} {
+		response := httptest.NewRecorder()
+		api.NewRouter().ServeHTTP(response, httptest.NewRequest(tc.method, tc.path, nil))
+		if response.Code != tc.wantStatus {
+			t.Errorf("%s %s: expected status %d, got %d", tc.method, tc.path, tc.wantStatus, response.Code)
+		}
 	}
 	if buf.Len() != 0 {
 		t.Fatalf("expected no records, got %s", buf.String())
