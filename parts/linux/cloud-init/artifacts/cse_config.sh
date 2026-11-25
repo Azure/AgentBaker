@@ -945,14 +945,16 @@ enableAndStartCgroupTelemetry() {
 
     # Don't enable cgroup-memory-telemetry on AzureLinux due to incompatibility with cgroup2fs driver and absence of required azure.slice directory
     if ! isMarinerOrAzureLinux "$OS"; then
-        units+=(cgroup-memory-telemetry.timer cgroup-memory-telemetry.service)
+        units+=(cgroup-memory-telemetry.timer)
     fi
 
     if [ "$(stat -fc %T /sys/fs/cgroup)" = "cgroup2fs" ]; then
-        units+=(cgroup-cpu-telemetry.timer cgroup-cpu-telemetry.service
-            cgroup-pressure-telemetry.timer cgroup-pressure-telemetry.service)
+        units+=(cgroup-cpu-telemetry.timer cgroup-pressure-telemetry.timer)
     fi
 
+    # Start only the timers: their OnBootSec=0 elapses on activation and starts the
+    # service without killing a run in progress. Restarting a running service sends
+    # SIGTERM, which triggers its OnFailure= telemetry collector.
     for unit in "${units[@]}"; do
         if systemctl cat "$unit" &>/dev/null; then
             systemctlEnableAndStartNoBlock "$unit" 30 || exit $ERR_START_CGROUP_TELEMETRY

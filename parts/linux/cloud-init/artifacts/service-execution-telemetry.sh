@@ -62,7 +62,6 @@ main() {
     local exec_main_code=""
     local exec_main_status=""
     local cpu_usage_nsec=""
-    local active_state=""
     local memory_peak=""
     local memory_peak_dir="${MEMORY_PEAK_DIR:-/run/aks-service-telemetry}"
     local memory_peak_file
@@ -91,8 +90,7 @@ main() {
         --property=Result \
         --property=ExecMainCode \
         --property=ExecMainStatus \
-        --property=CPUUsageNSec \
-        --property=ActiveState); then
+        --property=CPUUsageNSec); then
         echo "service execution telemetry: failed to read systemd properties for '${service_name}'" >&2
         return 1
     fi
@@ -107,23 +105,8 @@ main() {
             ExecMainCode) exec_main_code="${value}" ;;
             ExecMainStatus) exec_main_status="${value}" ;;
             CPUUsageNSec) cpu_usage_nsec="${value}" ;;
-            ActiveState) active_state="${value}" ;;
         esac
     done <<< "${properties}"
-
-    memory_peak_file="${memory_peak_dir%/}/${service_name}.peak"
-
-    # A restart (for example by CSE while the timer-triggered run is still going)
-    # fires OnFailure= for the killed run, but systemd has already reset the
-    # execution properties for the new run. Nothing about the finished run is
-    # left to report, and failing here would leave a failed unit behind.
-    case "${active_state}" in
-        active|activating|reloading)
-            echo "service execution telemetry: '${service_name}' already started a new execution, skipping collection" >&2
-            rm -f "${memory_peak_file}" 2>/dev/null || true
-            return 0
-            ;;
-    esac
 
     memory_peak=$("${systemctl_bin}" show "${service_name}" --property=MemoryPeak --value 2>/dev/null || true)
 
@@ -131,6 +114,7 @@ main() {
     # its cgroup, so MemoryPeak reads empty once the unit has exited. The monitored
     # units therefore snapshot cgroup memory.peak from ExecStopPost, while the cgroup
     # still exists. Consume that snapshot when systemd itself has nothing left.
+    memory_peak_file="${memory_peak_dir%/}/${service_name}.peak"
     if ! isNonNegativeInteger "${memory_peak}" && [ -r "${memory_peak_file}" ]; then
         memory_peak=$(cat "${memory_peak_file}" 2>/dev/null || true)
     fi

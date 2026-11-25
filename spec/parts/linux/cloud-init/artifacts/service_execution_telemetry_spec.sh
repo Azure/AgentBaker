@@ -237,32 +237,6 @@ EOF
         The contents of file "${EVENTS_ROOT}"/* should include '\"CPUUsageNSec\":null'
     End
 
-    It 'skips without failing when the service already restarted before collection'
-        cat > "${SYSTEMCTL_OUTPUT}" <<EOF
-ExecMainStartTimestamp=Thu 2026-09-17 10:00:03 UTC
-ExecMainExitTimestamp=
-ExecMainStartTimestampMonotonic=4000000
-ExecMainExitTimestampMonotonic=0
-Result=success
-ExecMainCode=0
-ExecMainStatus=0
-CPUUsageNSec=
-ActiveState=activating
-EOF
-        mkdir -p "${PEAK_ROOT}"
-        printf '%s\n' 2097152 > "${PEAK_ROOT}/cgroup-memory-telemetry.service.peak"
-
-        When run env \
-            SYSTEMCTL_BIN="${SYSTEMCTL_MOCK}" \
-            SYSTEMCTL_OUTPUT="${SYSTEMCTL_OUTPUT}" \
-            EVENTS_LOGGING_DIR="${EVENTS_ROOT}" \
-            bash ./parts/linux/cloud-init/artifacts/service-execution-telemetry.sh cgroup-memory-telemetry.service
-        The status should be success
-        The stderr should include "already started a new execution"
-        The path "${EVENTS_ROOT}" should not be exist
-        The path "${PEAK_ROOT}/cgroup-memory-telemetry.service.peak" should not be exist
-    End
-
     It 'reports a systemctl failure without emitting telemetry'
         write_systemctl_output
 

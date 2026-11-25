@@ -80,6 +80,13 @@ for services whose cgroup does not exist yet. The five-minute invocations are
 unaffected, and no `Wants=` or `Requires=` is declared, so a collector still
 runs when kubelet or containerd never start.
 
+CSE `enableAndStartCgroupTelemetry` enables and restarts only the timers. A
+timer whose `OnBootSec=` is in the past elapses on activation, so it starts the
+collector at once. If the collector is already running, the start request does
+nothing. CSE must not restart the services directly: that stops a running
+collector with SIGTERM, starts its `OnFailure=` execution telemetry while the
+service starts again, and leaves the telemetry unit failed.
+
 The CPU and pressure collectors additionally declare
 `ConditionPathExists=/sys/fs/cgroup/cgroup.controllers`. Both require cgroup
 v2 and exit non-zero otherwise, which would surface as a failed unit on a node
@@ -123,12 +130,6 @@ finished. Keeping the collector outside the monitored cgroup prevents its CPU
 and memory usage from contaminating the observed values. Values describe one
 execution and reset when systemd recreates the service cgroup; consumers must
 not calculate deltas between timer invocations.
-
-If the monitored unit is already `active`, `activating` or `reloading` when the
-collector runs, a restart (for example by CSE nodePrep) has started a new
-execution and systemd has reset the properties of the finished one. The
-collector then logs a message, deletes any peak snapshot and exits successfully
-without an event, so this best-effort telemetry does not leave a failed unit.
 
 Peak memory is capability-based. The collector emits `MemoryPeakBytes` only
 when a numeric peak is available and does not emit a misleading zero otherwise.
