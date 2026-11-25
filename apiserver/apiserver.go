@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -45,6 +46,7 @@ type APIServer struct {
 	Options                   *Options
 	nodeBootstrapLimiter      chan struct{}
 	overloadRetryAfterSeconds string
+	requestLogger             *slog.Logger
 }
 
 // NewAPIServer creates an APIServer object with defaults.
@@ -69,6 +71,7 @@ func NewAPIServer(o *Options) (*APIServer, error) {
 		Options:                   o,
 		nodeBootstrapLimiter:      make(chan struct{}, maxConcurrentRequests),
 		overloadRetryAfterSeconds: strconv.Itoa(retryAfterSeconds),
+		requestLogger:             NewJSONLogger(os.Stdout, incomingRequestTraceSource),
 	}
 
 	return s, nil

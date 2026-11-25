@@ -4,6 +4,7 @@ package starter
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,8 @@ import (
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute(configurators ...apiserver.OptionConfigurator) {
+	// Also redirects the standard library log package to JSON.
+	slog.SetDefault(apiserver.NewJSONLogger(os.Stdout, apiserver.ContextlessTraceSource))
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
