@@ -2,39 +2,6 @@
 # Shared Packer cleanup helpers and AIB's final deprovision hook.
 # Do not enable tracing: the agent installer uses SAS URLs.
 
-# waagent can stop at a failed cleanup step and still exit 0, which leaves
-# bake-time agent state, logs and the build user in the image.
-deprovisionWALinuxAgent() {
-    local lib_dir="${1:-/var/lib/waagent}"
-    local output status=0
-
-    # Azure Policy installs the Guest Configuration extension on build VMs. Its gcd.service
-    # workers write to /var/lib/waagent/events, and KillMode=process leaves them alive on stop,
-    # so kill the whole unit first. Disable it, because deprovision deletes its ExecStart.
-    sudo systemctl disable gcd.service >/dev/null 2>&1 || true
-    sudo systemctl kill --signal=SIGKILL gcd.service >/dev/null 2>&1 || true
-    # waagent stops only its own service; extensions and the log collector run in other units.
-    # systemctl continues past units that do not exist.
-    sudo systemctl stop gcd.service walinuxagent.service waagent.service \
-        azure-walinuxagent-logcollector.slice azure-vmextensions.slice >/dev/null 2>&1 || true
-
-    output=$(sudo waagent -force -deprovision+user 2>&1) || status=$?
-    printf '%s\n' "${output}"
-    # Do not retry: a partial run can delete ovf-env.xml, and waagent then skips build-user deletion.
-    if [ "${status}" -ne 0 ]; then
-        echo "waagent deprovision failed with exit code ${status}" >&2
-        return 1
-    fi
-    if printf '%s\n' "${output}" | grep -qF "Failed to run 'deprovision"; then
-        echo "waagent deprovision failed but exited 0: it logged \"Failed to run 'deprovision\" (see its output above)" >&2
-        return 1
-    fi
-    if [ -n "$(sudo ls -A "${lib_dir}" 2>/dev/null)" ]; then
-        echo "waagent deprovision failed but exited 0: ${lib_dir} is not empty" >&2
-        return 1
-    fi
-}
-
 installPinnedWALinuxAgent() {
     local root_dir="${1%/}"
     local ID
@@ -91,7 +58,7 @@ main() {
     esac
 
     # Keep AIB's default generalization, then reapply the same agent pin as Packer.
-    deprovisionWALinuxAgent || return $?
+    sudo waagent -force -deprovision+user || return $?
     export HISTSIZE=0
     installPinnedWALinuxAgent / || return $?
     cleanupNvPCRCredentials "${is_cvm}" / || return $?

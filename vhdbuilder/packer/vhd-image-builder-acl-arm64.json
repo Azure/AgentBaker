@@ -360,11 +360,6 @@
     },
     {
       "type": "file",
-      "source": "vhdbuilder/packer/deprovision.sh",
-      "destination": "/home/packer/deprovision.sh"
-    },
-    {
-      "type": "file",
       "source": "vhdbuilder/scripts/linux/tool_installs.sh",
       "destination": "/home/packer/tool_installs.sh"
     },
@@ -917,7 +912,7 @@
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
         "sudo touch /boot/flatcar/first_boot",
-        "sudo /bin/bash -c '. /home/packer/deprovision.sh && deprovisionWALinuxAgent' && export HISTSIZE=0 && sync || exit 125"
+        "sudo /usr/bin/waagent -force -deprovision+user && export HISTSIZE=0 && sync || exit 125"
       ]
     }
   ],
