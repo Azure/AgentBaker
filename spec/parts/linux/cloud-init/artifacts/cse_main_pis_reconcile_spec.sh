@@ -49,6 +49,18 @@ Describe 'cse_main.sh PIS-safe configuration'
             grep -E 'AKS.CSE.configureNodeTimeSync|^if .*base_prep.complete|^[[:space:]]*(basePrep|nodePrep)$|^if .*PRE_PROVISION_ONLY'
     }
 
+    It 'emits the canary only during node preparation'
+        marker_counts() {
+            phase_count "basePrep" "ANC_HOTFIX_CANARY_20261113_20261125"
+            phase_count "nodePrep" "ANC_HOTFIX_CANARY_20261113_20261125"
+            script_count "ANC_HOTFIX_CANARY_20261113_20261125"
+        }
+        When call marker_counts
+        The line 1 of output should equal "0"
+        The line 2 of output should equal "1"
+        The line 3 of output should equal "1"
+    End
+
     Describe 'cloud provider config and cluster CA'
         It 'does not write per-cluster files in basePrep'
             base_prep_counts() {
