@@ -74,12 +74,12 @@ jobs:
             echo "##vso[task.setvariable variable=COSI_ARTIFACTS_DIR]$(Pipeline.Workspace)/cosi-info/$(Build.BuildId)-$(System.JobAttempt)"
             echo "##vso[task.setvariable variable=TEST_TIMEOUT_VMSS]${TEST_TIMEOUT_VMSS:-30m}"
           displayName: Set COSI artifact directory
-          condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+          condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
 
       - ${{ each ARTIFACT_NAME in parameters.COSI_ARTIFACT_NAMES }}:
         - task: DownloadPipelineArtifact@2
           displayName: "Download COSI info: ${{ ARTIFACT_NAME }}"
-          condition: and(succeeded(), eq(variables.ENVIRONMENT, 'tme'), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
+          condition: and(succeeded(), eq(variables.GENERATE_PUBLISHING_INFO, 'True'))
           inputs:
             artifact: "${{ ARTIFACT_NAME }}"
             path: "$(COSI_ARTIFACTS_DIR)/${{ ARTIFACT_NAME }}"

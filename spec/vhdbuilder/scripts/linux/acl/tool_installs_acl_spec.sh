@@ -18,7 +18,7 @@ Describe 'enableTridentACLAgent'
   }
   BeforeEach 'setup_agent'
 
-  It 'enables the kubeconfig trigger when the base contains the agent'
+  It 'enables the certificate-watching path when the base contains the agent'
     When call enableTridentACLAgent
     The status should be success
     The output should equal 'trident-acl-agent.path 30'

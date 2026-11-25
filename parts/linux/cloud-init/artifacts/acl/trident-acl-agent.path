@@ -1,5 +1,5 @@
 [Unit]
-Description=Start the Trident ACL Agent once kubelet's kubeconfig exists
+Description=Start the Trident ACL Agent once kubelet's client certificate exists
 Documentation=https://microsoft.github.io/trident/
 
 # The service unit lives on /usr, which an A/B update replaces; this path unit
@@ -10,9 +10,10 @@ Documentation=https://microsoft.github.io/trident/
 ConditionPathExists=/usr/lib/systemd/system/trident-acl-agent.service
 
 [Path]
-# The agent exits if kubelet's kubeconfig is absent, which it is until kubelet
-# finishes TLS bootstrapping. Wait for the file rather than enabling the service.
-PathExists=/var/lib/kubelet/kubeconfig
+# Best-effort delay until the Kubernetes Node is initialized: wait for kubelet's
+# client certificate. It can appear before Node registration/readiness, which
+# TAA also handles.
+PathExists=/var/lib/kubelet/pki/kubelet-client-current.pem
 Unit=trident-acl-agent.service
 
 [Install]

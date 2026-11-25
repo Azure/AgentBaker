@@ -107,7 +107,6 @@ func cosiUpdateAMD64Scenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
-		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -152,7 +151,6 @@ func cosiUpdateARM64Scenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
-		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -205,7 +203,6 @@ func cosiUpdateAMD64FIPSScenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
-		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -254,7 +251,6 @@ func cosiUpdateARM64FIPSScenario() *Scenario {
 	return &Scenario{
 		Name:        name,
 		Description: description,
-		SkipReason:  "COSI update tests are temporarily disabled",
 		Location:    "westus3",
 		Tags: Tags{
 			COSIUpdate: true,
@@ -500,11 +496,12 @@ func requireTridentStatus(ctx context.Context, s *Scenario, servicingState, acti
 	if err != nil {
 		return fmt.Errorf("get trident status: %w", err)
 	}
+	logging.Logf(ctx, "Trident status (expected %s):\n%s", servicingState, sanitizeCOSIOutput(status))
 	if !strings.Contains(status, "servicingState: "+servicingState) {
-		return fmt.Errorf("expected trident status to contain servicingState: %s, got: %s", servicingState, sanitizeURL(status))
+		return fmt.Errorf("expected trident status to contain servicingState: %s, got: %s", servicingState, sanitizeCOSIOutput(status))
 	}
 	if activeVolume != "" && !strings.Contains(status, "abActiveVolume: "+activeVolume) {
-		return fmt.Errorf("expected trident status to contain abActiveVolume: %s, got: %s", activeVolume, sanitizeURL(status))
+		return fmt.Errorf("expected trident status to contain abActiveVolume: %s, got: %s", activeVolume, sanitizeCOSIOutput(status))
 	}
 	return nil
 }
