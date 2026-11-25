@@ -137,21 +137,32 @@ End
 
 Describe 'image pre-pull integration'
     setup() {
-        eval "$(sed -n '/^prepullImages()/,/^}/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
+        eval "$(sed -n '/^prepullImages()/,/^[})]$/p' parts/linux/cloud-init/artifacts/cse_main.sh)"
         ENABLE_NETWORKING_IMAGE_CACHE=true
         ANC_IMAGE_CACHE_MODE=json
-        ANC_SELECTED_BIN_PATH=selected_anc
-        ANC_TEST_EXIT=0
+        ANC_IMAGE_CACHE_INPUT='/opt/azure/config with spaces.json'
+        ANC_SELECTED_BIN_PATH=/opt/azure/containers/selected-anc
+        SYSTEMD_TEST_EXIT=0
     }
 
-    selected_anc() {
-        echo "selected:$*"
-        return "${ANC_TEST_EXIT}"
+    timeout() {
+        printf 'timeout:%s\n' "$*"
+        shift 3
+        "$@"
+    }
+
+    systemd-run() {
+        printf 'systemd-run:%s\n' "$*"
+        printf 'context:%s:%s:%s\n' \
+            "$(printenv ENABLE_NETWORKING_IMAGE_CACHE)" \
+            "$(printenv ANC_IMAGE_CACHE_MODE)" \
+            "$(printenv ANC_IMAGE_CACHE_INPUT)"
+        return "${SYSTEMD_TEST_EXIT}"
     }
 
     BeforeEach 'setup'
 
-    It 'runs after containerd is healthy and before kubelet starts'
+    It 'launches after containerd is healthy and before kubelet starts'
         ordering_is_valid() {
             containerd_line="$(grep -n 'checkServiceHealth containerd' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
             prepull_line="$(grep -n '^    prepullImages$' parts/linux/cloud-init/artifacts/cse_main.sh | cut -d: -f1)"
@@ -163,25 +174,62 @@ Describe 'image pre-pull integration'
         The status should be success
     End
 
-    It 'uses the selected ANC in JSON provisioning'
+    It 'launches the selected ANC independently with the JSON bootstrap context'
         When call prepullImages
-        The output should include 'selected:prepull-images --source networking'
+        The output should include '/opt/azure/containers/selected-anc prepull-images --source networking'
+        The output should include '--unit=aks-image-prefetch'
+        The output should include '--property=Type=exec'
+        The output should include '--property=RuntimeMaxSec=330'
+        The output should include '--property=TimeoutStopSec=10'
+        The output should include '--property=KillMode=control-group'
+        The output should include 'context:true:json:/opt/azure/config with spaces.json'
+        The output should not include '--wait'
+        The output should not include '--scope'
+        The output should not include '--pipe'
+        The output should include 'async image pre-pull launched'
         The output should include 'image-cache-status.json'
         The status should be success
     End
 
-    It 'uses the selected ANC in NBC provisioning'
+    It 'preserves NBC provisioning precedence in the worker context'
         ANC_IMAGE_CACHE_MODE=nbc
+        ANC_IMAGE_CACHE_INPUT=/opt/azure/containers/nbc.sh
         When call prepullImages
-        The output should include 'selected:prepull-images --source networking'
+        The output should include 'context:true:nbc:/opt/azure/containers/nbc.sh'
+        The output should include 'async image pre-pull launched'
         The status should be success
     End
 
-    It 'remains fail-open when the selected binary fails'
-        ANC_TEST_EXIT=7
+    It 'forwards runtime and registry environment without putting values in arguments'
+        export HTTP_PROXY='http://proxy.example:3128'
+        export SSL_CERT_FILE='/etc/custom certificates.pem'
+        export CONTAINERD_SOCKET=/run/containerd/custom.sock
         When call prepullImages
-        The output should include 'selected:prepull-images --source networking'
+        The output should include '--setenv=HTTP_PROXY'
+        The output should include '--setenv=SSL_CERT_FILE'
+        The output should include '--setenv=CONTAINERD_SOCKET'
+        The output should not include 'proxy.example'
+        The output should not include 'custom certificates.pem'
+        The output should not include '--setenv=INVOCATION_ID'
+        The output should not include '--setenv=KUBELET_CLIENT_KEY'
+        The status should be success
+    End
+
+    It 'remains fail-open when the service cannot start'
+        SYSTEMD_TEST_EXIT=7
+        When call prepullImages
+        The output should include 'launch failed or timed out'
         The output should include 'continuing (fail-open)'
+        The output should not include 'async image pre-pull launched'
+        The status should be success
+    End
+
+    It 'bounds service launch without falling back to synchronous prefetch'
+        SYSTEMD_TEST_EXIT=124
+        When call prepullImages
+        The output should include 'timeout:--signal=TERM --kill-after=2s 15s systemd-run'
+        The output should include 'continuing (fail-open)'
+        The output should not include 'async image pre-pull launched'
         The status should be success
     End
 

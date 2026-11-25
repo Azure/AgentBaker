@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	lpsv1 "github.com/Azure/agentbaker/aks-live-patching/pkg/gen/akslivepatching/v1"
 	"github.com/stretchr/testify/require"
@@ -226,11 +227,21 @@ func TestImageCacheCanceledPullsAreNotSuccesses(t *testing.T) {
 
 func TestImageCachePullConcurrencyAndPartialFailure(t *testing.T) {
 	app := imageCacheTestApp(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	started := make(chan struct{}, 12)
+	release := make(chan struct{})
 	var active, maximum atomic.Int32
-	app.imageCachePuller = func(_ context.Context, ref string) (imageCachePullOutput, error) {
+	app.imageCachePuller = func(ctx context.Context, ref string) (imageCachePullOutput, error) {
 		count := active.Add(1)
 		defer active.Add(-1)
 		for old := maximum.Load(); count > old && !maximum.CompareAndSwap(old, count); old = maximum.Load() {
+		}
+		started <- struct{}{}
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return imageCachePullOutput{}, ctx.Err()
 		}
 		if strings.HasSuffix(ref, ":1") {
 			return imageCachePullOutput{}, errors.New("test pull error")
@@ -241,9 +252,27 @@ func TestImageCachePullConcurrencyAndPartialFailure(t *testing.T) {
 	for i := range images {
 		images[i].Reference = fmt.Sprintf("registry.example/network:%d", i)
 	}
-	results, err := app.pullImageCacheImages(context.Background(), images)
+	type pullResult struct {
+		images []imageCacheImageResult
+		err    error
+	}
+	done := make(chan pullResult, 1)
+	go func() {
+		results, err := app.pullImageCacheImages(ctx, images)
+		done <- pullResult{images: results, err: err}
+	}()
+	for range 10 {
+		select {
+		case <-started:
+		case <-ctx.Done():
+			t.Fatal("ten image pulls did not start concurrently")
+		}
+	}
+	close(release)
+	result := <-done
+	results, err := result.images, result.err
 	require.ErrorContains(t, err, "test pull error")
-	require.LessOrEqual(t, maximum.Load(), int32(imageCacheConcurrency))
+	require.Equal(t, int32(10), maximum.Load())
 	require.Len(t, results, len(images))
 	require.NotEmpty(t, results[1].Error)
 	for index, result := range results {

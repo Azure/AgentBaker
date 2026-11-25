@@ -427,19 +427,37 @@ EOF
 # This stage performs cluster-specific operations and hardware configurations.
 # After this stage the node should be fully integrated into the cluster.
 # IMPORTANT: This stage should only run when actually joining a node to the cluster. This step should not be run when creating a VHD image
-prepullImages() {
+prepullImages() (
+    set +x
     if [ "${ENABLE_NETWORKING_IMAGE_CACHE:-}" != "true" ] ||
        { [ "${ANC_IMAGE_CACHE_MODE:-}" != "json" ] && [ "${ANC_IMAGE_CACHE_MODE:-}" != "nbc" ]; }; then
         return 0
     fi
     local image_cache_anc="${ANC_SELECTED_BIN_PATH:-/opt/azure/containers/aks-node-controller}"
+    local variable
+    local -a environment=()
+    export ENABLE_NETWORKING_IMAGE_CACHE ANC_IMAGE_CACHE_MODE ANC_IMAGE_CACHE_INPUT
+    # Forward only bootstrap/runtime context, not CSE secrets or its invocation identity.
+    for variable in ENABLE_NETWORKING_IMAGE_CACHE ANC_IMAGE_CACHE_MODE ANC_IMAGE_CACHE_INPUT \
+        HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy \
+        SSL_CERT_FILE SSL_CERT_DIR CONTAINERD_SOCKET CONTAINERD_NAMESPACE; do
+        if printenv "$variable" > /dev/null; then
+            environment+=("--setenv=$variable")
+        fi
+    done
     echo "ENABLE_NETWORKING_IMAGE_CACHE=true; requesting imageCache/networking"
-    if "${image_cache_anc}" prepull-images --source networking; then
-        echo "ANC image pre-pull returned; outcome is in image-cache-status.json"
+    # A separate service survives CSE exit; wait only for exec, never for image pulls.
+    if timeout --signal=TERM --kill-after=2s 15s systemd-run \
+        --unit=aks-image-prefetch --property=Type=exec --remain-after-exit \
+        --property=RuntimeMaxSec=330 --property=TimeoutStartSec=15 \
+        --property=TimeoutStopSec=10 --property=KillMode=control-group \
+        --property=UMask=0077 "${environment[@]}" \
+        "${image_cache_anc}" prepull-images --source networking; then
+        echo "ANC async image pre-pull launched; outcome is in image-cache-status.json"
     else
-        echo "ANC image pre-pull failed; continuing (fail-open)"
+        echo "ANC async image pre-pull launch failed or timed out; continuing (fail-open)"
     fi
-}
+)
 
 function nodePrep {
     logs_to_events "AKS.CSE.configureAzureJson" configureAzureJson
