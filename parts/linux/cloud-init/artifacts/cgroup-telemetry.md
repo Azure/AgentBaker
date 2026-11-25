@@ -124,6 +124,12 @@ and memory usage from contaminating the observed values. Values describe one
 execution and reset when systemd recreates the service cgroup; consumers must
 not calculate deltas between timer invocations.
 
+If the monitored unit is already `active`, `activating` or `reloading` when the
+collector runs, a restart (for example by CSE nodePrep) has started a new
+execution and systemd has reset the properties of the finished one. The
+collector then logs a message, deletes any peak snapshot and exits successfully
+without an event, so this best-effort telemetry does not leave a failed unit.
+
 Peak memory is capability-based. The collector emits `MemoryPeakBytes` only
 when a numeric peak is available and does not emit a misleading zero otherwise.
 
