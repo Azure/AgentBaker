@@ -963,11 +963,29 @@
       ]
     },
     {
+      "type": "file",
+      "source": "vhdbuilder/packer/collect_vhd_evidence.py",
+      "destination": "/home/packer/collect_vhd_evidence.py"
+    },
+    {
       "type": "shell",
       "inline": [
         "sudo /bin/bash -eux /home/packer/cis.sh",
         "sudo /bin/bash -eux /opt/azure/containers/cleanup-vhd.sh",
-        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125"
+        "sudo /bin/bash -c 'waagent -force -deprovision+user && export HISTSIZE=0 && /opt/azure/containers/post-deprovision-walinuxagent.sh \"{{user `run_prefetch_optimization`}}\" \"{{user `feature_flags`}}\"' || exit 125",
+        "sudo env 'IMAGE_VERSION={{user `image_version`}}' 'SKU_NAME={{user `sku_name`}}' 'ADO_BUILD_ID={{user `build_id`}}' 'ADO_BUILD_NUMBER={{user `build_number`}}' 'AGENTBAKER_COMMIT={{user `commit`}}' 'HYPERV_GENERATION={{user `hyperv_generation`}}' 'FEATURE_FLAGS={{user `feature_flags`}}' python3 /home/packer/collect_vhd_evidence.py --output /opt/azure/vhd-evidence.json"
+      ]
+    },
+    {
+      "type": "file",
+      "direction": "download",
+      "source": "/opt/azure/vhd-evidence.json",
+      "destination": "vhd-evidence.json"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sudo rm -f /opt/azure/vhd-evidence.json"
       ]
     }
   ],
