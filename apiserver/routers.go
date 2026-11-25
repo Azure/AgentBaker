@@ -64,7 +64,7 @@ func (api *APIServer) NewRouter() *mux.Router {
 	//
 	// If this router is ever exposed beyond the trusted RP-only network boundary,
 	// authentication middleware must be added here.
-	router.Use(requestLogging(api.requestLogger), timeoutHandler(), recoveryHandler())
+	router.Use(requestLogging(api.Options.RequestLogger), timeoutHandler(), recoveryHandler())
 
 	return router
 }

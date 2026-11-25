@@ -13,7 +13,8 @@ import (
 // Log sources and field names follow the AKS Kusto schema. The AKS log collector routes
 // JSON stdout lines to tables by the "source" field.
 const (
-	incomingRequestTraceSource = "IncomingRequestTraceLog"
+	// IncomingRequestTraceSource is the source for incoming request traces.
+	IncomingRequestTraceSource = "IncomingRequestTraceLog"
 	// ContextlessTraceSource is the source for logs that are not tied to a request.
 	ContextlessTraceSource = "AcsContextlessTraceLog"
 

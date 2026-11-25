@@ -11,12 +11,11 @@ import (
 )
 
 func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
-	api, err := NewAPIServer(&Options{Addr: ":8080"})
+	var buf bytes.Buffer
+	api, err := NewAPIServer(&Options{Addr: ":8080", RequestLogger: NewJSONLogger(&buf, IncomingRequestTraceSource)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	api.requestLogger = NewJSONLogger(&buf, incomingRequestTraceSource)
 
 	request := httptest.NewRequest(http.MethodPost, RoutePathLatestSIGImageConfig, strings.NewReader("not json"))
 	request.Header.Set(operationIDHeader, "op-id")
@@ -30,7 +29,7 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 	}
 	for _, record := range records {
 		for key, want := range map[string]string{
-			"source":        incomingRequestTraceSource,
+			"source":        IncomingRequestTraceSource,
 			"operationID":   "op-id",
 			"correlationID": "corr-id",
 			"httpMethod":    http.MethodPost,
@@ -57,12 +56,11 @@ func TestRequestLoggingWritesStartAndEndRecords(t *testing.T) {
 }
 
 func TestRequestLoggingSkipsHealthz(t *testing.T) {
-	api, err := NewAPIServer(&Options{Addr: ":8080"})
+	var buf bytes.Buffer
+	api, err := NewAPIServer(&Options{Addr: ":8080", RequestLogger: NewJSONLogger(&buf, IncomingRequestTraceSource)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	api.requestLogger = NewJSONLogger(&buf, incomingRequestTraceSource)
 
 	response := httptest.NewRecorder()
 	api.NewRouter().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))

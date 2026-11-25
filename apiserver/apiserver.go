@@ -28,6 +28,8 @@ type OptionConfigurator func(opts *Options)
 type Options struct {
 	Addr    string
 	Toggles toggles.Toggles
+	// RequestLogger receives incoming request traces. If nil, traces are discarded.
+	RequestLogger *slog.Logger
 }
 
 func (o *Options) validate() error {
@@ -46,7 +48,6 @@ type APIServer struct {
 	Options                   *Options
 	nodeBootstrapLimiter      chan struct{}
 	overloadRetryAfterSeconds string
-	requestLogger             *slog.Logger
 }
 
 // NewAPIServer creates an APIServer object with defaults.
@@ -67,11 +68,14 @@ func NewAPIServer(o *Options) (*APIServer, error) {
 		return nil, err
 	}
 
+	if o.RequestLogger == nil {
+		o.RequestLogger = slog.New(slog.DiscardHandler)
+	}
+
 	s := &APIServer{
 		Options:                   o,
 		nodeBootstrapLimiter:      make(chan struct{}, maxConcurrentRequests),
 		overloadRetryAfterSeconds: strconv.Itoa(retryAfterSeconds),
-		requestLogger:             NewJSONLogger(os.Stdout, incomingRequestTraceSource),
 	}
 
 	return s, nil
