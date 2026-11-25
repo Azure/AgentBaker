@@ -75,6 +75,11 @@ func TestCustomDataWithANCHotfixFlowFixture(t *testing.T) {
 
 	bakerNBCCmd := strings.Index(rendered, "gzip -d >"+ancNBCCmdPath)
 	fixtureNBCCmd := strings.LastIndex(rendered, "cat >"+ancNBCCmdPath)
+	binaryReady := strings.Index(rendered, "chmod +x "+ancBakedBinaryPath)
+	checkHotfix := strings.Index(rendered, ancBakedBinaryPath+" check-hotfix")
+	if binaryReady < 0 || checkHotfix <= binaryReady || checkHotfix <= bakerNBCCmd || checkHotfix >= fixtureWrite || checkHotfix >= fixtureNBCCmd {
+		t.Fatal("check-hotfix must run after the test binary is ready and before seeding the pointer or replacing NBC")
+	}
 	if bakerNBCCmd < 0 || fixtureNBCCmd < 0 {
 		t.Fatalf("expected baker and fixture NBC command writes; got %d and %d", bakerNBCCmd, fixtureNBCCmd)
 	}

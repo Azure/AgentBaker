@@ -43,14 +43,14 @@ const (
 	ancHotfixFlowTargetVersion = "202608.21.1"
 )
 
-// The fixture writes the hotfix pointer directly instead of letting check-hotfix fetch it
-// from the live-patching service. LPS only serves the ANC hotfix map where the aks-rp
+// The fixture runs check-hotfix before provisioning, then seeds the hotfix pointer.
+// LPS only serves the ANC hotfix map where the aks-rp
 // aks-node-controller-hotfixes toggle matches, and that toggle is scoped to deploy-env
 // staging plus a single subscription that is not the AgentBaker E2E subscription, so
 // check-hotfix here would always receive an empty config and write no pointer.
 //
-// Writing the pointer keeps this scenario deterministic and leaves the LPS leg to the
-// aks-rp e2ev3 scenario that already covers it end to end (AKSNodeControllerCheckHotfix).
+// Seeding the pointer afterward keeps downloads deterministic. Verification of LPS-served
+// pointers remains in the aks-rp e2ev3 scenario AKSNodeControllerCheckHotfix.
 // Everything downstream of the pointer - download, extraction, staging, binary selection
 // and provisioning - still runs for real against the published hotfix.
 var _ = Register(newANCHotfixFlowScenario(
@@ -95,6 +95,9 @@ func newANCHotfixFlowScenario(name, description string, vhd *config.Image) *Scen
 				}
 				return errors.Join(
 					ValidateANCBakedBinaryVersion(ctx, s, ancHotfixFlowBaseVersion),
+					ValidateFileHasContent(ctx, s, ancLogPath, "check-hotfix LPS gRPC dial"),
+					ValidateFileHasContent(ctx, s, ancLogPath, `"outcome":"noHotfixAvailable"`),
+					ValidateFileExcludesContent(ctx, s, ancLogPath, "check-hotfix panicked"),
 					ValidateFileHasContent(ctx, s, ancHotfixPointerPath, fmt.Sprintf(`"%s":"%s"`, hotfixBaseVersion(ancHotfixFlowBaseVersion), ancHotfixFlowTargetVersion)),
 					ValidateFileHasContent(ctx, s, ancLauncherOutput, "Found ANC hotfix config"),
 					ValidateFileHasContent(ctx, s, ancLogPath, "downloading ANC hotfix"),

@@ -449,22 +449,22 @@ func mutateScriptlessCustomData(decoded []byte, mutate func(string) (string, err
 // running binary shares the pointer's YYYYMM.DD base and sits at a strictly lower patch, so an
 // unstamped node would silently log "ANC version not targeted by hotfix" and still pass.
 //
-// It deliberately does not write enabled_features.sh: the launcher runs download-hotfix purely
-// on the presence of the pointer file, so leaving ENABLE_PROVISIONING_HOTFIX unset keeps
-// check-hotfix (and its live-patching-service round trip) out of the scenario entirely.
+// Run check-hotfix before replacing the bootstrap inputs, then seed the download pointer
+// independently of the LPS response. Leave the launcher feature flag unset to avoid a second check.
 func CustomDataWithANCHotfixFlowFixture(customData, binaryURL string) (string, error) {
 	decoded, err := base64.StdEncoding.DecodeString(customData)
 	if err != nil {
 		return "", fmt.Errorf("decode custom data: %w", err)
 	}
 
-	fixtureCmd := fmt.Sprintf(`cat >%[1]s <<'EOF'
+	fixtureCmd := fmt.Sprintf(`curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
+chmod +x %[5]s
+%[5]s check-hotfix
+
+cat >%[1]s <<'EOF'
 {"hotfixes":{%[2]q:%[3]q}}
 EOF
 chmod 0644 %[1]s
-
-curl -fSL --retry 10 --retry-delay 2 --retry-connrefused %[4]q -o %[5]s
-chmod +x %[5]s
 
 cat >%[6]s <<'EOF'
 set -eu
