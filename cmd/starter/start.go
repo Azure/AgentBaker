@@ -13,12 +13,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// The log collector routes JSON stdout lines to Kusto tables by "source". init runs before
+// the importing main, so its early log calls are JSON too. SetDefault also redirects the
+// standard library log package.
+//
+//nolint:gochecknoinits // logging must be configured before any log call.
+func init() {
+	slog.SetDefault(apiserver.NewJSONLogger(os.Stdout, apiserver.ContextlessTraceSource))
+}
+
 // Execute adds all child commands to the root command and sets flags appropriately.
 func Execute(configurators ...apiserver.OptionConfigurator) {
-	// The log collector routes JSON stdout lines to Kusto tables by "source".
-	// SetDefault also redirects the standard library log package to JSON.
-	slog.SetDefault(apiserver.NewJSONLogger(os.Stdout, apiserver.ContextlessTraceSource))
-	options.RequestLogger = apiserver.NewJSONLogger(os.Stdout, apiserver.IncomingRequestTraceSource)
 	rootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVar(&options.Addr, "addr", ":8080", "the addr to serve the api on")
 
@@ -39,7 +44,9 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	options = &apiserver.Options{}
+	options = &apiserver.Options{
+		RequestLogger: apiserver.NewJSONLogger(os.Stdout, apiserver.IncomingRequestTraceSource),
+	}
 )
 
 // startCmd represents the start command.
