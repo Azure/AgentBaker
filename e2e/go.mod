@@ -22,6 +22,7 @@ require (
 	github.com/cavaliergopher/rpm v1.3.0
 	github.com/coder/websocket v1.8.15
 	github.com/go-logr/logr v1.4.4
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.20.4
@@ -77,7 +78,6 @@ require (
 	github.com/go-openapi/swag/typeutils v0.29.2 // indirect
 	github.com/go-openapi/swag/yamlutils v0.27.1 // indirect
 	github.com/goccy/go-json v0.12.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
