@@ -1,0 +1,43 @@
+trigger: none
+pr: none
+
+variables:
+  WindowsContainerImage: 'onebranch.azurecr.io/windows/ltsc2022/vse2022:latest'
+
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates
+  parameters:
+    stages:
+      - stage: powershell_script_signing
+        displayName: PowerShell Script Signing
+        jobs:
+          - job: sign_scripts
+            displayName: Sign PowerShell Scripts
+            pool:
+              type: windows
+            variables:
+              ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+              ob_artifactBaseName: signed-powershell-scripts
+              ob_artifactSuffix: ''
+            steps:
+              - checkout: agentbaker
+                path: s/AgentBaker
+                fetchDepth: 1
+                fetchTags: false
+                fetchFilter: blob:none
+                sparseCheckoutDirectories: parts staging
+              - task: CopyFiles@2
+                displayName: Stage PowerShell scripts
+                inputs:
+                  SourceFolder: '$(Pipeline.Workspace)/s/AgentBaker'
+                  Contents: |
+                    parts/common/windows/**/*.ps1
+                    staging/cse/windows/**/*.ps1
+                  TargetFolder: '$(ob_outputDirectory)'
+              - task: onebranch.pipeline.signing@1
+                displayName: Sign PowerShell scripts
+                inputs:
+                  command: 'sign'
+                  signing_profile: 'internal_azure_service'
+                  files_to_sign: '**/*.ps1'
+                  search_root: '$(ob_outputDirectory)'
