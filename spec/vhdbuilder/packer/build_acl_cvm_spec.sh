@@ -49,6 +49,21 @@ EOF
     The output should include "Using pre-CPS ACL image settings derived from $BASE_TEMPLATE"
   End
 
+  validate_candidate_cvm_template() {
+    build_and_validate_cvm_template &&
+      jq -e '.builders[0].azure_tags["abe2e-ignore"] == "true"' "$CAPTURED_TEMPLATE" >/dev/null
+  }
+
+  It 'tags CVM and CVM FIPS candidates before Packer while preserving managed-image settings'
+    ACL_PACKER_TEMPLATE="$BASE_TEMPLATE"
+    ACL_CANDIDATE_IMAGE=true
+    export ACL_PACKER_TEMPLATE ACL_CANDIDATE_IMAGE
+    When call validate_candidate_cvm_template
+    The status should be success
+    The output should include "Using pre-CPS ACL image settings derived from $BASE_TEMPLATE"
+    The output should include 'Building ACL candidate with abe2e-ignore=true at creation'
+  End
+
   validate_cvm_mglru_upload() {
     ./vhdbuilder/packer/build-acl-cvm.sh &&
       jq -e '[.provisioners[] | select(.type == "file" and

@@ -17,4 +17,4 @@ jq '.builders[0] += {
     }' "$base_template" > "$cvm_template"
 
 echo "Using pre-CPS ACL image settings derived from $base_template"
-packer build -timestamp-ui -var-file=vhdbuilder/packer/settings.json "$cvm_template"
+bash "$(dirname "$0")/build-acl.sh" "$cvm_template"
