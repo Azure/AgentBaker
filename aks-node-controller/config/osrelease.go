@@ -17,7 +17,7 @@ const (
 // and removes quotes around values.
 func ParseOSRelease(data []byte) map[string]string {
 	values := make(map[string]string)
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue

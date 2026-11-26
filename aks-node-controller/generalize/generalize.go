@@ -25,8 +25,6 @@ const aclLegacyUKIName = "acl.efi"
 
 // nodeStatePaths are per-node provisioning outputs that must not reach a captured image.
 // basePrep outputs (for example base_prep.complete) are intentionally absent so clones skip basePrep.
-//
-//nolint:gochecknoglobals // read-only list
 var nodeStatePaths = []string{
 	config.Linux().ProvisionCompleteFilePath,
 	nodeconfigutils.AKSNodeConfigFilePath,
@@ -38,8 +36,6 @@ var nodeStatePaths = []string{
 
 // buildArtifactPaths are VHD build leftovers. A provisioned node does not create them again,
 // so only image mode removes them.
-//
-//nolint:gochecknoglobals // read-only list
 var buildArtifactPaths = []string{
 	// Packer SSH keys.
 	"/root/.ssh/authorized_keys",
@@ -65,8 +61,6 @@ var buildArtifactPaths = []string{
 }
 
 // nvpcrCredentialDirs hold boot-loader copies of the NvPCR anchor (nvpcr-anchor.*.cred).
-//
-//nolint:gochecknoglobals // read-only list
 var nvpcrCredentialDirs = []string{
 	"/boot/loader/credentials",
 	"/boot/efi/loader/credentials",
@@ -193,6 +187,7 @@ func (g *Generalizer) resetMachineID(context.Context, map[string]string) error {
 	if err := os.WriteFile(machineID, nil, 0o644); err != nil {
 		return fmt.Errorf("reset %s: %w", machineID, err)
 	}
+	//nolint:gosec // machine-id must stay world-readable
 	if err := os.Chmod(machineID, 0o644); err != nil {
 		return fmt.Errorf("chmod %s: %w", machineID, err)
 	}
@@ -297,6 +292,7 @@ func (g *Generalizer) resetACLFirstBoot(_ context.Context, osRelease map[string]
 	}
 
 	marker := g.path("/boot/flatcar/first_boot")
+	//nolint:gosec // same mode as the former "sudo touch" in the ACL Packer template
 	f, err := os.OpenFile(marker, os.O_WRONLY|os.O_CREATE, 0o644)
 	if err != nil {
 		return fmt.Errorf("create %s: %w", marker, err)

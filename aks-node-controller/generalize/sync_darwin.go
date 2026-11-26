@@ -2,6 +2,7 @@ package generalize
 
 import "syscall"
 
+// Only tests run generalize on macOS, so a sync failure does not matter.
 func syncFilesystems() {
-	syscall.Sync()
+	_ = syscall.Sync()
 }

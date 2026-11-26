@@ -95,6 +95,7 @@ func (g *Generalizer) installPinnedWALinuxAgent(ctx context.Context, osRelease m
 		return err
 	}
 	manifest := g.path("/opt/azure/vhd-install.complete")
+	//nolint:gosec // matches the mode of the other image artifacts
 	f, err := os.OpenFile(manifest, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o644)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", manifest, err)
@@ -344,7 +345,7 @@ func configureWALinuxAgentAutoUpdate(confPath string) error {
 // setWAAgentConfOption replaces key=from with key=to everywhere, and appends key=to if no line sets key.
 func setWAAgentConfOption(conf, key, from, to string) string {
 	conf = strings.ReplaceAll(conf, key+"="+from, key+"="+to)
-	for _, line := range strings.Split(conf, "\n") {
+	for line := range strings.SplitSeq(conf, "\n") {
 		if strings.HasPrefix(line, key+"=") {
 			return conf
 		}
