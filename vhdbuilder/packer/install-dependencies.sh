@@ -1289,21 +1289,6 @@ if [ "$OS" = "$UBUNTU_OS_NAME" ] && echo "$FEATURE_FLAGS" | grep -q "cvm"; then
 fi
 capture_benchmark "${SCRIPT_NAME}_reinstall_grub_for_cvm"
 
-if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
-  # disable and mask all UU timers/services
-  # save some background io/latency
-  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
-  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
-
-  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
-APT::Periodic::Update-Package-Lists "0";
-APT::Periodic::Download-Upgradeable-Packages "0";
-APT::Periodic::AutocleanInterval "0";
-APT::Periodic::Unattended-Upgrade "0";
-EOF
-fi
-
 installDeps
 
 CHRONYD_DIR=/etc/systemd/system/chronyd.service.d
