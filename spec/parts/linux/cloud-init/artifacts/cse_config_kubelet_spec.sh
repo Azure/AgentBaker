@@ -1204,14 +1204,14 @@ providers:
         retrycmd_cp_oci_layout_with_oras() { echo "retrycmd_cp_oci_layout_with_oras $@"; return 0; }
         ERR_PULL_POD_INFRA_CONTAINER_IMAGE=1
 
-        It 'prepares cached ACL pause locally'
+        It 'prepares cached ACL pause from a local archive and retains the pin'
             isACL() { return 0; }
             cached_image="mcr.microsoft.com/pause:3.10"
 
             When call ensurePodInfraContainerImage
             The status should be success
             The output should include "images export /tmp/pause-test/image.tar mcr.microsoft.com/pause:3.10"
-            The output should include "images import --local --snapshotter erofs /tmp/pause-test/image.tar"
+            The output should include "images import --snapshotter erofs --label io.cri-containerd.pinned=pinned /tmp/pause-test/image.tar"
             The output should include "rm -rf /tmp/pause-test"
             The output should not include "retrycmd_cp_oci_layout_with_oras"
         End
@@ -1254,7 +1254,7 @@ providers:
 
             When call ensurePodInfraContainerImage
             The status should be success
-            The output should include "images import --local --snapshotter erofs --base-name mcr.microsoft.com/pause /opt/pod-infra-container-image/pod-infra-container-image.tar"
+            The output should include "images import --snapshotter erofs --base-name mcr.microsoft.com/pause /opt/pod-infra-container-image/pod-infra-container-image.tar"
             The output should not include "images export"
         End
 

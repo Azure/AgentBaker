@@ -163,9 +163,10 @@ configureKubeletAndKubectl() {
 preparePodInfraContainerImageForSnapshotter() (
     local snapshotter="$1" image="$2" base_name="${3:-}" tar_file="${4:-}"
 
+    # Transfer import publishes image updates after unpack, so CRI can see the snapshotter metadata.
     # A tar file for the requested image already exists. Re-use it to import with the specified snapshotter.
     if [ -n "${tar_file:-}" ]; then
-        ctr -n k8s.io images import --local --snapshotter "$snapshotter" --base-name "$base_name" "$tar_file"
+        ctr -n k8s.io images import --snapshotter "$snapshotter" --base-name "$base_name" "$tar_file"
         return
     fi
 
@@ -173,8 +174,10 @@ preparePodInfraContainerImageForSnapshotter() (
     local archive_dir
     archive_dir=$(mktemp -d) || return
     trap 'rm -rf "$archive_dir"' EXIT
+    # Transfer replaces existing image labels, so explicitly retain the baked pause image pin.
     ctr -n k8s.io images export "${archive_dir}/image.tar" "$image" &&
-        ctr -n k8s.io images import --local --snapshotter "$snapshotter" "${archive_dir}/image.tar"
+        ctr -n k8s.io images import --snapshotter "$snapshotter" \
+            --label io.cri-containerd.pinned=pinned "${archive_dir}/image.tar"
 )
 
 ensurePodInfraContainerImageForSnapshotter() {
