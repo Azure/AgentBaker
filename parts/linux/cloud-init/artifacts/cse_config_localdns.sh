@@ -128,15 +128,22 @@ configureLocalDNSExporterSocket() {
     fi
 
     # Create drop-in to narrow socket binding from 0.0.0.0 to the node IP.
+    # FreeBind=yes (IP_FREEBIND) is required because on reboot systemd opens this socket in
+    # sockets.target, before systemd-networkd has acquired the node IP via DHCP. Without it the
+    # bind fails with EADDRNOTAVAIL, systemd marks the socket failed and never retries, and the
+    # metrics endpoint stays down until the next successful start. CSE itself runs after the
+    # network is up, which is why this only shows up after a reboot.
     local node_ip
+    local dropin_dir="${LOCALDNS_EXPORTER_SOCKET_DROPIN_DIR:-/etc/systemd/system/localdns-exporter.socket.d}"
     node_ip=$(get_primary_nic_ip)
     if [ -n "${node_ip}" ]; then
         echo "localdns-exporter: creating socket drop-in to bind to ${node_ip}:9353"
-        mkdir -p /etc/systemd/system/localdns-exporter.socket.d
-        tee /etc/systemd/system/localdns-exporter.socket.d/10-listen-address.conf > /dev/null <<EOF
+        mkdir -p "${dropin_dir}"
+        tee "${dropin_dir}/10-listen-address.conf" > /dev/null <<EOF
 [Socket]
 ListenStream=
 ListenStream=${node_ip}:9353
+FreeBind=yes
 EOF
         systemctl daemon-reload
     else
