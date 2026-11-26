@@ -262,7 +262,7 @@ Describe 'ubuntuKernelNeedsVulnerableModuleMitigation()'
     End
 End
 
-# Exercise the Ubuntu 20.04 Azure FIPS exception across all four shell policies.
+# Exercise the Ubuntu 20.04 Azure FIPS exception across all three shell policies.
 # Extract only the functions: never run VHD setup/cleanup or real modprobe operations.
 Describe 'Ubuntu 20.04 Azure FIPS mitigation policy consistency'
     get_ubuntu_release() { echo "$UBUNTU_RELEASE"; }
@@ -290,8 +290,7 @@ Describe 'Ubuntu 20.04 Azure FIPS mitigation policy consistency'
         fi
 
         for source_file in \
-            vhdbuilder/packer/install-dependencies.sh \
-            vhdbuilder/packer/cleanup-vhd.sh \
+            vhdbuilder/scripts/linux/tool_installs.sh \
             vhdbuilder/packer/test/linux-vhd-content-test.sh; do
             eval "$(sed -n '/^kernelVersionGe()/,/^}/p' "$source_file")"
             eval "$(sed -n '/^ubuntuKernelIncludesVulnerableModuleFixes()/,/^}/p' "$source_file")"

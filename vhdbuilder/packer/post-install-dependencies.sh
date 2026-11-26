@@ -28,6 +28,9 @@ else
 fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
+# Repeat after the reboot, so the check uses the kernel that the image boots.
+configureVulnerableKernelModuleDenyRules || exit $ERR_PACKER_COPY_FILE
+
 if [ $OS = $UBUNTU_OS_NAME ]; then
   # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for NVIDIA GB.
   if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then

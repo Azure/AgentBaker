@@ -185,14 +185,6 @@ copyPackerFiles() {
   SNAPSHOT_UPDATE_SERVICE_DEST=/etc/systemd/system/snapshot-update.service
   SNAPSHOT_UPDATE_TIMER_SRC=/home/packer/snapshot-update.timer
   SNAPSHOT_UPDATE_TIMER_DEST=/etc/systemd/system/snapshot-update.timer
-  VHD_CLEANUP_SCRIPT_SRC=/home/packer/cleanup-vhd.sh
-  VHD_CLEANUP_SCRIPT_DEST=/opt/azure/containers/cleanup-vhd.sh
-  DEPROVISION_SCRIPT_SRC=/home/packer/deprovision.sh
-  DEPROVISION_SCRIPT_DEST=/opt/azure/containers/deprovision.sh
-  POST_DEPROVISION_WALINUXAGENT_SRC=/home/packer/post-deprovision-walinuxagent.sh
-  POST_DEPROVISION_WALINUXAGENT_DEST=/opt/azure/containers/post-deprovision-walinuxagent.sh
-  INSTALL_WALINUXAGENT_PY_SRC=/home/packer/install_walinuxagent.py
-  INSTALL_WALINUXAGENT_PY_DEST=/opt/azure/containers/install_walinuxagent.py
   CONTAINER_IMAGE_PREFETCH_SCRIPT_SRC=/home/packer/prefetch.sh
   CONTAINER_IMAGE_PREFETCH_SCRIPT_DEST=/opt/azure/containers/prefetch.sh
 
@@ -670,18 +662,6 @@ copyPackerFiles() {
       BOM_DEST=/opt/azure/containers/gb-mai-bom.json
       cpAndMode $BOM_SRC $BOM_DEST 644
     fi
-  fi
-
-  # Always copy the VHD cleanup script responsible for prepping the instance for first boot
-  # to disk so we can run it again if needed in subsequent builds/releases (prefetch during SIG release)
-  cpAndMode $VHD_CLEANUP_SCRIPT_SRC $VHD_CLEANUP_SCRIPT_DEST 644
-
-  # Copy the deprovision scripts and WALinuxAgent installer before waagent removes the build user.
-  # Skip for Flatcar and ACL, which do not manually install WALinuxAgent
-  if ! { isFlatcar "$OS" || isACL "$OS" "$OS_VARIANT"; }; then
-    cpAndMode $DEPROVISION_SCRIPT_SRC $DEPROVISION_SCRIPT_DEST 755
-    cpAndMode $POST_DEPROVISION_WALINUXAGENT_SRC $POST_DEPROVISION_WALINUXAGENT_DEST 755
-    cpAndMode $INSTALL_WALINUXAGENT_PY_SRC $INSTALL_WALINUXAGENT_PY_DEST 644
   fi
 
   # Copy the generated CNI prefetch script to the appropriate location so AIB can invoke it later
