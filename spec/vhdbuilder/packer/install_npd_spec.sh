@@ -108,6 +108,7 @@ dnf_install 30 1 600 node-problem-detector-kubernetes-0.8.25-16.azl3'
 End
 
 Describe 'NPD VHD installation helper on Ubuntu'
+    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
     Include ./vhdbuilder/packer/install-npd.sh
 
     setup() {
@@ -128,7 +129,9 @@ Describe 'NPD VHD installation helper on Ubuntu'
     apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; [ "${APT_FAILS}" = false ]; }
     getLatestDebPackageVersion() { printf '%s-ubuntu24.04u1' "$2"; }
     logResolvedPackageVersion() { echo "resolved $*" >> "${TEST_CALLS}"; }
-    dpkg() { echo "dpkg $* $(cat)" >> "${TEST_CALLS}"; }
+    Mock dpkg
+        echo "dpkg $* $(cat)" >> "${TEST_CALLS}"
+    End
     apt-get() { echo "apt-get $*" >> "${TEST_CALLS}"; }
     systemctl() { echo "systemctl $*" >> "${TEST_CALLS}"; }
     ln() { :; }
@@ -154,7 +157,50 @@ Describe 'NPD VHD installation helper on Ubuntu'
     End
 End
 
+Describe 'NPD Ubuntu package hold lock contention'
+    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
+    Include ./vhdbuilder/packer/install-npd.sh
+
+    setup() {
+        TEST_CALLS="$(mktemp)"
+        export TEST_CALLS
+        unset CSE_STARTTIME_SECONDS
+    }
+    cleanup() { rm -f "${TEST_CALLS}"; }
+    BeforeEach setup
+    AfterEach cleanup
+
+    isUbuntu() { return 0; }
+    sleep() { :; }
+    Mock dpkg
+        echo "dpkg $* $(cat)" >> "${TEST_CALLS}"
+        if [ "${DPKG_ALWAYS_LOCKED:-false}" = true ] || [ "$(wc -l < "${TEST_CALLS}")" -eq 1 ]; then
+            echo 'dpkg: error: dpkg frontend lock is locked by another process' >&2
+            exit 2
+        fi
+    End
+
+    It 'retries a transient lock with the same package selection'
+        When call holdNPDPackage node-problem-detector-kubernetes
+        The status should be success
+        The stderr should include 'dpkg frontend lock is locked by another process'
+        The stdout should include '2 times.'
+        The contents of file "${TEST_CALLS}" should equal 'dpkg --set-selections node-problem-detector-kubernetes hold
+dpkg --set-selections node-problem-detector-kubernetes hold'
+    End
+
+    It 'returns failure when the lock does not clear'
+        export DPKG_ALWAYS_LOCKED=true
+        When call holdNPDPackage node-problem-detector-aks-config
+        The status should be failure
+        The stderr should include 'dpkg frontend lock is locked by another process'
+        The stderr should include 'giving up'
+        The lines of contents of file "${TEST_CALLS}" should equal 120
+    End
+End
+
 Describe 'NPD VHD installation helper for releases sharing a config package'
+    Include ./parts/linux/cloud-init/artifacts/cse_helpers.sh
     Include ./vhdbuilder/packer/install-npd.sh
 
     setup() {
@@ -175,7 +221,9 @@ Describe 'NPD VHD installation helper for releases sharing a config package'
     getLatestDebPackageVersion() { echo "resolve APT_CONFIG=${APT_CONFIG:-} $*" >> "${TEST_CALLS}"; printf '%s-ubuntu24.04u2' "$2"; }
     logResolvedPackageVersion() { :; }
     apt_get_install() { echo "apt_get_install $*" >> "${TEST_CALLS}"; }
-    dpkg() { [ "$1" = --print-architecture ] && echo amd64 || echo "dpkg $* $(cat)" >> "${TEST_CALLS}"; }
+    Mock dpkg
+        [ "$1" = --print-architecture ] && echo amd64 || echo "dpkg $* $(cat)" >> "${TEST_CALLS}"
+    End
     ln() { :; }
 
     It 'resolves, downloads and installs the config from the source release repository'
@@ -191,6 +239,7 @@ Describe 'NPD VHD installation helper for releases sharing a config package'
     It 'uses the release repository for the binary'
         When call installNPDPackage node-problem-detector-kubernetes 0.8.25
         The status should be success
+        The stdout should include '1 times.'
         The contents of file "${TEST_CALLS}" should include 'resolve APT_CONFIG= node-problem-detector-kubernetes 0.8.25'
         The contents of file "${TEST_CALLS}" should include 'apt_get_install 30 1 600 node-problem-detector-kubernetes=0.8.25-ubuntu24.04u2'
         The contents of file "${TEST_CALLS}" should include 'apt-get download node-problem-detector-kubernetes=0.8.25-ubuntu24.04u2'

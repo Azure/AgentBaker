@@ -10,8 +10,9 @@ NPD_TDNF_LOCK_FILE="/etc/tdnf/locks.d/node-problem-detector.conf"
 holdNPDPackage() {
     local package="$1"
     if isUbuntu; then
-        # dpkg selections avoid apt's slow initialization (see holdWALinuxAgent).
-        printf '%s hold\n' "${package}" | dpkg --set-selections
+        # Like holdWALinuxAgent, retry dpkg selections if another updater acquires the lock.
+        # shellcheck disable=SC2016
+        retrycmd_if_failure 120 5 25 bash -c 'set -o pipefail; printf "%s hold\n" "$1" | dpkg --set-selections' _ "${package}"
     else
         mkdir -p "$(dirname "${NPD_TDNF_LOCK_FILE}")" || return 1
         grep -qsx "${package}" "${NPD_TDNF_LOCK_FILE}" || printf '%s\n' "${package}" >> "${NPD_TDNF_LOCK_FILE}"
