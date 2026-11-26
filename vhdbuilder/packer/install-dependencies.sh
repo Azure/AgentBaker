@@ -1,6 +1,53 @@
 #!/bin/bash
 set -euo pipefail
 
+# TEMP DIAG (scratch branch only, do not merge): identify the apt/dpkg lock holder after the pre-install reboot.
+APTDIAG_LOG=/var/log/aptlock-diag.log
+APTDIAG_DONE=0
+{
+  echo "=== start uptime=$(cut -d' ' -f1 /proc/uptime) boot=$(uptime -s) now=$(date -u +%T)"
+  systemctl list-jobs --no-pager || true
+  systemctl status apt-daily.service apt-daily-upgrade.service unattended-upgrades.service --no-pager || true
+  systemctl list-timers --all --no-pager || true
+} > /var/log/aptlock-diag-start.log 2>&1
+(
+  set +ex
+  prev=""
+  i=0
+  while [ "$i" -lt 1200 ]; do
+    cur=$(ps -eo pid,ppid,lstart,unit:40,args --sort=start_time 2>/dev/null | grep -E 'apt|dpkg|unattended|advantage|/usr/bin/pro|esm' | grep -vE 'grep|session-[0-9]+\.scope' || true)
+    locks=""
+    for f in /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock; do
+      h=$(fuser "$f" 2>/dev/null | tr -s ' ')
+      [ -n "$h" ] && locks="${locks}LOCK ${f}:${h}
+$(ps -o pid,ppid,unit:40,args -p "$(echo $h | tr ' ' ',')" --no-headers 2>/dev/null | grep -v 'session-[0-9]*\.scope')
+"
+    done
+    if [ "$cur$locks" != "$prev" ]; then
+      echo "--- $(date -u +%T) up=$(cut -d' ' -f1 /proc/uptime)"
+      echo "$cur"
+      printf '%s' "$locks"
+      prev="$cur$locks"
+    fi
+    sleep 0.5
+    i=$((i+1))
+  done
+) > "$APTDIAG_LOG" 2>&1 &
+APTDIAG_PID=$!
+dumpAptDiag() {
+  [ "$APTDIAG_DONE" = 1 ] && return 0
+  APTDIAG_DONE=1
+  kill "$APTDIAG_PID" 2>/dev/null || true
+  echo "===== BEGIN aptlock diag ====="
+  cat /var/log/aptlock-diag-start.log "$APTDIAG_LOG" 2>/dev/null || true
+  echo "=== journal apt units"
+  journalctl -b --no-pager -o short-precise -u apt-daily.service -u apt-daily-upgrade.service -u apt-daily.timer -u apt-daily-upgrade.timer -u unattended-upgrades.service 2>/dev/null | tail -100 || true
+  echo "=== journal filtered"
+  journalctl -b --no-pager -o short-precise 2>/dev/null | grep -iE 'apt|dpkg|unattended|advantage|esm|ua-timer|update-notifier|motd|waagent|walinux|networkd-wait-online|network-online' | head -300 || true
+  echo "===== END aptlock diag ====="
+}
+trap dumpAptDiag EXIT
+
 K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
@@ -1398,6 +1445,7 @@ echo "VHD will be built with containerd as the container runtime"
 
 # Cache packages and binaries declared within components.json
 cachePackageAndBinaryComponents
+dumpAptDiag # TEMP DIAG
 
 # Delegate ACL AMD64 image fetching to the host containerd Transfer service.
 export IMAGE_FETCHER_USE_TRANSFER="false"
