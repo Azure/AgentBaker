@@ -1,6 +1,13 @@
 #!/bin/bash
 set -euo pipefail
 
+# TEMP HOLD (scratch branch only, do not merge): keep the Packer VM alive for 3 hours so the
+# policy-installed AADSSHLoginForLinux extension can be inspected in the portal.
+for i in $(seq 1 36); do
+  echo "HOLD $(date -u +%T) $i/36 $(ls /var/lib/waagent 2>/dev/null | grep -E '^Microsoft' | tr '\n' ' ')"
+  sleep 300
+done
+
 K8S_DEVICE_PLUGIN_PKG="${K8S_DEVICE_PLUGIN_PKG:-nvidia-device-plugin}"
 UBUNTU_OS_NAME="UBUNTU"
 MARINER_OS_NAME="MARINER"
