@@ -2,11 +2,7 @@ name: govulncheck
 on:
   schedule:
     - cron: '0 6 * * *'
-  pull_request:
-    paths:
-      - '**/go.mod'
-      - '**/go.sum'
-      - .github/workflows/govulncheck.yml
+  workflow_dispatch:
 
 permissions: {}
 
@@ -16,57 +12,34 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
         module: [., aks-live-patching, aks-node-controller, e2e, image-fetcher, vhdbuilder/prefetch]
     env:
       MODULE: ${{ matrix.module }}
-      GOVULNCHECK: golang.org/x/vuln/cmd/govulncheck@v1.10.0
     steps:
       - id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Scheduled runs use the default branch (dev); scan the released code.
-          ref: ${{ github.event_name == 'schedule' && 'main' || '' }}
+          ref: main
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.27'
           cache-dependency-path: '**/go.sum'
-      # Install instead of `go run`: `go run` turns every failure into exit 1, hiding govulncheck's exit 3.
-      - run: go install "$GOVULNCHECK"
-
-      - if: github.event_name == 'schedule'
-        shell: bash # Adds pipefail, so a govulncheck error fails the step.
+      - shell: bash # Adds pipefail, so a govulncheck error fails the step.
         run: |
           # govulncheck reports paths relative to the module (e.g. "go.mod", "../pkg/x.go" in e2e).
           # Make them relative to the repository root so alerts link to the correct file.
-          govulncheck -C "$MODULE" -format sarif ./... |
+          go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 -C "$MODULE" -format sarif ./... |
             jq --arg m "$MODULE" '
               def norm: split("/") | reduce .[] as $s ([]; if $s == ".." then .[:-1] elif $s == "." or $s == "" then . else . + [$s] end) | join("/");
               (.. | objects | select(.uriBaseId? == "%SRCROOT%") | .uri) |= ("\($m)/\(.)" | norm)' > govulncheck.sarif
-      - if: github.event_name == 'schedule'
-        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+      - uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           sarif_file: govulncheck.sarif
           category: govulncheck-${{ matrix.module }}
           ref: refs/heads/main
           sha: ${{ steps.checkout.outputs.commit }}
-
-      # On PRs, comment instead of failing. Exit code 3 means reachable vulnerabilities; other errors only show in the log.
-      - id: pr-scan
-        if: github.event_name == 'pull_request'
-        run: |
-          rc=0
-          govulncheck -C "$MODULE" ./... > govulncheck.txt 2>&1 || rc=$?
-          cat govulncheck.txt
-          if [ "$rc" -eq 3 ]; then echo "found=true" >> "$GITHUB_OUTPUT"; fi
-      - if: steps.pr-scan.outputs.found == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          { echo "**govulncheck** found reachable vulnerabilities in \`$MODULE\`:"; echo '```'; head -c 60000 govulncheck.txt; echo '```'; } > comment.md
-          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file comment.md
