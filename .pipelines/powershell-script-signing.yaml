@@ -1,39 +1,49 @@
 trigger: none
 pr: none
 
-stages:
-  - stage: powershell_script_signing
-    displayName: PowerShell Script Signing
-    jobs:
-      - job: sign_scripts
-        displayName: Sign PowerShell Scripts
-        pool:
-          vmImage: windows-2022
-        variables:
-          signingOutputDirectory: '$(Build.ArtifactStagingDirectory)/out'
-        steps:
-          - checkout: self
-            fetchDepth: 1
-            fetchTags: false
-            fetchFilter: blob:none
-            sparseCheckoutDirectories: parts staging
-          - task: CopyFiles@2
-            displayName: Stage PowerShell scripts
-            inputs:
-              SourceFolder: '$(Build.SourcesDirectory)'
-              Contents: |
-                parts/windows/**/*.ps1
-                staging/cse/windows/**/*.ps1
-              TargetFolder: '$(signingOutputDirectory)'
-          - task: onebranch.pipeline.signing@1
-            displayName: Sign PowerShell scripts
-            inputs:
-              command: 'sign'
-              signing_profile: 'internal_azure_service'
-              files_to_sign: '**/*.ps1'
-              search_root: '$(signingOutputDirectory)'
-          - task: PublishPipelineArtifact@1
-            displayName: Publish signed PowerShell scripts
-            inputs:
-              targetPath: '$(signingOutputDirectory)'
-              artifact: signed-powershell-scripts
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
+
+variables:
+  WindowsContainerImage: 'onebranch.azurecr.io/windows/ltsc2022/vse2022:latest'
+
+extends:
+  template: v2/OneBranch.Official.CrossPlat.yml@templates
+  parameters:
+    stages:
+      - stage: powershell_script_signing
+        displayName: PowerShell Script Signing
+        jobs:
+          - job: sign_scripts
+            displayName: Sign PowerShell Scripts
+            pool:
+              type: windows
+            variables:
+              ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+              ob_artifactBaseName: signed-powershell-scripts
+              ob_artifactSuffix: ''
+            steps:
+              - checkout: self
+                fetchDepth: 1
+                fetchTags: false
+                fetchFilter: blob:none
+                sparseCheckoutDirectories: parts staging
+              - task: CopyFiles@2
+                displayName: Stage PowerShell scripts
+                inputs:
+                  SourceFolder: '$(Build.SourcesDirectory)'
+                  Contents: |
+                    parts/windows/**/*.ps1
+                    staging/cse/windows/**/*.ps1
+                  TargetFolder: '$(ob_outputDirectory)'
+              - task: onebranch.pipeline.signing@1
+                displayName: Sign PowerShell scripts
+                inputs:
+                  command: 'sign'
+                  signing_profile: 'external_distribution'
+                  files_to_sign: '**/*.ps1'
+                  search_root: '$(ob_outputDirectory)'
