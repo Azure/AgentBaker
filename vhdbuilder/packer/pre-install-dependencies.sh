@@ -358,6 +358,24 @@ if [[ ${UBUNTU_RELEASE//./} -ge 2204 && "${ENABLE_FIPS,,}" != "true" ]]; then
   fi
 fi
 capture_benchmark "${SCRIPT_NAME}_purge_ubuntu_kernel_if_2204"
+
+if [ "$OS" = "$UBUNTU_OS_NAME" ]; then
+  # disable and mask all UU timers/services
+  # save some background io/latency
+  # Do this before the reboot that follows this script. Persistent timers start missed jobs at boot,
+  # and mask/disable do not stop a job that already runs, so it can hold the apt/dpkg locks.
+  systemctl mask apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.service apt-daily-upgrade.service || exit 1
+  systemctl disable apt-daily.timer apt-daily-upgrade.timer || exit 1
+
+  tee /etc/apt/apt.conf.d/99periodic > /dev/null <<EOF || exit 1
+APT::Periodic::Update-Package-Lists "0";
+APT::Periodic::Download-Upgradeable-Packages "0";
+APT::Periodic::AutocleanInterval "0";
+APT::Periodic::Unattended-Upgrade "0";
+EOF
+fi
+
 echo "pre-install-dependencies step finished successfully"
 capture_benchmark "${SCRIPT_NAME}_overall" true
 process_benchmarks
