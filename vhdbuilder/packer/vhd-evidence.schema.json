@@ -1,0 +1,375 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aka.ms/agentbaker/schemas/vhd-evidence-1.0.0.json",
+  "title": "AgentBaker Linux VHD build evidence",
+  "description": "Build provenance and observed VHD contents. Empty sections must be accompanied by explicit coverage status.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "producer",
+    "image",
+    "collection",
+    "os_packages",
+    "source_artifacts",
+    "components",
+    "container_images",
+    "coverage"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "agentbaker_commit",
+        "ado_build_id",
+        "ado_build_number",
+        "collector_version"
+      ],
+      "properties": {
+        "name": {
+          "const": "AgentBaker"
+        },
+        "agentbaker_commit": {
+          "type": "string"
+        },
+        "ado_build_id": {
+          "type": "string"
+        },
+        "ado_build_number": {
+          "type": "string"
+        },
+        "collector_version": {
+          "type": "string"
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sku",
+        "distribution",
+        "distribution_version",
+        "architecture",
+        "hyperv_generation",
+        "feature_flags"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "sku": {
+          "type": "string"
+        },
+        "distribution": {
+          "type": "string"
+        },
+        "distribution_version": {
+          "type": "string"
+        },
+        "architecture": {
+          "type": "string"
+        },
+        "hyperv_generation": {
+          "type": "string"
+        },
+        "feature_flags": {
+          "type": "string"
+        }
+      }
+    },
+    "collection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_at",
+        "stage",
+        "status"
+      ],
+      "properties": {
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stage": {
+          "const": "after_deprovision"
+        },
+        "status": {
+          "description": "Complete means every declared evidence section was collected; partial means one or more sections are incomplete.",
+          "enum": [
+            "complete",
+            "partial",
+            "failed"
+          ]
+        }
+      }
+    },
+    "os_packages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/osPackage"
+      }
+    },
+    "source_artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceArtifact"
+      }
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/component"
+      }
+    },
+    "container_images": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/containerImage"
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os_packages",
+        "source_artifacts",
+        "components",
+        "container_images"
+      ],
+      "properties": {
+        "os_packages": {
+          "$ref": "#/$defs/coverageStatus"
+        },
+        "source_artifacts": {
+          "$ref": "#/$defs/coverageStatus"
+        },
+        "components": {
+          "$ref": "#/$defs/coverageStatus"
+        },
+        "container_images": {
+          "$ref": "#/$defs/coverageStatus"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "coverageStatus": {
+      "description": "Coverage is per evidence section; not_collected is distinct from an empty, complete result.",
+      "enum": [
+        "complete",
+        "partial",
+        "not_collected",
+        "unsupported",
+        "failed"
+      ]
+    },
+    "osPackage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "architecture",
+        "package_manager"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact package-manager version, including epoch and distribution revision."
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "package_manager": {
+          "enum": [
+            "dpkg",
+            "rpm"
+          ]
+        }
+      }
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "format",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "os_package",
+            "archive",
+            "binary",
+            "container_image"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "type": "string",
+          "description": "Credential-free source URI. Omit if the source cannot be safely recorded."
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "package": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "version",
+            "architecture"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "architecture": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "requested_version",
+        "artifact_ids",
+        "locations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requested_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "role",
+              "presence"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "role": {
+                "enum": [
+                  "installed_file",
+                  "cached_package",
+                  "extracted_payload"
+                ]
+              },
+              "presence": {
+                "enum": [
+                  "present",
+                  "removed",
+                  "unknown"
+                ]
+              },
+              "source_artifact_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "containerImage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "reference",
+        "digest"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

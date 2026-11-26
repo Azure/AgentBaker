@@ -483,6 +483,37 @@ steps:
       artifactName: 'vhd-image-bom-${{ parameters.artifactName }}'
       targetPath: 'image-bom.json'
 
+  - bash: |
+      set -euo pipefail
+      python3 vhdbuilder/packer/collect_vhd_evidence.py --validate vhd-evidence.json
+      evidence_dir="$(Build.ArtifactStagingDirectory)/vhd-evidence"
+      mkdir -p "$evidence_dir"
+      cp vhd-evidence.json "$evidence_dir/inventory.json"
+      cp vhdbuilder/packer/vhd-evidence.schema.json "$evidence_dir/"
+      (
+        cd "$evidence_dir"
+        sha256sum inventory.json vhd-evidence.schema.json > SHA256SUMS
+      )
+    condition: |
+      and(
+        succeeded(),
+        ne(variables.BUILDER, 'imagecustomizer'),
+        in(variables.OS_SKU, 'Ubuntu', 'AzureLinux', 'CBLMariner')
+      )
+    displayName: Validate and stage VHD evidence
+
+  - task: PublishPipelineArtifact@1
+    condition: |
+      and(
+        succeeded(),
+        ne(variables.BUILDER, 'imagecustomizer'),
+        in(variables.OS_SKU, 'Ubuntu', 'AzureLinux', 'CBLMariner')
+      )
+    displayName: Publish VHD Evidence
+    inputs:
+      artifactName: 'vhd-evidence-${{ parameters.artifactName }}-$(ARTIFACT_ID)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/vhd-evidence'
+
   # TODO(cameissner): remove when running prefetch optimization + VHD blob conversion by default
   - task: AzureCLI@2
     inputs:
