@@ -111,6 +111,7 @@
                 "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
+            "binary": true,
             "scripts": [
                 "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
@@ -129,6 +130,7 @@
                 "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
+            "binary": true,
             "scripts": [
                 "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
@@ -151,6 +153,7 @@
                 "AZCOPY_MSI_RESOURCE_STRING={{user `msi_resource_strings`}}"
             ],
             "type": "powershell",
+            "binary": true,
             "scripts": [
                 "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
@@ -169,6 +172,7 @@
                 "INSTALL_OPEN_SSH_SERVER={{ user `INSTALL_OPEN_SSH_SERVER` }}"
             ],
             "type": "powershell",
+            "binary": true,
             "scripts": [
                 "vhdbuilder/packer/windows/configure-windows-vhd.ps1"
             ]
@@ -191,6 +195,7 @@
                 "BUILD_REPO={{user `build_repo`}}"
             ],
             "type": "powershell",
+            "binary": true,
             "script": "vhdbuilder/packer/windows/write-release-notes-windows.ps1"
         },
         {
@@ -201,6 +206,7 @@
                 "BuildDate={{user `build_date`}}"
             ],
             "type": "powershell",
+            "binary": true,
             "script": "vhdbuilder/packer/windows/list-images.ps1"
         },
         {
@@ -219,6 +225,7 @@
             "elevated_user": "packer",
             "elevated_password": "{{.WinRMPassword}}",
             "type": "powershell",
+            "binary": true,
             "pause_after": "3m",
             "script": "vhdbuilder/packer/windows/sysprep.ps1"
         }

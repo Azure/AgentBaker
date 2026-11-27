@@ -41,6 +41,8 @@ Each VHD build downloads the CSE ZIP and signed Packer scripts directly from tha
 signing run. Before invoking Packer, `windows_build_vhd.sh` replaces the non-test
 PowerShell scripts under `vhdbuilder/packer/windows` with their signed copies.
 Missing or empty copies fail the build; unsigned checkout files are not a fallback.
+All PowerShell provisioners use `binary: true` so Packer preserves signed bytes
+without converting CRLF line endings to LF during upload.
 For local builds, set `WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR` to the downloaded
 artifact's `signed-powershell-scripts` directory, which preserves repository paths.
 

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+Describe 'signed Windows Packer provisioners'
+  It 'disables line-ending conversion for every PowerShell script upload'
+    When call jq --exit-status '[.provisioners[] | select(.type == "powershell")] | length > 0 and all(.[]; .binary == true)' vhdbuilder/packer/windows/windows-vhd-builder-sig.json
+    The status should be success
+    The output should eq 'true'
+  End
+End
+
 Describe 'stage_signed_windows_powershell_scripts'
   BeforeAll "eval \"\$(sed -n '/^stage_signed_windows_powershell_scripts()/,/^}/p' ./.pipelines/scripts/windows_build_vhd.sh)\""
 
