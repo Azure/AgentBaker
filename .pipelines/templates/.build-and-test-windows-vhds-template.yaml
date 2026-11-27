@@ -93,6 +93,7 @@ stages:
               throw "Signing pipeline run $buildId finished with result: $($build.result)"
             }
             Write-Host "Signing pipeline run $buildId succeeded."
+            Write-Host "##vso[task.setvariable variable=SIGNING_BUILD_ID]$buildId"
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 
@@ -102,6 +103,8 @@ stages:
           CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
           CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
           CSE_FILE_NAME: ${{ parameters.cseFileName }}
+          CSE_SIGNING_BUILD_ID: $(SIGNING_BUILD_ID)
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
       - task: ManifestGeneratorTask@0
         inputs:
           BuildDropPath: ${{ parameters.csePublishDir }}
