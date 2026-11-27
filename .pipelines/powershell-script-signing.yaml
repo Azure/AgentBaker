@@ -28,6 +28,7 @@ extends:
               ob_artifactSuffix: ''
             steps:
               - checkout: self
+                path: s/AgentBaker
                 fetchDepth: 1
                 fetchTags: false
                 fetchFilter: blob:none
@@ -35,11 +36,25 @@ extends:
               - task: CopyFiles@2
                 displayName: Stage PowerShell scripts
                 inputs:
-                  SourceFolder: '$(Build.SourcesDirectory)'
+                  SourceFolder: '$(Pipeline.Workspace)/s/AgentBaker'
                   Contents: |
                     parts/windows/**/*.ps1
                     staging/cse/windows/**/*.ps1
                   TargetFolder: '$(ob_outputDirectory)'
+              - task: PowerShell@2
+                displayName: Verify staged PowerShell scripts
+                inputs:
+                  targetType: inline
+                  pwsh: true
+                  script: |
+                    $ErrorActionPreference = 'Stop'
+                    $scripts = @(Get-ChildItem -LiteralPath $env:SIGNING_OUTPUT_DIRECTORY -Filter '*.ps1' -File -Recurse -ErrorAction Stop)
+                    if ($scripts.Count -eq 0) {
+                      throw "No PowerShell scripts were staged in $env:SIGNING_OUTPUT_DIRECTORY."
+                    }
+                    Write-Host "Staged $($scripts.Count) PowerShell script(s) for signing."
+                env:
+                  SIGNING_OUTPUT_DIRECTORY: $(ob_outputDirectory)
               - task: onebranch.pipeline.signing@1
                 displayName: Sign PowerShell scripts
                 inputs:
