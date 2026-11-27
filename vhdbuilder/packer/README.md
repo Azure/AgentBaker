@@ -44,6 +44,9 @@ Missing or empty copies fail the build; unsigned checkout files are not a fallba
 For local builds, set `WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR` to the downloaded
 artifact's `signed-powershell-scripts` directory, which preserves repository paths.
 
+Runtime CSE `.ps1` scripts and `.psm1` modules are signed before ZIP creation and
+also published individually under `signed-powershell-scripts` in the artifact.
+
 Packer uploads the signed `expand-volume.ps1` to `C:\k`. VHD configuration copies
 it unchanged into `C:\aks-tools` for the startup task, preserving its signature
 instead of generating an unsigned script. Package-provided WCN scripts are unchanged.
