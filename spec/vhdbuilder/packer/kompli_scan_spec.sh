@@ -2,7 +2,10 @@
 
 # Isolate scan functions: sourcing vhd-scanning.sh would create an Azure VM.
 Describe 'AKS committed-plan kompli scan'
-  BeforeAll 'eval "$(sed -n "/^kompli_plan_definitions() {/,/^}/p;/^kompli_plan_rule_ids() {/,/^}/p;/^run_kompli_scan() {/,/^}/p;/^run_kompli_scan_body() {/,/^}/p" vhdbuilder/packer/vhd-scanning.sh)"'
+  load_kompli_scan_helpers() {
+    eval "$(sed -n "/^kompli_plan_definitions() {/,/^}/p;/^kompli_plan_rule_ids() {/,/^}/p;/^run_kompli_scan() {/,/^}/p;/^run_kompli_scan_body() {/,/^}/p" vhdbuilder/packer/vhd-scanning.sh)"
+  }
+  BeforeAll 'load_kompli_scan_helpers'
 
   setup_scan() {
     # Fixtures use the real mktemp; only the production mktemp -d call for
@@ -104,7 +107,7 @@ FAKE
   }
 
   az() {
-    local action="$1 $2 $3" name= file= previous=
+    local action="$1 $2 $3" name='' file='' previous=''
     shift 3
     while [ "$#" -gt 0 ]; do
       case "$previous" in

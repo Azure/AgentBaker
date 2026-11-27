@@ -83,7 +83,7 @@ capture_benchmark "${SCRIPT_NAME}_set_variables_and_create_scan_resource_group"
 VM_SIZE="Standard_D8ds_v5"
 VM_OPTIONS="--size $VM_SIZE"
 # shellcheck disable=SC3010
-if [[ "${ARCHITECTURE,,}" == "arm64" ]]; then
+if [[ "${ARCHITECTURE,,}" = "arm64" ]]; then
     # Ampere Altra (v5) doesn't support TrustedLaunch; Cobalt 100 (v6) does
     # TODO: remove once all relevant images have been updated to TrustedLaunchSupported and have corresponding TL-based AgentBaker E2E tests
     if [ "${ENABLE_TRUSTED_LAUNCH,,}" = "true" ]; then
@@ -386,15 +386,27 @@ kompli_plan_definitions() {
     fi
     mapfile -t paths < <(jq -r '.benchmarks[].file' "$plan")
     for path in "${paths[@]}"; do
-        if [[ ! "$path" =~ ^/etc/kompli/definitions/([A-Za-z0-9][A-Za-z0-9._-]*\.benchmark\.json)$ ]]; then
-            echo "kompli: unsafe definition path: ${path}" >&2
-            return 1
-        fi
-        name="${BASH_REMATCH[1]}"
-        if [[ "$name" == *..* ]]; then
-            echo "kompli: unsafe definition name: ${name}" >&2
-            return 1
-        fi
+        case "$path" in
+            /etc/kompli/definitions/[A-Za-z0-9]*.benchmark.json)
+                name="${path#/etc/kompli/definitions/}"
+                case "$name" in
+                    *[!A-Za-z0-9._-]*)
+                        echo "kompli: unsafe definition path: ${path}" >&2
+                        return 1
+                        ;;
+                esac
+                ;;
+            *)
+                echo "kompli: unsafe definition path: ${path}" >&2
+                return 1
+                ;;
+        esac
+        case "$name" in
+            *..*)
+                echo "kompli: unsafe definition name: ${name}" >&2
+                return 1
+                ;;
+        esac
         for key in "${names[@]}"; do
             if [ "$key" = "$name" ]; then
                 echo "kompli: duplicate plan definition: ${name}" >&2
@@ -431,10 +443,12 @@ kompli_plan_rule_ids() {
         return 1
     fi
     for id in "${ids[@]}"; do
-        if [[ ! "$id" =~ ^[0-9A-Za-z._-]+$ ]]; then
-            echo "kompli: unsafe rule id: ${id}" >&2
-            return 1
-        fi
+        case "$id" in
+            ''|*[!0-9A-Za-z._-]*)
+                echo "kompli: unsafe rule id: ${id}" >&2
+                return 1
+                ;;
+        esac
     done
     printf '%s\n' "${ids[@]}"
 }
@@ -495,10 +509,12 @@ run_kompli_scan_body() {
     fi
     for plan_file in "${plan_files[@]}"; do
         pid="${plan_file%.plan.json}"
-        if [[ ! "$pid" =~ ^[a-z0-9-]+$ ]]; then
-            echo "kompli: unsafe plan name: ${plan_file}" >&2
-            return 1
-        fi
+        case "$pid" in
+            ''|*[!a-z0-9-]*)
+                echo "kompli: unsafe plan name: ${plan_file}" >&2
+                return 1
+                ;;
+        esac
         plan_ids+=("$pid")
     done
     if [ ! -x "$KOMPLI_BIN_LOCAL" ]; then
@@ -623,13 +639,19 @@ run_kompli_scan_body() {
         # The VM withholds (or removes) the status blob unless the result and
         # log for this plan both uploaded successfully, so a present, valid
         # status blob is also this plan's proof of complete transfer.
-        if [ "$status_rc" -ne 0 ] || [ ! -s "$status_local" ] || ! [[ $(<"$status_local") =~ ^[0-9]+$ ]]; then
-            echo "kompli ${key} ${pid}: operational failure (missing or invalid engine status)" >&2
-            overall_rc=1
-            outcomes+=("${pid}: failed (status)")
-            continue
+        if [ "$status_rc" -ne 0 ] || [ ! -s "$status_local" ]; then
+            run_rc=
+        else
+            run_rc=$(<"$status_local")
         fi
-        run_rc=$(<"$status_local")
+        case "$run_rc" in
+            ''|*[!0-9]*)
+                echo "kompli ${key} ${pid}: operational failure (missing or invalid engine status)" >&2
+                overall_rc=1
+                outcomes+=("${pid}: failed (status)")
+                continue
+                ;;
+        esac
         if [ "$run_rc" -ne 0 ]; then
             echo "kompli ${key} ${pid}: operational failure (engine exit ${run_rc}); JSON/log retained" >&2
             overall_rc=1

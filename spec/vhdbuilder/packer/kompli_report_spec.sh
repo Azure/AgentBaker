@@ -5,7 +5,10 @@
 # ancestor/work-root paths (KOMPLI_WORK_ROOT/KOMPLI_ETC_DIR/
 # KOMPLI_ETC_KOMPLI_DIR/KOMPLI_DEFS_DIR are overridable for exactly this).
 Describe 'kompli target definitions'
-  BeforeAll 'eval "$(sed -n "/^cleanup() {/,/^}/p;/^kompli_check_definition_dir() {/,/^}/p" vhdbuilder/packer/kompli-report.sh)"'
+  load_kompli_target_helpers() {
+    eval "$(sed -n "/^cleanup() {/,/^}/p;/^kompli_check_definition_dir() {/,/^}/p" vhdbuilder/packer/kompli-report.sh)"
+  }
+  BeforeAll 'load_kompli_target_helpers'
   setup_target() {
     TEST_ROOT=$(mktemp -d "${SHELLSPEC_TMPDIR:-$PWD}/kompli-target-spec.XXXXXX")
     KOMPLI_DEFS_DIR="$TEST_ROOT/definitions"
@@ -51,6 +54,7 @@ Describe 'kompli target definitions'
   End
   It 'rejects a writable existing directory without chmod or chown'
     chmod 0777 "$KOMPLI_DEFS_DIR"
+    # shellcheck disable=SC2329 # Invoked by the production helpers loaded with eval above.
     stat() {
       if [ "$1" = -c ] && [ "$2" = %u ]; then printf '0\n'; else command stat "$@"; fi
     }
@@ -65,7 +69,10 @@ End
 # (top-level `exit` is rewritten to `return` for this one extracted block
 # only; the loop's own exit points are the only `exit N` tokens in range).
 Describe 'kompli_install_definitions (exclusive root-owned install)'
-  BeforeAll 'eval "$(printf "kompli_install_definitions() {\n%s\n}\n" "$(sed -n "/^umask 077$/,/^done$/p" vhdbuilder/packer/kompli-report.sh | sed -E "s/\bexit ([0-9]+)/return \1/g")")"'
+  load_kompli_install_helper() {
+    eval "$(printf "kompli_install_definitions() {\n%s\n}\n" "$(sed -n "/^umask 077$/,/^done$/p" vhdbuilder/packer/kompli-report.sh | sed -E "s/\bexit ([0-9]+)/return \1/g")")"
+  }
+  BeforeAll 'load_kompli_install_helper'
 
   setup_install() {
     TEST_ROOT=$(mktemp -d "${SHELLSPEC_TMPDIR:-$PWD}/kompli-install-spec.XXXXXX")
@@ -107,7 +114,10 @@ End
 # KOMPLI_ETC_DIR, KOMPLI_ETC_KOMPLI_DIR and KOMPLI_DEFS_DIR are the test seams
 # kompli-report.sh exposes for this.
 Describe 'kompli-report.sh entrypoint (multi-plan, two plans sharing one definition)'
-  BeforeAll 'eval "$(printf "kompli_report_main() {\n%s\n}\n" "$(sed 1d vhdbuilder/packer/kompli-report.sh)")"'
+  load_kompli_report_main() {
+    eval "$(printf "kompli_report_main() {\n%s\n}\n" "$(sed 1d vhdbuilder/packer/kompli-report.sh)")"
+  }
+  BeforeAll 'load_kompli_report_main'
 
   setup_report_entrypoint() {
     TEST_ROOT=$(mktemp -d "${SHELLSPEC_TMPDIR:-$PWD}/kompli-report-entrypoint.XXXXXX")
@@ -186,7 +196,7 @@ FAKE
     case "$1" in
       login) return "${MOCK_LOGIN_RC:-0}" ;;
       storage)
-        local verb="$2 $3" name= file= prev=
+        local verb="$2 $3" name='' file='' prev=''
         shift 3
         while [ "$#" -gt 0 ]; do
           case "$prev" in

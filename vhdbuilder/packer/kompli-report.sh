@@ -108,6 +108,7 @@ WORK_DIR="$(mktemp -d "${KOMPLI_WORK_ROOT}/kompli.XXXXXX")"
 chmod 0700 "$WORK_DIR"
 installed_defs=()
 installed_inodes=()
+# shellcheck disable=SC2329 # Invoked indirectly by the EXIT trap below.
 cleanup() {
     local index target current
     for index in "${!installed_defs[@]}"; do
@@ -154,10 +155,12 @@ if [ "${#result_blob_names[@]}" -ne "${#plan_names[@]}" ] || [ "${#log_blob_name
     exit 1
 fi
 for name in "${plan_names[@]}"; do
-    if [[ ! "$name" =~ ^[a-z0-9-]+$ ]]; then
-        echo "kompli: unsafe plan name: ${name}" >&2
-        exit 1
-    fi
+    case "$name" in
+        ''|*[!a-z0-9-]*)
+            echo "kompli: unsafe plan name: ${name}" >&2
+            exit 1
+            ;;
+    esac
 done
 
 # Validate the downloaded plan archive again on the target: neither a changed
@@ -201,15 +204,27 @@ for name in "${plan_names[@]}"; do
     mapfile -t plan_def_paths < <(jq -r '.benchmarks[].file' "$plan_path")
     plan_def_names=()
     for path in "${plan_def_paths[@]}"; do
-        if [[ ! "$path" =~ ^/etc/kompli/definitions/([A-Za-z0-9][A-Za-z0-9._-]*\.benchmark\.json)$ ]]; then
-            echo "kompli: unsafe downloaded plan path (${name}): ${path}" >&2
-            exit 1
-        fi
-        def_name="${BASH_REMATCH[1]}"
-        if [[ "$def_name" == *..* ]]; then
-            echo "kompli: unsafe downloaded plan definition name (${name}): ${def_name}" >&2
-            exit 1
-        fi
+        case "$path" in
+            /etc/kompli/definitions/[A-Za-z0-9]*.benchmark.json)
+                def_name="${path#/etc/kompli/definitions/}"
+                case "$def_name" in
+                    *[!A-Za-z0-9._-]*)
+                        echo "kompli: unsafe downloaded plan path (${name}): ${path}" >&2
+                        exit 1
+                        ;;
+                esac
+                ;;
+            *)
+                echo "kompli: unsafe downloaded plan path (${name}): ${path}" >&2
+                exit 1
+                ;;
+        esac
+        case "$def_name" in
+            *..*)
+                echo "kompli: unsafe downloaded plan definition name (${name}): ${def_name}" >&2
+                exit 1
+                ;;
+        esac
         for existing in "${plan_def_names[@]}"; do
             if [ "$existing" = "$def_name" ]; then
                 echo "kompli: duplicate downloaded plan definition (${name}): ${def_name}" >&2
