@@ -22,6 +22,10 @@ parameters:
     type: number
     displayName: Maximum duration of the E2E job
     default: 90
+  - name: dependsOn
+    type: object
+    displayName: Jobs that must succeed before E2E tests start
+    default: []
   - name: randomNBCCoverage
     type: boolean
     displayName: Add random NBC-command scenarios per active Linux OS/version
@@ -52,6 +56,8 @@ parameters:
 
 jobs:
   - job: e2e
+    ${{ if gt(length(parameters.dependsOn), 0) }}:
+      dependsOn: ${{ parameters.dependsOn }}
     condition: and(succeeded(), ne(variables.SKIP_E2E_TESTS, 'true'))
     variables:
       - group: ${{parameters.variableGroup}} # all variables prefixed with E2E_* come from this variable group
