@@ -76,6 +76,12 @@ extends:
                   signing_profile: 'external_distribution'
                   files_to_sign: '**/*.ps1'
                   search_root: '$(signingDirectory)'
+              - task: CopyFiles@2
+                displayName: Stage signed PowerShell scripts for publication
+                inputs:
+                  SourceFolder: '$(signingDirectory)'
+                  Contents: '**/*.ps1'
+                  TargetFolder: '$(ob_outputDirectory)/signed-powershell-scripts'
               - task: ArchiveFiles@2
                 displayName: Create signed Windows CSE ZIP
                 inputs:
