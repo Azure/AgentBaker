@@ -615,20 +615,8 @@ function Register-ExpandVolumeTask
         New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
     }
 
-    # Leverage existing folder 'c:\aks-tools' to store the task scripts
-    $taskScript = @'
-        $osDrive = ((Get-WmiObject Win32_OperatingSystem -ErrorAction Stop).SystemDrive).TrimEnd(":")
-        $diskpartScriptPath = "c:\aks-tools\diskpart.script"
-        [String]::Format("select volume {0}`nextend`nexit", $osDrive) | Out-File -Encoding "UTF8" $diskpartScriptPath -Force
-        Start-Process -FilePath diskpart.exe -ArgumentList "/s $diskpartScriptPath" -Wait
-        # Run once and remove the task. Sequence: taks invokes ps1, ps1 invokes diskpart.
-        Unregister-ScheduledTask -TaskName "aks-expand-volume" -Confirm:$false
-        Remove-Item -Path "c:\aks-tools\expand-volume.ps1" -Force
-        Remove-Item -Path $diskpartScriptPath -Force
-'@
-
     $taskScriptPath = Join-Path $global:aksToolsDir "expand-volume.ps1"
-    $taskScript | Set-Content -Path $taskScriptPath -Force
+    Copy-Item -LiteralPath 'c:/k/expand-volume.ps1' -Destination $taskScriptPath -Force -ErrorAction Stop
 
     # It sometimes failed with below error
     # New-ScheduledTask : Cannot validate argument on parameter 'Action'. The argument is null or empty. Provide an argument

@@ -34,6 +34,21 @@ boundary. Already-capable definitions with an absent or null boundary are reused
 without a write or boundary backfill.
 An explicit boundary must be valid and at or below the current build version.
 
+# Signed Windows PowerShell scripts
+
+The Windows build queues the PowerShell signing pipeline at the same source commit.
+Each VHD build downloads the CSE ZIP and signed Packer scripts directly from that
+signing run. Before invoking Packer, `windows_build_vhd.sh` replaces the non-test
+PowerShell scripts under `vhdbuilder/packer/windows` with their signed copies.
+Missing or empty copies fail the build; unsigned checkout files are not a fallback.
+For local builds, set `WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR` to the downloaded
+artifact's `signed-powershell-scripts` directory, which preserves repository paths.
+
+Packer uploads the signed `expand-volume.ps1` to `C:\k`. VHD configuration copies
+it unchanged into `C:\aks-tools` for the startup task, preserving its signature
+instead of generating an unsigned script. Package-provided WCN scripts are unchanged.
+The signing pipeline currently uses OneBranch NonOfficial test certificates.
+
 # Linux build steps
 
 The pipeline's `Build Go binaries` step runs `make -f packer.mk -j4 build-tools`

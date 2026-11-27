@@ -9,6 +9,67 @@ BeforeAll {
     }
 }
 
+Describe 'Register-ExpandVolumeTask' {
+    BeforeAll {
+        function global:New-ScheduledTaskAction { param($Execute, $Argument) }
+        function global:New-ScheduledTaskPrincipal { param($UserId, $LogonType, $RunLevel) }
+        function global:New-JobTrigger { param([switch]$AtStartup) }
+        function global:New-ScheduledTask { param($Action, $Principal, $Trigger, $Description) }
+        function global:Register-ScheduledTask { param($TaskName, $InputObject) }
+    }
+
+    AfterAll {
+        foreach ($name in @('New-ScheduledTaskAction', 'New-ScheduledTaskPrincipal', 'New-JobTrigger', 'New-ScheduledTask', 'Register-ScheduledTask')) {
+            $ExecutionContext.SessionState.InvokeProvider.Item.Remove("Function:\$name", $false)
+        }
+    }
+
+    BeforeEach {
+        $script:originalAksToolsDir = $global:aksToolsDir
+        $global:aksToolsDir = Join-Path $TestDrive 'aks-tools'
+        New-Item -ItemType Directory -Path $global:aksToolsDir -Force | Out-Null
+        $script:signedSource = Join-Path $TestDrive 'signed-expand-volume.ps1'
+        [System.IO.File]::WriteAllText($script:signedSource, "# signed script`r`n# SIG # Begin signature block`r`n")
+
+        Mock Write-Log {}
+        Mock Copy-Item {
+            [System.IO.File]::Copy($script:signedSource, $Destination, $true)
+        } -ParameterFilter { $LiteralPath -eq 'c:/k/expand-volume.ps1' }
+        Mock Set-Content { throw 'The signed script must not be rewritten.' }
+        Mock New-ScheduledTaskAction { 'action' }
+        Mock New-ScheduledTaskPrincipal { 'principal' }
+        Mock New-JobTrigger { 'trigger' }
+        Mock New-ScheduledTask { 'task' }
+        Mock Register-ScheduledTask {}
+    }
+
+    AfterEach {
+        $global:aksToolsDir = $script:originalAksToolsDir
+    }
+
+    It 'copies the signed startup script unchanged and registers its destination' {
+        Register-ExpandVolumeTask
+
+        $destination = Join-Path $global:aksToolsDir 'expand-volume.ps1'
+        (Get-FileHash -LiteralPath $destination).Hash | Should -Be (Get-FileHash -LiteralPath $script:signedSource).Hash
+        Should -Invoke Copy-Item -Times 1 -Exactly -ParameterFilter {
+            $LiteralPath -eq 'c:/k/expand-volume.ps1' -and $Destination -eq $destination -and $ErrorAction -eq 'Stop'
+        }
+        Should -Invoke Set-Content -Times 0 -Exactly
+        Should -Invoke New-ScheduledTaskAction -Times 1 -Exactly -ParameterFilter {
+            $Execute -eq 'powershell.exe' -and $Argument -eq "-File `"$destination`""
+        }
+    }
+
+    It 'does not register the task when the signed source is missing' {
+        Mock Copy-Item { throw 'Signed startup script missing.' } -ParameterFilter { $LiteralPath -eq 'c:/k/expand-volume.ps1' }
+
+        { Register-ExpandVolumeTask } | Should -Throw '*Signed startup script missing*'
+
+        Should -Invoke Register-ScheduledTask -Times 0 -Exactly
+    }
+}
+
 Describe 'Download-File' {
     BeforeAll {
         function global:curl.exe {}
