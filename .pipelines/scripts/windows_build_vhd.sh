@@ -133,9 +133,9 @@ stage_signed_windows_powershell_scripts() {
   local script signed_script
   local scripts=()
   for script in vhdbuilder/packer/windows/*.ps1; do
-    if [[ "$script" == *.tests.ps1 ]]; then
-      continue
-    fi
+    case "$script" in
+      *.tests.ps1) continue ;;
+    esac
     signed_script="$signed_directory/$script"
     if [ ! -s "$signed_script" ]; then
       echo "##vso[task.logissue type=error]Missing signed Packer script: $signed_script"
