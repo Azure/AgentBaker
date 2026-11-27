@@ -28,7 +28,7 @@ extends:
             pool:
               type: windows
             variables:
-              signingDirectory: '$(Build.ArtifactStagingDirectory)/scripts'
+              signingDirectory: '$(Pipeline.Workspace)/s/AgentBaker/signing'
               ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
               ob_artifactBaseName: windows-cse-package
               ob_artifactSuffix: ''
@@ -39,6 +39,8 @@ extends:
                 fetchTags: false
                 fetchFilter: blob:none
                 sparseCheckoutDirectories: parts staging
+                env:
+                  ob_restore_phase: true
               - task: CopyFiles@2
                 displayName: Stage Windows scripts and CSE assets
                 inputs:
