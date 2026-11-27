@@ -59,28 +59,8 @@ stages:
     displayName: "Package Windows CSE"
     jobs:
     - job: PackageWindowsCSE
-      steps:
-      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
-        displayName: Package Windows CSE Scripts
-        env:
-          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
-          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
-          CSE_FILE_NAME: ${{ parameters.cseFileName }}
-      - task: ManifestGeneratorTask@0
-        inputs:
-          BuildDropPath: ${{ parameters.csePublishDir }}
-      - task: PublishPipelineArtifact@1
-        displayName: Publish Windows CSE Package
-        inputs:
-          artifactName: windows-cse-package
-          targetPath: ${{ parameters.csePublishDir }}
-    - job: SignPowerShellScripts
-      displayName: Sign PowerShell Scripts
-      pool:
-        vmImage: windows-2022
       timeoutInMinutes: 120
       steps:
-      - checkout: none
       - task: PowerShell@2
         displayName: Run and wait for PowerShell script signing
         inputs:
@@ -115,6 +95,21 @@ stages:
             Write-Host "Signing pipeline run $buildId succeeded."
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+
+      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
+        displayName: Package Windows CSE Scripts
+        env:
+          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
+          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          CSE_FILE_NAME: ${{ parameters.cseFileName }}
+      - task: ManifestGeneratorTask@0
+        inputs:
+          BuildDropPath: ${{ parameters.csePublishDir }}
+      - task: PublishPipelineArtifact@1
+        displayName: Publish Windows CSE Package
+        inputs:
+          artifactName: windows-cse-package
+          targetPath: ${{ parameters.csePublishDir }}
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1
