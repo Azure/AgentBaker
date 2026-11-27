@@ -354,4 +354,32 @@ Describe 'security-update.sh'
         The output should not include 'apt_get_update_with_opts called'
         The output should not include 'unattended-upgrade called'
     End
+
+    Describe 'reports current and message to the live-patching loop'
+        # Stand-ins for the loop's report functions; the handler only depends on their names.
+        knead_report_current() { printf 'current=%s\n' "$1" >> "${TEST_DIR}/reports"; }
+        knead_report_message() { printf 'message=%s\n' "$1" >> "${TEST_DIR}/reports"; }
+
+        It 'reports the applied golden timestamp as current'
+            When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"},"ap2":{"goldenTimestamp":"20260701T000000Z"}}}' "${TEST_NODE_JSON}"
+            The status should be success
+            The output should include 'securityPatch update completed successfully: 20260710T000000Z'
+            The contents of file "${TEST_DIR}/reports" should equal 'current=20260710T000000Z'
+        End
+
+        It 'reports the failure reason as message'
+            TEST_APT_UPDATE_STATUS=1
+            When call updateSecurityPatch '{"agentPools":{"ap1":{"goldenTimestamp":"20260710T000000Z"}}}' "${TEST_NODE_JSON}"
+            The status should be failure
+            The output should include 'apt_get_update_with_opts failed'
+            The contents of file "${TEST_DIR}/reports" should equal 'message=AptMetadataRefreshFailed'
+        End
+
+        It 'reports nothing when the agent pool has no profile'
+            When call updateSecurityPatch '{"agentPools":{"ap2":{"goldenTimestamp":"20260701T000000Z"}}}' "${TEST_NODE_JSON}"
+            The status should be success
+            The output should include 'no action needed'
+            The path "${TEST_DIR}/reports" should not be exist
+        End
+    End
 End
