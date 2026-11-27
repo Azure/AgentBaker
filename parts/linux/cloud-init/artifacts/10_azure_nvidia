@@ -41,7 +41,7 @@ if [ -z "$NVIDIA" ] || [ -z "$OTHER" ]; then
 	# shellcheck disable=SC2086 # reverse_sorted_list is a space-separated path list from 10_linux.
 	for linux in ${reverse_sorted_list}; do
 		case $linux in
-			*-azure-nvidia) : "${NVIDIA:="${linux}"}" ;;
+			*-azure-nvidia|*-azure-64k) : "${NVIDIA:="${linux}"}" ;;
 			*) : "${OTHER:="${linux}"}" ;;
 		esac
 	done

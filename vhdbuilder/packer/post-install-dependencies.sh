@@ -29,8 +29,8 @@ fi
 capture_benchmark "${SCRIPT_NAME}_source_packer_files_and_declare_variables"
 
 if [ $OS = $UBUNTU_OS_NAME ]; then
-  # We do not purge extra kernels from the Ubuntu 24.04 ARM images, since those images must dual-boot for NVIDIA GB.
-  if [ $CPU_ARCH != "arm64" ] || [ $UBUNTU_RELEASE != "24.04" ]; then
+  # We do not purge extra kernels from the Ubuntu 24.04/26.04 ARM images, since those images must dual-boot (GPU kernel + LTS kernel) for NVIDIA GB (24.04) or Vera Rubin (26.04).
+  if [ $CPU_ARCH != "arm64" ] || { [ $UBUNTU_RELEASE != "24.04" ] && [ $UBUNTU_RELEASE != "26.04" ]; }; then
     # shellcheck disable=SC2021
     current_kernel="$(uname -r | cut -d- -f-2)"
     # shellcheck disable=SC3010,SC3014
@@ -39,10 +39,12 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
     else
       dpkg --get-selections | grep -e "linux-\(headers\|modules\|image\)" | grep -v "linux-\(headers\|modules\|image\)-azure" | grep -v "$current_kernel" | tr -s '[[:space:]]' | tr '\t' ' ' | cut -d' ' -f1 | xargs -I{} apt-get --purge remove -yq {}
     fi
-  elif grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS"; then
-    # However, for the 24.04 ARM images, we MUST have both -azure and -azure-nvidia kernels, so that we can run on either vanilla ARM64 hardware or NVIDIA GB.
+  elif grep -q "NVIDIA_GB" <<< "$FEATURE_FLAGS" || [ "$UBUNTU_RELEASE" = "26.04" ]; then
+    # Dual-kernel ARM images (NVIDIA GB on 24.04, and 26.04 arm64 with the 7.3 azure-64k GPU
+    # kernel for Vera Rubin) MUST retain both the -azure LTS kernel and the GPU kernel, so one
+    # image can run on either vanilla ARM64 hardware or an NVIDIA Grace/Vera GPU node.
     if [ $(dpkg --get-selections | grep -c "linux-image") -lt 2 ]; then
-      echo "ERROR: Ubuntu 24.04 ARM image is missing either the -azure or -azure-nvidia kernel, cannot continue!" && exit 1
+      echo "ERROR: Ubuntu 24.04/26.04 ARM image is missing either the -azure LTS or the GPU (-azure-nvidia/-azure-64k) kernel, cannot continue!" && exit 1
     fi
   fi
 
