@@ -905,6 +905,30 @@ var _ = Describe("getLinuxNodeCSECommand", func() {
 		Expect(getProxyVariables(baseConfig)).NotTo(ContainSubstring(tempDir))
 	})
 
+	It("should preserve custom kube binary URLs and adjacent environment assignments", func() {
+		baseConfig.ContainerService.Properties.OrchestratorProfile.OrchestratorVersion = "1.34.12"
+		for _, url := range []string{
+			"https://example.invalid/kubernetes-node.tar.gz?sp=r&sig=test%2Bsignature",
+			"https://example.invalid/test's.tar.gz?sp=r&sig=test-signature",
+		} {
+			baseConfig.ContainerService.Properties.CustomConfiguration = &datamodel.CustomConfiguration{
+				KubernetesConfigurations: map[string]*datamodel.ComponentConfiguration{
+					"kubelet": {DownloadURL: &url},
+				},
+			}
+			cseCmd := templateGenerator.getLinuxNodeCSECommand(baseConfig)
+			start := strings.Index(cseCmd, "KUBERNETES_VERSION=")
+			Expect(start).To(BeNumerically(">=", 0))
+			end := strings.Index(cseCmd[start:], " PRIVATE_KUBE_BINARY_URL=")
+			Expect(end).To(BeNumerically(">", 0))
+			command := cseCmd[start:start+end] +
+				` /bin/sh -c 'printf "%s\n%s\n" "$KUBERNETES_VERSION" "$CUSTOM_KUBE_BINARY_URL"'`
+			output, err := exec.Command("/bin/bash", "-c", command).CombinedOutput()
+			Expect(err).NotTo(HaveOccurred(), string(output))
+			Expect(string(output)).To(Equal("1.34.12\n" + url + "\n"))
+		}
+	})
+
 	It("should embed cloud-init status checks when custom data is enabled", func() {
 		Expect(baseConfig.DisableCustomData).To(BeFalse())
 
