@@ -19,11 +19,8 @@ jobs:
     env:
       MODULE: ${{ matrix.module }}
     steps:
-      - id: checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The workflow runs from the default branch (dev); scan the released code.
-          ref: main
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -41,5 +38,3 @@ jobs:
         with:
           sarif_file: govulncheck.sarif
           category: govulncheck-${{ matrix.module }}
-          ref: refs/heads/main
-          sha: ${{ steps.checkout.outputs.commit }}
