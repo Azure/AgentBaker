@@ -1,6 +1,11 @@
 trigger: none
 pr: none
 
+parameters:
+  - name: cseFileName
+    type: string
+    default: aks-windows-cse-scripts-current.zip
+
 resources:
   repositories:
     - repository: templates
@@ -75,5 +80,9 @@ extends:
                   rootFolderOrFile: '$(signingDirectory)/staging/cse/windows'
                   includeRootFolder: false
                   archiveType: zip
-                  archiveFile: '$(ob_outputDirectory)/aks-windows-cse-scripts-current.zip'
+                  archiveFile: '$(ob_outputDirectory)/${{ parameters.cseFileName }}'
                   replaceExistingArchive: true
+              - task: ManifestGeneratorTask@0
+                displayName: Generate Windows CSE package manifest
+                inputs:
+                  BuildDropPath: $(ob_outputDirectory)

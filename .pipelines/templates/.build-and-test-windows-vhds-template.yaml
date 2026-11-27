@@ -56,12 +56,14 @@ parameters:
     default: $(Build.ArtifactStagingDirectory)/packages
 stages:
   - stage: Package
-    displayName: "Package Windows CSE"
+    displayName: "Sign and package Windows CSE"
     jobs:
     - job: PackageWindowsCSE
       timeoutInMinutes: 120
       steps:
+      - checkout: none
       - task: PowerShell@2
+        name: signCSE
         displayName: Run and wait for PowerShell script signing
         inputs:
           targetType: inline
@@ -77,6 +79,7 @@ stages:
               definition = @{ id = 491013 }
               sourceBranch = $env:BUILD_SOURCEBRANCH
               sourceVersion = $env:BUILD_SOURCEVERSION
+              templateParameters = @{ cseFileName = $env:CSE_FILE_NAME }
             } | ConvertTo-Json
             $build = Invoke-RestMethod -Method Post -Uri "${buildsUri}?api-version=7.1" -Headers $headers -ContentType 'application/json' -Body $body -TimeoutSec 60
             if (-not $build.id) {
@@ -93,25 +96,10 @@ stages:
               throw "Signing pipeline run $buildId finished with result: $($build.result)"
             }
             Write-Host "Signing pipeline run $buildId succeeded."
-            Write-Host "##vso[task.setvariable variable=SIGNING_BUILD_ID]$buildId"
+            Write-Host "##vso[task.setvariable variable=SIGNING_BUILD_ID;isOutput=true]$buildId"
         env:
           SYSTEM_ACCESSTOKEN: $(System.AccessToken)
-
-      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
-        displayName: Download signed Windows CSE package
-        env:
-          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
           CSE_FILE_NAME: ${{ parameters.cseFileName }}
-          CSE_SIGNING_BUILD_ID: $(SIGNING_BUILD_ID)
-          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
-      - task: ManifestGeneratorTask@0
-        inputs:
-          BuildDropPath: ${{ parameters.csePublishDir }}
-      - task: PublishPipelineArtifact@1
-        displayName: Publish Windows CSE Package
-        inputs:
-          artifactName: windows-cse-package
-          targetPath: ${{ parameters.csePublishDir }}
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1
