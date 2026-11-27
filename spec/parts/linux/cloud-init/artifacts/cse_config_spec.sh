@@ -855,6 +855,12 @@ PubkeyAuthentication no"
 
             systemctlEnableAndStartNoBlock() {
                 echo "systemctlEnableAndStartNoBlock $@"
+                [ "${GUARD_CONFIGURED:-false}" = true ]
+            }
+
+            configureContainerdMountGuard() {
+                GUARD_CONFIGURED=true
+                echo 'configureContainerdMountGuard'
                 return 0
             }
 
@@ -877,6 +883,7 @@ PubkeyAuthentication no"
             The output should not include "Generating GPU containerd config"
             The output should not include "Generating non-GPU containerd config"
             The output should include "systemctlEnableAndStartNoBlock containerd 30"
+            The output should include 'configureContainerdMountGuard'
             The status should be success
         End
     End

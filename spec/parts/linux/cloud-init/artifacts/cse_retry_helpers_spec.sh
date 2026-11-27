@@ -49,6 +49,99 @@ Describe 'long running cse helper functions'
     End
 
     Describe 'systemctl svc retry'
+        Describe 'systemctl_enable'
+            setup_systemctl_enable() {
+                ENABLE_TEST_DIR="${SHELLSPEC_WORKDIR}/systemctl-enable.${SHELLSPEC_EXAMPLE_NO}"
+                mkdir -p "$ENABLE_TEST_DIR"
+                ENABLE_CALLS="$ENABLE_TEST_DIR/systemctl"
+                ENABLE_TIMEOUTS="$ENABLE_TEST_DIR/timeout"
+                ENABLE_SLEEPS="$ENABLE_TEST_DIR/sleep"
+                : > "$ENABLE_CALLS"
+                : > "$ENABLE_TIMEOUTS"
+                : > "$ENABLE_SLEEPS"
+                ENABLE_MODE=success
+            }
+            BeforeEach setup_systemctl_enable
+
+            timeout() {
+                echo "$*" >> "$ENABLE_TIMEOUTS"
+                if [ "$ENABLE_MODE" = timeout ]; then
+                    echo 'mock systemctl call exceeded its timeout' >&2
+                    return 124
+                fi
+                shift
+                "$@"
+            }
+
+            systemctl() {
+                echo "$*" >> "$ENABLE_CALLS"
+                case "$ENABLE_MODE" in
+                    success) return 0 ;;
+                    recovering)
+                        if [ "$(wc -l < "$ENABLE_CALLS")" -gt 2 ]; then
+                            return 0
+                        fi
+                        ;;
+                esac
+                echo 'Failed to connect to system scope bus via local transport: Connection refused' >&2
+                return 1
+            }
+
+            sleep() {
+                echo "$*" >> "$ENABLE_SLEEPS"
+            }
+
+            It 'reloads and enables without starting the service or sleeping on immediate success'
+                When call systemctl_enable 100 5 30 cache-warmup.service
+                The status should eq 0
+                The stdout should eq ''
+                The stderr should eq ''
+                The contents of file "$ENABLE_CALLS" should eq "$(printf 'daemon-reload\nenable cache-warmup.service')"
+                The contents of file "$ENABLE_TIMEOUTS" should eq "$(printf '30 systemctl daemon-reload\n30 systemctl enable cache-warmup.service')"
+                The contents of file "$ENABLE_SLEEPS" should eq ''
+            End
+
+            It 'retries both actual operations after a transient manager refusal'
+                ENABLE_MODE=recovering
+                When call systemctl_enable 100 5 30 cache-warmup.service
+                The status should eq 0
+                The stdout should eq ''
+                The stderr should include 'Failed to connect to system scope bus via local transport: Connection refused'
+                The contents of file "$ENABLE_CALLS" should eq "$(printf 'daemon-reload\nenable cache-warmup.service\ndaemon-reload\nenable cache-warmup.service')"
+                The contents of file "$ENABLE_SLEEPS" should eq '5'
+            End
+
+            Describe 'when the operation keeps failing'
+                Parameters
+                    refused 'Failed to connect to system scope bus via local transport: Connection refused' 6
+                    timeout 'mock systemctl call exceeded its timeout' 0
+                End
+                It 'returns failure after exhausting service errors or command timeouts'
+                    ENABLE_MODE=$1
+                    When call systemctl_enable 3 5 30 cache-warmup.service
+                    The status should eq 1
+                    The stdout should eq ''
+                    The stderr should include "$2"
+                    Assert [ "$(wc -l < "$ENABLE_TIMEOUTS")" -eq 6 ]
+                    Assert [ "$(wc -l < "$ENABLE_CALLS")" -eq "$3" ]
+                    The contents of file "$ENABLE_SLEEPS" should eq "$(printf '5\n5')"
+                End
+            End
+
+            It 'retries the guarded VHD enable call under errexit and continues after recovery'
+                ENABLE_MODE=recovering
+                export ENABLE_MODE ENABLE_CALLS ENABLE_TIMEOUTS ENABLE_SLEEPS
+                enable_command=$(sed -n '/^  systemctl_enable .*cache-warmup.service/p' ./vhdbuilder/packer/pre-install-dependencies.sh)
+                When run bash -eu -c "$(declare -f _systemctl_retry_svc_operation systemctl_enable timeout systemctl sleep)
+                    $enable_command
+                    echo continued"
+                The status should eq 0
+                The stdout should eq 'continued'
+                The stderr should include 'Failed to connect to system scope bus via local transport: Connection refused'
+                The contents of file "$ENABLE_CALLS" should eq "$(printf 'daemon-reload\nenable cache-warmup.service\ndaemon-reload\nenable cache-warmup.service')"
+            End
+        End
+
         Describe '_systemctl_retry_svc_operation logging'
 
             timeout() {

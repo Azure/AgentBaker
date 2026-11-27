@@ -5,6 +5,7 @@ pr:
   branches:
     include:
       - main
+      - dev
       - windows/*
       - official/*
 

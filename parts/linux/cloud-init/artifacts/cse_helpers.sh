@@ -589,7 +589,7 @@ retrycmd_can_oras_ls_acr_anonymously() {
             echo "acr is anonymously reachable"
             return 0
         fi
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ "$output" == *"unauthorized: authentication required"* ]]; then
             echo "ACR is not anonymously reachable: $output"
             return 1
@@ -599,7 +599,7 @@ retrycmd_can_oras_ls_acr_anonymously() {
     return $ERR_ORAS_PULL_NETWORK_TIMEOUT
 }
 
-# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable
+# base systemctl retry command, should not be called directly - use systemctl_restart, systemctl_stop, systemctl_disable, systemctl_enable
 _systemctl_retry_svc_operation() {
     retries=$1; wait_sleep=$2; timeout=$3 operation=$4 svcname=$5 shouldLogRetryInfo=${6:-false}
     for i in $(seq 1 $retries); do
@@ -631,6 +631,10 @@ systemctl_stop() {
 
 systemctl_disable() {
     _systemctl_retry_svc_operation "$1" "$2" "$3" "disable" "$4"
+}
+
+systemctl_enable() {
+    _systemctl_retry_svc_operation "$1" "$2" "$3" "enable" "$4"
 }
 
 systemctlEnableAndStart() {
@@ -865,7 +869,7 @@ ubuntuKernelNeedsVulnerableModuleMitigation() {
 
 getCPUArch() {
     arch=$(uname -m)
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ ${arch,,} == "aarch64" || ${arch,,} == "arm64"  ]]; then
         echo "arm64"
     else
@@ -1231,7 +1235,7 @@ getLatestPkgVersionFromK8sVersion() {
     package=$(jq ".Packages" "$COMPONENTS_FILEPATH" | jq ".[] | select(.name == \"${componentName}\")")
     updatePackageVersions "${package}" "${@:3}"
 
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ ${#PACKAGE_VERSIONS[@]} -eq 0 || ${PACKAGE_VERSIONS[0]} == "<SKIP>" ]]; then
         echo "INFO: ${componentName} package versions array is either empty or the first element is <SKIP>. Skipping ${componentName} installation."
         return 0
@@ -1371,7 +1375,7 @@ resolve_packages_source_url() {
 update_base_url() {
   initial_url=$1
 
-  # shellcheck disable=SC3010
+  # shellcheck disable=SC3010,SC3014
   if [ "$PACKAGE_DOWNLOAD_BASE_URL" = "packages.aks.azure.com" ] && [[ "$initial_url" == *"acs-mirror.azureedge.net"* ]]; then
     initial_url="${initial_url//"acs-mirror.azureedge.net"/$PACKAGE_DOWNLOAD_BASE_URL}"
   elif [ "$PACKAGE_DOWNLOAD_BASE_URL" = "acs-mirror.azureedge.net" ] && [[ "$initial_url" == *"packages.aks.azure.com"* ]]; then
@@ -1473,7 +1477,7 @@ oras_login_with_kubelet_identity() {
             ACCESS_TOKEN=""
             continue
         fi
-        # shellcheck disable=SC3010
+        # shellcheck disable=SC3010,SC3014
         if [[ "$raw_refresh_token" == *"error"* ]]; then
             echo "failed to retrieve refresh token with endpoint $endpoint: $(echo "$raw_refresh_token" | jq -r '.error // empty'): $(echo "$raw_refresh_token" | jq -r '.error_description // empty')"
             ACCESS_TOKEN=""

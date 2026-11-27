@@ -8,8 +8,8 @@
         {
           "comment": "Windows 2022 servercore. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5773",
-          "previousLatestVersion": "10.0.20348.5761",
+          "latestVersion": "10.0.20348.5873",
+          "previousLatestVersion": "10.0.20348.5773",
           "windowsSkuMatch": "2022-containerd*"
         },
         {
@@ -21,8 +21,8 @@
         {
           "comment": "Windows 2022 servercore for Windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.20348.5773",
-          "previousLatestVersion": "10.0.20348.5761",
+          "latestVersion": "10.0.20348.5873",
+          "previousLatestVersion": "10.0.20348.5773",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -34,8 +34,8 @@
         {
           "comment": "Windows 2025 servercore for windows 2025. Should have latest version and latest version -1",
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/servercore",
-          "latestVersion": "10.0.26100.33674",
-          "previousLatestVersion": "10.0.26100.33650",
+          "latestVersion": "10.0.26100.33828",
+          "previousLatestVersion": "10.0.26100.33674",
           "windowsSkuMatch": "2025*"
         },
         {
@@ -65,6 +65,17 @@
           "renovateTag": "registry=https://mcr.microsoft.com, name=windows/nanoserver",
           "latestVersion": "ltsc2025",
           "windowsSkuMatch": "2025*"
+        }
+      ]
+    },
+    {
+      "downloadURL": "mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:*",
+      "amd64OnlyVersions": [],
+      "multiArchVersionsV2": [],
+      "windowsVersions": [
+        {
+          "renovateTag": "registry=https://mcr.microsoft.com, name=oss/kubernetes/windows-host-process-containers-base-image",
+          "latestVersion": "v1.0.0"
         }
       ]
     },
@@ -421,7 +432,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/secrets-store/driver",
-          "latestVersion": "v1.5.7-6"
+          "latestVersion": "v1.5.7-9"
         }
       ]
     },
@@ -431,7 +442,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/azure/secrets-store/provider-azure",
-          "latestVersion": "v1.8.2-16"
+          "latestVersion": "v1.8.2-19"
         }
       ]
     },
@@ -642,13 +653,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.20.0-8"
+          "latestVersion": "v2.20.0-9"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/livenessprobe",
-          "latestVersion": "v2.20.0-8"
+          "latestVersion": "v2.20.0-9"
         }
       ]
     },
@@ -658,13 +669,13 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.18.0-8"
+          "latestVersion": "v2.18.0-9"
         }
       ],
       "windowsVersions": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=oss/v2/kubernetes-csi/csi-node-driver-registrar",
-          "latestVersion": "v2.18.0-8"
+          "latestVersion": "v2.18.0-9"
         }
       ]
     },
@@ -691,7 +702,7 @@
       "multiArchVersionsV2": [
         {
           "renovateTag": "registry=https://mcr.microsoft.com, name=aks/aks-node-ca-watcher",
-          "latestVersion": "master.241021.1"
+          "latestVersion": "master.261029.1"
         }
       ],
       "windowsVersions": []
@@ -871,6 +882,65 @@
               }
             ],
             "downloadURL": "https://packages.aks.azure.com/dalec-packages/azure-acr-credential-provider/$($version.Split('-')[0])/windows/amd64/azure-acr-credential-provider_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows hcsshim dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\hcsshim\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "0.15.0-1"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/hcsshim/${versionNoBuild}/windows/amd64/hcsshim_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows moby-containerd dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\moby-containerd\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.3.7-6"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "2.0.14-6"
+              },
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.7.36-7"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/moby-containerd/${versionNoBuild}/windows/amd64/moby-containerd_${version}_amd64.zip"
+          }
+        }
+      }
+    },
+    {
+      "name": "windows kubernetes-cri-tools dalec",
+      "windowsDownloadLocation": "c:\\akse-cache\\containerd-packages\\kubernetes-cri-tools\\",
+      "downloadURIs": {
+        "windows": {
+          "default": {
+            "versionsV2": [
+              {
+                "renovateTag": "<DO_NOT_UPDATE>",
+                "latestVersion": "1.37.0-8"
+              }
+            ],
+            "downloadURL": "https://packages.aks.azure.com/dalec-packages/kubernetes-cri-tools/${versionNoBuild}/windows/amd64/kubernetes-cri-tools_${version}_amd64.zip"
           }
         }
       }
@@ -1101,7 +1171,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=22.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           },
@@ -1109,7 +1179,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=24.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           },
@@ -1117,7 +1187,7 @@
             "versionsV2": [
               {
                 "renovateTag": "name=moby-runc, repository=production, os=ubuntu, release=26.04",
-                "latestVersion": "1.4.3"
+                "latestVersion": "1.4.4"
               }
             ]
           }

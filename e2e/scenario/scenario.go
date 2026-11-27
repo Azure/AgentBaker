@@ -3430,7 +3430,7 @@ var _ = Register(&Scenario{
 
 var _ = Register(&Scenario{
 	Name:        "Ubuntu2404_AKSVMExtension_FilesystemCorruption",
-	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension and hotfix target resolution from the NBC command when ANC JSON is absent",
+	Description: "Tests Ubuntu 24.04 NPD filesystem-corruption reporting with the AKS VM Extension",
 	Config: Config{
 		Cluster:                ClusterKubenet,
 		VHD:                    config.VHDUbuntu2404Gen2Containerd,
@@ -3447,17 +3447,16 @@ var _ = Register(&Scenario{
 			return nil
 		},
 		Validator: func(ctx context.Context, s *Scenario) error {
-			hotfixErr := ValidateHotfixFromNBCCmd(ctx, s)
 			if err := ValidateNodeProblemDetector(ctx, s); err != nil {
-				return errors.Join(hotfixErr, err)
+				return err
 			}
-			return errors.Join(hotfixErr, ValidateNPDFilesystemCorruption(ctx, s))
+			return ValidateNPDFilesystemCorruption(ctx, s)
 		},
 	},
 })
 
 var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_H100", "Standard_ND96isr_H100_v5", "uaenorth", ""))
-var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_A100", "Standard_ND96asr_v4", "southcentralus", "Standard_D2s_v3"))
+var _ = Register(runScenarioUbuntu2404GPUNPD("Ubuntu2404_GPU_A100", "Standard_ND96asr_v4", "southcentralus", ""))
 
 var _ = Register(&Scenario{
 	Name:        "AzureLinux3_PMC_Install",

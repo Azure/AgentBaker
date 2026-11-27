@@ -1,3 +1,4 @@
+disabled_plugins = ["restart"]
 root = "C:\\ProgramData\\containerd\\root"
 state = "C:\\ProgramData\\containerd\\state"
 

@@ -678,6 +678,140 @@ func TestApp_Provision_DryRun(t *testing.T) {
 	}
 }
 
+func TestRemoveProvisioningInputs(t *testing.T) {
+	dir := t.TempDir()
+	flags := ProvisionFlags{
+		NBCCmd:          filepath.Join(dir, "nbc cmd.sh"),
+		ProvisionConfig: filepath.Join(dir, "config.json"),
+	}
+	require.NoError(t, os.WriteFile(flags.NBCCmd, []byte(`TLS_BOOTSTRAP_TOKEN="bootstrap-secret" /bin/true`), 0o600))
+	require.NoError(t, os.WriteFile(flags.ProvisionConfig, []byte(`{"bootstrapping_config":`), 0o600))
+
+	for range 2 {
+		require.NoError(t, removeProvisioningInputs(flags))
+		require.NoFileExists(t, flags.NBCCmd)
+		require.NoFileExists(t, flags.ProvisionConfig)
+	}
+	require.NoError(t, removeProvisioningInputs(ProvisionFlags{}))
+}
+
+func TestRemoveProvisioningInputsAttemptsBothFiles(t *testing.T) {
+	dir := t.TempDir()
+	flags := ProvisionFlags{
+		NBCCmd:          filepath.Join(dir, "nbc.sh"),
+		ProvisionConfig: filepath.Join(dir, "config.json"),
+	}
+	require.NoError(t, os.Mkdir(flags.NBCCmd, 0o700))
+	child := filepath.Join(flags.NBCCmd, "must-not-be-removed")
+	require.NoError(t, os.WriteFile(child, nil, 0o600))
+	require.NoError(t, os.WriteFile(flags.ProvisionConfig, []byte("{}"), 0o600))
+
+	require.ErrorContains(t, removeProvisioningInputs(flags), flags.NBCCmd)
+	require.FileExists(t, child)
+	require.NoFileExists(t, flags.ProvisionConfig)
+}
+
+func TestWriteProvisioningFileCleansUpTemporaryFileOnFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "directory")
+	require.NoError(t, os.Mkdir(path, 0o700))
+	require.Error(t, writeProvisioningFile(path, []byte(`{"ExitCode":"240"}`)))
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "directory", entries[0].Name())
+}
+
+func requireProvisioningInputs(t *testing.T, flags ProvisionFlags, present bool) {
+	t.Helper()
+	for _, path := range []string{flags.ProvisionConfig, flags.NBCCmd} {
+		if path == "" {
+			continue
+		}
+		if !present {
+			require.NoFileExists(t, path)
+			continue
+		}
+		content, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.Contains(t, string(content), "bootstrap-secret")
+	}
+}
+
+func TestRunProvisionRemovesInputsAfterExecution(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		jsonOnly     bool
+		nbcOnly      bool
+		preProvision bool
+		dryRun       bool
+		fail         bool
+	}{
+		{name: "both inputs"},
+		{name: "JSON only", jsonOnly: true},
+		{name: "NBC only", nbcOnly: true},
+		{name: "PIS bake", preProvision: true},
+		{name: "dry run", dryRun: true},
+		{name: "failure retains inputs", fail: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dir := t.TempDir()
+			flags := ProvisionFlags{ProvisionConfig: filepath.Join(dir, "config.json")}
+			config := `{` + requiredProvisionFields + `"version":"v1","kubernetes_version":"1.34.0",
+				"bootstrapping_config":{"tls_bootstrapping_token":"bootstrap-secret"},
+				"kubelet_config":{"kubelet_client_key":"private-key","kubelet_client_cert_content":"client-cert"},
+				"pre_provision_only":` + strconv.FormatBool(test.preProvision) + `}`
+			require.NoError(t, os.WriteFile(flags.ProvisionConfig, []byte(config), 0o600))
+			if test.nbcOnly {
+				require.NoError(t, os.Remove(flags.ProvisionConfig))
+				flags.ProvisionConfig = ""
+			}
+			if !test.jsonOnly {
+				flags.NBCCmd = filepath.Join(dir, "nbc.sh")
+				script := `PRE_PROVISION_ONLY="` + strconv.FormatBool(test.preProvision) + `" TLS_BOOTSTRAP_TOKEN="bootstrap-secret" /bin/true`
+				require.NoError(t, os.WriteFile(flags.NBCCmd, []byte(script), 0o600))
+			}
+			tt := NewTestApp(t, TestAppConfig{RunFunc: func(cmd *exec.Cmd) error {
+				requireProvisioningInputs(t, flags, true)
+				cmd.Path = "/bin/true"
+				if test.fail {
+					cmd.Path = "/bin/false"
+				}
+				cmd.Args = []string{cmd.Path}
+				return cmdRunner(cmd)
+			}})
+
+			_, err := tt.App.runProvision(t.Context(), flags, test.dryRun)
+			require.Equal(t, test.fail, err != nil, "unexpected provisioning error: %v", err)
+			requireProvisioningInputs(t, flags, test.dryRun || test.fail)
+		})
+	}
+}
+
+func TestRunProvisionReportsInputCleanupFailure(t *testing.T) {
+	dir := t.TempDir()
+	flags := ProvisionFlags{
+		NBCCmd: filepath.Join(dir, "nbc.sh"), ProvisionConfig: filepath.Join(dir, "nonempty-directory"),
+	}
+	require.NoError(t, os.WriteFile(flags.NBCCmd, []byte("/bin/true"), 0o600))
+	require.NoError(t, os.Mkdir(flags.ProvisionConfig, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(flags.ProvisionConfig, "child"), nil, 0o600))
+	statusPath := filepath.Join(dir, "provision.json")
+	require.NoError(t, os.WriteFile(statusPath, []byte(`{"ExitCode":"0"}`), 0o600))
+	tt := NewTestApp(t, TestAppConfig{RunFunc: cmdRunner})
+	tt.App.provisionJSONFilePath = statusPath
+
+	result, err := tt.App.runProvision(t.Context(), flags, false)
+	require.ErrorContains(t, err, "clean up provisioning inputs")
+	require.Equal(t, "240", result.ExitCode)
+	require.NoFileExists(t, flags.NBCCmd)
+	data, err := os.ReadFile(statusPath)
+	require.NoError(t, err)
+	var persisted ProvisionResult
+	require.NoError(t, json.Unmarshal(data, &persisted))
+	require.Equal(t, *result, persisted)
+}
+
 func TestApp_ProvisionWait(t *testing.T) {
 	testData := `{"ExitCode": "0", "Output": "hello world", "Error": ""}`
 

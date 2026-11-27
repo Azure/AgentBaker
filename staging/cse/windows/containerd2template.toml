@@ -1,4 +1,5 @@
 version = 3
+disabled_plugins = ['io.containerd.monitor.container.v1.restart']
 root = 'C:\ProgramData\containerd\root'
 state = 'C:\ProgramData\containerd\state'
 

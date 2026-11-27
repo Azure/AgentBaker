@@ -330,6 +330,20 @@ function Install-Containerd {
     $KubeDir
   )
 
+  $cachedPackages = $null
+  if (-not [string]::IsNullOrEmpty($global:BootstrapProfileContainerRegistryServer) -and $global:NetworkIsolatedClusterTestMode) {
+    # Network-isolated E2E tests need the ORAS pull to happen.
+    Write-Log "Network isolated cluster test mode; not using cached DALEC packages"
+  } else {
+    $cachedPackages = Get-CachedContainerdComponentPackages -ContainerdUrl $ContainerdUrl
+  }
+  if ($null -ne $cachedPackages) {
+    Write-Log "Installing containerd from cached DALEC packages instead of $ContainerdUrl. Packages: $($cachedPackages -join ', ')"
+    Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdFromCachedComponentPackages" -TaskMessage "Installing cached DALEC packages instead of $ContainerdUrl. Packages: $($cachedPackages -join ', ')"
+    Install-ContainerdFromLocalPackages -Packages $cachedPackages -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+    return
+  }
+
   $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
   # TODO: check if containerd is already installed and is the same version before this.
   if ($null -ne $svc) {
@@ -380,6 +394,217 @@ function Install-Containerd {
   Move-Item -Force $global:ContainerdInstallLocation\bin\* $global:ContainerdInstallLocation\
   Remove-Item -Path $tarfile -Force
   Remove-Item -Path $global:ContainerdInstallLocation\bin -Force -Recurse
+
+  Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+# Combined containerd packages that RP requests by default, mapped to their containerd line. A node
+# asked for one of these installs the newest DALEC packages cached on the VHD for that line instead.
+# Any other combined package, such as a rollback or hotfix set through the windows-containerd-versions
+# toggle, is installed as requested, so pointing that toggle elsewhere opts nodes out of DALEC.
+# Packages are matched by the path under each cloud's containerd base URL, so a custom URL that
+# reuses a stock file name is still installed as requested.
+$global:DalecReplaceableContainerdPackages = @{
+  "/containerd/windows/v1.7.20-azure.1/binaries/containerd-v1.7.20-azure.1-windows-amd64.tar.gz" = "1.7"
+  "/containerd/windows/v2.0.4-azure.1/binaries/containerd-v2.0.4-azure.1-windows-amd64.tar.gz"  = "2.0"
+}
+
+# Returns the newest cached DALEC ZIP for a package, optionally limited to one major.minor line.
+function Select-NewestCachedDalecPackage {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $Name,
+    [Parameter(Mandatory = $false)][string]
+    $Line = ""
+  )
+
+  $directory = [Io.path]::Combine($global:CacheDir, "containerd-packages", $Name)
+  if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+    return $null
+  }
+
+  $pattern = "^" + [regex]::Escape($Name) + "_(?<version>\d+\.\d+\.\d+)-(?<revision>\d+)_amd64\.zip$"
+  $selected = $null
+  foreach ($file in Get-ChildItem -LiteralPath $directory -File) {
+    $match = [regex]::Match($file.Name, $pattern)
+    if (-not $match.Success) {
+      continue
+    }
+    $version = [version]$match.Groups['version'].Value
+    if ($Line -and "$($version.Major).$($version.Minor)" -ne $Line) {
+      continue
+    }
+    $revision = [int]$match.Groups['revision'].Value
+    if ($null -eq $selected -or $version -gt $selected.Version -or ($version -eq $selected.Version -and $revision -gt $selected.Revision)) {
+      $selected = [pscustomobject]@{ Version = $version; Revision = $revision; Path = $file.FullName }
+    }
+  }
+  if ($null -eq $selected) {
+    return $null
+  }
+  return $selected.Path
+}
+
+# Returns the cached hcsshim, moby-containerd and kubernetes-cri-tools ZIPs that replace the requested
+# combined package, or $null to install the combined package.
+function Get-CachedContainerdComponentPackages {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $ContainerdUrl
+  )
+
+  $packageUrl = $ContainerdUrl.Split('?')[0]
+  $fileName = [IO.Path]::GetFileName($packageUrl)
+  $line = $null
+  foreach ($stockPath in $global:DalecReplaceableContainerdPackages.Keys) {
+    if ($packageUrl.EndsWith($stockPath, [StringComparison]::OrdinalIgnoreCase)) {
+      $line = $global:DalecReplaceableContainerdPackages[$stockPath]
+    }
+  }
+  if ([string]::IsNullOrEmpty($line)) {
+    Write-Log "Containerd package $fileName has no DALEC replacement; installing it as requested"
+    return $null
+  }
+  if ([string]::IsNullOrEmpty($global:CacheDir)) {
+    Write-Log "No cache directory; installing $fileName"
+    return $null
+  }
+
+  $packages = @(
+    (Select-NewestCachedDalecPackage -Name "hcsshim"),
+    (Select-NewestCachedDalecPackage -Name "moby-containerd" -Line $line),
+    (Select-NewestCachedDalecPackage -Name "kubernetes-cri-tools")
+  )
+  if ($packages -contains $null) {
+    Write-Log "Cached DALEC packages for containerd $line are incomplete ($($packages -join ', ')); installing $fileName"
+    return $null
+  }
+  return $packages
+}
+
+# Gets every package into a staging directory before anything is installed, so a failed download
+# leaves the node untouched. Returns the staged paths, or $null if any package can't be fetched.
+function Save-ContainerdComponentPackages {
+  Param(
+    [Parameter(Mandatory = $true)][string[]]
+    $Urls,
+    [Parameter(Mandatory = $true)][string]
+    $StagingDirectory
+  )
+
+  New-Item -ItemType Directory -Path $StagingDirectory -Force | Out-Null
+  $packages = @()
+  for ($i = 0; $i -lt $Urls.Count; $i++) {
+    $url = $Urls[$i]
+    $fileName = [IO.Path]::GetFileName($url.Split('?')[0])
+    # The index keeps packages that share a file name from overwriting each other.
+    $destination = [Io.path]::Combine($StagingDirectory, "$i-$fileName")
+    try {
+      $cached = @()
+      if ($global:CacheDir -and (Test-Path -LiteralPath $global:CacheDir)) {
+        $cached = [IO.Directory]::GetFiles($global:CacheDir, $fileName, [IO.SearchOption]::AllDirectories)
+      }
+      if ($cached.Count -gt 0) {
+        Write-Log "Using cached $fileName from $($cached[0])"
+        Copy-Item -LiteralPath $cached[0] -Destination $destination -Force -ErrorAction Stop
+      } else {
+        $mappedUrl = $url
+        if (Get-Command -Name Update-BaseUrl -ErrorAction SilentlyContinue) {
+          $mappedUrl = Update-BaseUrl -InitialUrl $url
+        }
+        Write-Log "Downloading $mappedUrl to $destination"
+        Retry-Command -Command "Invoke-RestMethod" -Args @{Uri=$mappedUrl; Method="Get"; OutFile=$destination; ErrorAction="Stop"} -Retries 5 -RetryDelaySeconds 10
+      }
+    } catch {
+      Write-Log "Failed to get containerd component package $url. Error: $_"
+      return $null
+    }
+    $packages += $destination
+  }
+  return $packages
+}
+
+# Installs containerd from local DALEC hcsshim, moby-containerd and kubernetes-cri-tools Windows ZIPs.
+# Each ZIP has its files at the root, so extracting all three gives the same flat layout as the
+# combined containerd package, except crictl.yaml, which is written here.
+function Install-ContainerdFromLocalPackages {
+  Param(
+    [Parameter(Mandatory = $true)][string[]]
+    $Packages,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
+
+  $svc = Get-Service -Name containerd -ErrorAction SilentlyContinue
+  if ($null -ne $svc) {
+    Write-Log "Stopping containerd service"
+    $svc | Stop-Service
+  }
+
+  Create-Directory -FullPath $global:ContainerdInstallLocation -DirectoryUsage "storing containerd"
+  foreach ($package in $Packages) {
+    AKS-Expand-Archive -Path $package -DestinationPath $global:ContainerdInstallLocation
+  }
+
+  $crictlConfig = "runtime-endpoint: npipe://\\.\pipe\containerd-containerd`nimage-endpoint: npipe://\\.\pipe\containerd-containerd`ntimeout: 0`ndebug: false`n"
+  [System.IO.File]::WriteAllText([Io.path]::Combine($global:ContainerdInstallLocation, "crictl.yaml"), $crictlConfig)
+
+  Complete-ContainerdInstallation -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+}
+
+# Installs the DALEC packages requested by RP. If any of them can't be fetched, falls back to the
+# combined package path, which prefers the DALEC packages cached on the VHD.
+function Install-ContainerdFromComponentPackages {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $HcsshimUrl,
+    [Parameter(Mandatory = $true)][string]
+    $MobyContainerdUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CrictlUrl,
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
+
+  $stagingDirectory = [Io.path]::Combine($ENV:TEMP, "containerd-packages-" + [guid]::NewGuid().ToString("N"))
+  try {
+    $packages = Save-ContainerdComponentPackages -Urls @($HcsshimUrl, $MobyContainerdUrl, $CrictlUrl) -StagingDirectory $stagingDirectory
+    if ($null -ne $packages) {
+      Write-Log "Installing containerd from the component packages requested by RP. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+      Logs-To-Event -TaskName "AKS.WindowsCSE.InstallContainerdFromComponentPackages" -TaskMessage "Installing containerd from the component packages requested by RP. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+      Install-ContainerdFromLocalPackages -Packages $packages -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir
+      return
+    }
+  } finally {
+    Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+  }
+
+  if ([string]::IsNullOrWhiteSpace($global:ContainerdUrl)) {
+    Set-ExitCode -ExitCode $global:WINDOWS_CSE_ERROR_DOWNLOAD_CONTAINERD_PACKAGE -ErrorMessage "Failed to get the containerd component packages and no combined containerd package to fall back to"
+  }
+  Logs-To-Event -TaskName "AKS.WindowsCSE.ContainerdComponentPackagesFallback" -TaskMessage "Failed to get the component packages requested by RP; falling back to $global:ContainerdUrl. Hcsshim: $HcsshimUrl, MobyContainerd: $MobyContainerdUrl, Crictl: $CrictlUrl"
+  # Without the component URLs, this resolves a ContainerdUrl endpoint to a package for the Kubernetes
+  # version and calls Install-Containerd.
+  Install-Containerd-Based-On-Kubernetes-Version -ContainerdUrl $global:ContainerdUrl -CNIBinDir $CNIBinDir -CNIConfDir $CNIConfDir -KubeDir $KubeDir -KubernetesVersion $global:KubeBinariesVersion
+}
+
+function Complete-ContainerdInstallation {
+  Param(
+    [Parameter(Mandatory = $true)][string]
+    $CNIBinDir,
+    [Parameter(Mandatory = $true)][string]
+    $CNIConfDir,
+    [Parameter(Mandatory = $true)][string]
+    $KubeDir
+  )
 
   # get configuration options
   Add-SystemPathEntry $global:ContainerdInstallLocation

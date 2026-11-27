@@ -51,7 +51,7 @@ fi
 
 feature_set=("fips" "gpu" "arm64" "cvm" "tl" "kata")
 for feature in "${feature_set[@]}"; do
-    # shellcheck disable=SC3010
+    # shellcheck disable=SC3010,SC3014
     if [[ "${SKU_NAME,,}" == *"${feature}"* ]]; then
         REPLICATION_INVERSE=$((REPLICATION_INVERSE * 2))
         break
