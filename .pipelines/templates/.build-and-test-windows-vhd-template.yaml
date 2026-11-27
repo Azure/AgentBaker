@@ -79,6 +79,8 @@ stages:
       - job: build_${{ parameters.stageName }}
         dependsOn: [ ]
         timeoutInMinutes: 180
+        variables:
+          CSE_SIGNING_BUILD_ID: $[stageDependencies.Package.PackageWindowsCSE.outputs['signCSE.SIGNING_BUILD_ID']]
         steps:
           - template: ./.builder-release-template-windows.yaml
             parameters:

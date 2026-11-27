@@ -56,24 +56,50 @@ parameters:
     default: $(Build.ArtifactStagingDirectory)/packages
 stages:
   - stage: Package
-    displayName: "Package Windows CSE"
+    displayName: "Sign and package Windows CSE"
     jobs:
     - job: PackageWindowsCSE
+      timeoutInMinutes: 120
       steps:
-      - bash: bash ./.pipelines/scripts/windows_package_cse.sh
-        displayName: Package Windows CSE Scripts
+      - checkout: none
+      - task: PowerShell@2
+        name: signCSE
+        displayName: Run and wait for PowerShell script signing
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            if ([string]::IsNullOrWhiteSpace($env:SYSTEM_ACCESSTOKEN)) {
+              throw 'System.AccessToken is required to queue the signing pipeline.'
+            }
+            $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+            $buildsUri = "$($env:SYSTEM_COLLECTIONURI)$($env:SYSTEM_TEAMPROJECTID)/_apis/build/builds"
+            $body = @{
+              definition = @{ id = 491013 }
+              sourceBranch = $env:BUILD_SOURCEBRANCH
+              sourceVersion = $env:BUILD_SOURCEVERSION
+              templateParameters = @{ cseFileName = $env:CSE_FILE_NAME }
+            } | ConvertTo-Json
+            $build = Invoke-RestMethod -Method Post -Uri "${buildsUri}?api-version=7.1" -Headers $headers -ContentType 'application/json' -Body $body -TimeoutSec 60
+            if (-not $build.id) {
+              throw 'Queueing the signing pipeline did not return a build ID.'
+            }
+            $buildId = $build.id
+            Write-Host "Signing pipeline run: $($build._links.web.href) (ID: $buildId)"
+            while ($build.status -ne 'completed') {
+              Write-Host "Signing pipeline run $buildId status: $($build.status)"
+              Start-Sleep -Seconds 15
+              $build = Invoke-RestMethod -Method Get -Uri "${buildsUri}/${buildId}?api-version=7.1" -Headers $headers -TimeoutSec 60
+            }
+            if ($build.result -ne 'succeeded') {
+              throw "Signing pipeline run $buildId finished with result: $($build.result)"
+            }
+            Write-Host "Signing pipeline run $buildId succeeded."
+            Write-Host "##vso[task.setvariable variable=SIGNING_BUILD_ID;isOutput=true]$buildId"
         env:
-          CSE_RELEASE_DIR: $(Build.ArtifactStagingDirectory)/windows
-          CSE_PUBLISH_DIR: ${{ parameters.csePublishDir }}
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
           CSE_FILE_NAME: ${{ parameters.cseFileName }}
-      - task: ManifestGeneratorTask@0
-        inputs:
-          BuildDropPath: ${{ parameters.csePublishDir }}
-      - task: PublishPipelineArtifact@1
-        displayName: Publish Windows CSE Package
-        inputs:
-          artifactName: windows-cse-package
-          targetPath: ${{ parameters.csePublishDir }}
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1

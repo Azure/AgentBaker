@@ -1,0 +1,102 @@
+trigger: none
+pr: none
+
+parameters:
+  - name: cseFileName
+    type: string
+    default: aks-windows-cse-scripts-current.zip
+
+resources:
+  repositories:
+    - repository: templates
+      type: git
+      name: OneBranch.Pipelines/GovernedTemplates
+      ref: refs/heads/main
+
+variables:
+  WindowsContainerImage: 'onebranch.azurecr.io/windows/ltsc2022/vse2022:latest'
+
+extends:
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates
+  parameters:
+    stages:
+      - stage: powershell_script_signing
+        displayName: PowerShell Script Signing
+        jobs:
+          - job: sign_scripts
+            displayName: Sign PowerShell Scripts
+            pool:
+              type: windows
+            variables:
+              signingDirectory: '$(Pipeline.Workspace)/s/AgentBaker/signing'
+              ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
+              ob_artifactBaseName: windows-cse-package
+              ob_artifactSuffix: ''
+            steps:
+              - checkout: self
+                path: s/AgentBaker
+                fetchDepth: 1
+                fetchTags: false
+                fetchFilter: blob:none
+                sparseCheckoutDirectories: parts staging vhdbuilder/packer/windows
+                env:
+                  ob_restore_phase: true
+              - task: CopyFiles@2
+                displayName: Stage Windows scripts and CSE assets
+                inputs:
+                  SourceFolder: '$(Pipeline.Workspace)/s/AgentBaker'
+                  Contents: |
+                    parts/windows/**/*.ps1
+                    vhdbuilder/packer/windows/*.ps1
+                    !vhdbuilder/packer/windows/*.tests.ps1
+                    staging/cse/windows/**
+                    !staging/cse/windows/*.tests.ps1
+                    !staging/cse/windows/*.tests.suites/**
+                    !staging/cse/windows/README
+                    !staging/cse/windows/debug/update-scripts.ps1
+                    !staging/cse/windows/.*
+                  TargetFolder: '$(signingDirectory)'
+              - task: PowerShell@2
+                displayName: Verify staged PowerShell scripts
+                inputs:
+                  targetType: inline
+                  pwsh: true
+                  script: |
+                    $ErrorActionPreference = 'Stop'
+                    foreach ($relativePath in @('staging/cse/windows', 'vhdbuilder/packer/windows')) {
+                      $directory = Join-Path $env:SIGNING_DIRECTORY $relativePath
+                      $scripts = @(Get-ChildItem -LiteralPath $directory -Filter '*.ps1' -File -Recurse -ErrorAction Stop)
+                      if ($scripts.Count -eq 0) {
+                        throw "No PowerShell scripts were staged in $directory."
+                      }
+                      Write-Host "Staged $($scripts.Count) PowerShell script(s) in $directory for signing."
+                    }
+                env:
+                  SIGNING_DIRECTORY: $(signingDirectory)
+              - task: onebranch.pipeline.signing@1
+                displayName: Sign PowerShell scripts
+                inputs:
+                  command: 'sign'
+                  signing_profile: 'external_distribution'
+                  files_to_sign: '**/*.ps1;**/*.psm1'
+                  search_root: '$(signingDirectory)'
+              - task: CopyFiles@2
+                displayName: Stage signed PowerShell scripts for publication
+                inputs:
+                  SourceFolder: '$(signingDirectory)'
+                  Contents: |
+                    **/*.ps1
+                    **/*.psm1
+                  TargetFolder: '$(ob_outputDirectory)/signed-powershell-scripts'
+              - task: ArchiveFiles@2
+                displayName: Create signed Windows CSE ZIP
+                inputs:
+                  rootFolderOrFile: '$(signingDirectory)/staging/cse/windows'
+                  includeRootFolder: false
+                  archiveType: zip
+                  archiveFile: '$(ob_outputDirectory)/${{ parameters.cseFileName }}'
+                  replaceExistingArchive: true
+              - task: ManifestGeneratorTask@0
+                displayName: Generate Windows CSE package manifest
+                inputs:
+                  BuildDropPath: $(ob_outputDirectory)

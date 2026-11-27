@@ -123,6 +123,34 @@ echo "Modified SIG_GALLERY_NAME: ${SIG_GALLERY_NAME}"
 echo "Set build date to $BUILD_DATE"
 echo "Use CSE pacakge at URI: ${WINDOWS_CSE_PACKAGE_URI}"
 
+stage_signed_windows_powershell_scripts() {
+  local signed_directory="${WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR:-}"
+  if [ -z "$signed_directory" ] || [ ! -d "$signed_directory" ]; then
+    echo "##vso[task.logissue type=error]WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR must point to the downloaded signed scripts."
+    return 1
+  fi
+
+  local script signed_script
+  local scripts=()
+  for script in vhdbuilder/packer/windows/*.ps1; do
+    case "$script" in
+      *.tests.ps1) continue ;;
+    esac
+    signed_script="$signed_directory/$script"
+    if [ ! -s "$signed_script" ]; then
+      echo "##vso[task.logissue type=error]Missing signed Packer script: $signed_script"
+      return 1
+    fi
+    scripts+=("$script")
+  done
+
+  for script in "${scripts[@]}"; do
+    cp -- "$signed_directory/$script" "$script" || return 1
+  done
+}
+
+stage_signed_windows_powershell_scripts
+
 # Finally, we invoke packer to build the VHD.
 packer init ./vhdbuilder/packer/packer-plugin.pkr.hcl
 packer version

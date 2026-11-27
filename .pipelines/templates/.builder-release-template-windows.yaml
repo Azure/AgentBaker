@@ -96,10 +96,27 @@ steps:
     condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'))
     displayName: Download CSE package
     inputs:
-      source: current
+      source: specific
+      project: $(System.TeamProjectId)
+      definition: 491013
+      buildVersionToDownload: specific
+      pipelineId: $(CSE_SIGNING_BUILD_ID)
       artifactName: windows-cse-package
       itemPattern: '${{ parameters.csePackageFileName }}'
       targetPath: ${{ parameters.csePackageDir }}
+
+  - task: DownloadPipelineArtifact@2
+    condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'))
+    displayName: Download signed Windows Packer scripts
+    inputs:
+      source: specific
+      project: $(System.TeamProjectId)
+      definition: 491013
+      buildVersionToDownload: specific
+      pipelineId: $(CSE_SIGNING_BUILD_ID)
+      artifactName: windows-cse-package
+      itemPattern: 'signed-powershell-scripts/vhdbuilder/packer/windows/*.ps1'
+      targetPath: $(Pipeline.Workspace)/windows-signed-scripts/$(CSE_SIGNING_BUILD_ID)
 
   - task: AzureCLI@2
     condition: and(succeeded(), ne(variables.skipping_vhd_build, 'true'))
@@ -144,6 +161,7 @@ steps:
       AZURE_MSI_RESOURCE_STRING: $(AZURE_MSI_RESOURCE_STRING)
       BUILD_DATE: $(BUILD_DATE)
       WINDOWS_CSE_PACKAGE_URI: ${{ parameters.csePackageDir }}/${{ parameters.csePackageFileName }}
+      WINDOWS_SIGNED_POWERSHELL_SCRIPTS_DIR: $(Pipeline.Workspace)/windows-signed-scripts/$(CSE_SIGNING_BUILD_ID)/signed-powershell-scripts
       DRY_RUN: $(DRY_RUN)
       ENVIRONMENT: $(ENVIRONMENT)
       GENERATE_PUBLISHING_INFO: $(GENERATE_PUBLISHING_INFO)
