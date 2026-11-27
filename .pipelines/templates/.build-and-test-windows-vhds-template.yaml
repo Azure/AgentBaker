@@ -74,6 +74,47 @@ stages:
         inputs:
           artifactName: windows-cse-package
           targetPath: ${{ parameters.csePublishDir }}
+    - job: SignPowerShellScripts
+      displayName: Sign PowerShell Scripts
+      pool:
+        vmImage: windows-2022
+      timeoutInMinutes: 120
+      steps:
+      - checkout: none
+      - task: PowerShell@2
+        displayName: Run and wait for PowerShell script signing
+        inputs:
+          targetType: inline
+          pwsh: true
+          script: |
+            $ErrorActionPreference = 'Stop'
+            if ([string]::IsNullOrWhiteSpace($env:SYSTEM_ACCESSTOKEN)) {
+              throw 'System.AccessToken is required to queue the signing pipeline.'
+            }
+            $headers = @{ Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN" }
+            $buildsUri = "$($env:SYSTEM_COLLECTIONURI)$($env:SYSTEM_TEAMPROJECTID)/_apis/build/builds"
+            $body = @{
+              definition = @{ id = 491013 }
+              sourceBranch = $env:BUILD_SOURCEBRANCH
+              sourceVersion = $env:BUILD_SOURCEVERSION
+            } | ConvertTo-Json
+            $build = Invoke-RestMethod -Method Post -Uri "${buildsUri}?api-version=7.1" -Headers $headers -ContentType 'application/json' -Body $body -TimeoutSec 60
+            if (-not $build.id) {
+              throw 'Queueing the signing pipeline did not return a build ID.'
+            }
+            $buildId = $build.id
+            Write-Host "Signing pipeline run: $($build._links.web.href) (ID: $buildId)"
+            while ($build.status -ne 'completed') {
+              Write-Host "Signing pipeline run $buildId status: $($build.status)"
+              Start-Sleep -Seconds 15
+              $build = Invoke-RestMethod -Method Get -Uri "${buildsUri}/${buildId}?api-version=7.1" -Headers $headers -TimeoutSec 60
+            }
+            if ($build.result -ne 'succeeded') {
+              throw "Signing pipeline run $buildId finished with result: $($build.result)"
+            }
+            Write-Host "Signing pipeline run $buildId succeeded."
+        env:
+          SYSTEM_ACCESSTOKEN: $(System.AccessToken)
   - template: ./.build-and-test-windows-vhd-template.yaml
     parameters:
       stageName: win_2022_v1

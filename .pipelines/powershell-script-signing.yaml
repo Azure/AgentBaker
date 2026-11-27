@@ -12,7 +12,7 @@ variables:
   WindowsContainerImage: 'onebranch.azurecr.io/windows/ltsc2022/vse2022:latest'
 
 extends:
-  template: v2/OneBranch.Official.CrossPlat.yml@templates
+  template: v2/OneBranch.NonOfficial.CrossPlat.yml@templates
   parameters:
     stages:
       - stage: powershell_script_signing
