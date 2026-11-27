@@ -23,8 +23,9 @@ extends:
             pool:
               type: windows
             variables:
+              signingDirectory: '$(Build.ArtifactStagingDirectory)/scripts'
               ob_outputDirectory: '$(Build.ArtifactStagingDirectory)/out'
-              ob_artifactBaseName: signed-powershell-scripts
+              ob_artifactBaseName: windows-cse-package
               ob_artifactSuffix: ''
             steps:
               - checkout: self
@@ -34,13 +35,18 @@ extends:
                 fetchFilter: blob:none
                 sparseCheckoutDirectories: parts staging
               - task: CopyFiles@2
-                displayName: Stage PowerShell scripts
+                displayName: Stage Windows scripts and CSE assets
                 inputs:
                   SourceFolder: '$(Pipeline.Workspace)/s/AgentBaker'
                   Contents: |
                     parts/windows/**/*.ps1
-                    staging/cse/windows/**/*.ps1
-                  TargetFolder: '$(ob_outputDirectory)'
+                    staging/cse/windows/**
+                    !staging/cse/windows/*.tests.ps1
+                    !staging/cse/windows/*.tests.suites/**
+                    !staging/cse/windows/README
+                    !staging/cse/windows/debug/update-scripts.ps1
+                    !staging/cse/windows/.*
+                  TargetFolder: '$(signingDirectory)'
               - task: PowerShell@2
                 displayName: Verify staged PowerShell scripts
                 inputs:
@@ -48,17 +54,26 @@ extends:
                   pwsh: true
                   script: |
                     $ErrorActionPreference = 'Stop'
-                    $scripts = @(Get-ChildItem -LiteralPath $env:SIGNING_OUTPUT_DIRECTORY -Filter '*.ps1' -File -Recurse -ErrorAction Stop)
+                    $cseDirectory = Join-Path $env:SIGNING_DIRECTORY 'staging/cse/windows'
+                    $scripts = @(Get-ChildItem -LiteralPath $cseDirectory -Filter '*.ps1' -File -Recurse -ErrorAction Stop)
                     if ($scripts.Count -eq 0) {
-                      throw "No PowerShell scripts were staged in $env:SIGNING_OUTPUT_DIRECTORY."
+                      throw "No PowerShell scripts were staged in $cseDirectory."
                     }
                     Write-Host "Staged $($scripts.Count) PowerShell script(s) for signing."
                 env:
-                  SIGNING_OUTPUT_DIRECTORY: $(ob_outputDirectory)
+                  SIGNING_DIRECTORY: $(signingDirectory)
               - task: onebranch.pipeline.signing@1
                 displayName: Sign PowerShell scripts
                 inputs:
                   command: 'sign'
                   signing_profile: 'external_distribution'
                   files_to_sign: '**/*.ps1'
-                  search_root: '$(ob_outputDirectory)'
+                  search_root: '$(signingDirectory)'
+              - task: ArchiveFiles@2
+                displayName: Create signed Windows CSE ZIP
+                inputs:
+                  rootFolderOrFile: '$(signingDirectory)/staging/cse/windows'
+                  includeRootFolder: false
+                  archiveType: zip
+                  archiveFile: '$(ob_outputDirectory)/aks-windows-cse-scripts-current.zip'
+                  replaceExistingArchive: true
