@@ -137,6 +137,26 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
         Assert-MockCalled -CommandName Invoke-CACertificatesRequest -Exactly -Times 0
     }
 
+    It 'registers sovereign refresh for <Location> without requiring opt-in' -TestCases @(
+        @{ Location = 'bleufrancecentral' }
+        @{ Location = 'bleufrancesouth' }
+        @{ Location = 'delosgermanycentral' }
+        @{ Location = 'chinaeast2' }
+        @{ Location = 'usgovvirginia' }
+        @{ Location = 'usdodcentral' }
+        @{ Location = 'germanycentral' }
+        @{ Location = 'germanynortheast' }
+    ) {
+        param($Location)
+        Mock Invoke-CACertificatesRequest -MockWith {
+            throw 'Sovereign certificate refresh must not depend on opt-in'
+        }
+
+        Should-InstallCACertificatesRefreshTask -Location $Location | Should -Be $true
+
+        Assert-MockCalled Invoke-CACertificatesRequest -Exactly -Times 0
+    }
+
     It 'returns true for rcv1p regions when opt-in is enabled' {
         $script:lastRetryUri = $null
         Mock Invoke-CACertificatesRequest -MockWith {
@@ -160,12 +180,18 @@ Describe 'Should-InstallCACertificatesRefreshTask' {
         $script:lastRequestParameters.RetryDelaySeconds | Should -Be 10
     }
 
-    It 'returns false for rcv1p regions when opt-in is disabled' {
+    It 'requires opt-in for public or unknown location <Location>' -TestCases @(
+        @{ Location = 'southcentralus' }
+        @{ Location = 'francecentral' }
+        @{ Location = 'germanywestcentral' }
+        @{ Location = 'unknown' }
+    ) {
+        param($Location)
         Mock Invoke-CACertificatesRequest -MockWith {
             return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":false}' }
         }
 
-        $result = Should-InstallCACertificatesRefreshTask -Location 'southcentralus' -InformationVariable logs 6>$null
+        $result = Should-InstallCACertificatesRefreshTask -Location $Location -InformationVariable logs 6>$null
 
         $result | Should -Be $false
         $logs.Count | Should -Be 1
@@ -398,11 +424,29 @@ Describe 'Get-CACertificates' {
         Assert-MockCalled Import-Certificate -Exactly -Times 0
     }
 
-    It 'imports rcv1p root and intermediate certificates into their LocalMachine stores' {
+    It 'imports rcv1p certificates for <Location> with the appropriate opt-in policy' -TestCases @(
+        @{ Location = 'southcentralus'; Sovereign = $false }
+        @{ Location = 'bleufrancecentral'; Sovereign = $true }
+        @{ Location = 'bleufrancesouth'; Sovereign = $true }
+        @{ Location = 'delosgermanycentral'; Sovereign = $true }
+        @{ Location = 'chinaeast2'; Sovereign = $true }
+        @{ Location = 'usgovvirginia'; Sovereign = $true }
+        @{ Location = 'usdodcentral'; Sovereign = $true }
+        @{ Location = 'germanycentral'; Sovereign = $true }
+        @{ Location = 'germanynortheast'; Sovereign = $true }
+        @{ Location = ' Bleu France South '; Sovereign = $true }
+    ) {
+        param($Location, $Sovereign)
+        $script:retryUris = @()
+        $script:sovereign = $Sovereign
         Mock Invoke-CACertificatesRequest -MockWith {
             param($Command, $Args, $Retries, $RetryDelaySeconds)
             $uri = $PSBoundParameters['Args'].Uri
+            $script:retryUris += $uri
             if ($uri -eq 'http://168.63.129.16/acms/isOptedInForRootCerts') {
+                if ($script:sovereign) {
+                    return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":false}' }
+                }
                 return [PSCustomObject]@{ Content = '{"IsOptedInForRootCerts":true}' }
             }
             if ($uri -like '*type=operationrequestsroot&*') {
@@ -414,9 +458,16 @@ Describe 'Get-CACertificates' {
             return [PSCustomObject]@{ Content = 'certificate-body' }
         }
 
-        $result = Get-CACertificates -Location 'southcentralus'
+        $result = Get-CACertificates -Location $Location -FailOnError
 
         $result | Should -Be $true
+        if ($Sovereign) {
+            $script:retryUris | Should -Not -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        } else {
+            $script:retryUris | Should -Contain 'http://168.63.129.16/acms/isOptedInForRootCerts'
+        }
+        $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=operationrequestsroot&ext=json'
+        $script:retryUris | Should -Contain 'http://168.63.129.16/machine?comp=acmspackage&type=operationrequestsintermediate&ext=json'
         [IO.File]::ReadAllBytes((Join-Path $TestDrive 'root.crt')) | Should -Not -Contain 0
         [IO.File]::ReadAllBytes((Join-Path $TestDrive 'intermediate.crt')) | Should -Not -Contain 0
         Assert-MockCalled -CommandName Import-Certificate -Exactly -Times 1 -ParameterFilter {
@@ -601,10 +652,16 @@ Describe 'CA refresh logging' {
         }
     }
 
-    It 'logs opt-out without fetching or importing any certificates' {
+    It 'logs opt-out without fetching or importing certificates for <Location>' -TestCases @(
+        @{ Location = 'southcentralus' }
+        @{ Location = 'francecentral' }
+        @{ Location = 'germanywestcentral' }
+        @{ Location = 'unknown' }
+    ) {
+        param($Location)
         $script:optIn = $false
 
-        $output = @(Get-CACertificates -Location 'southcentralus' 6>&1)
+        $output = @(Get-CACertificates -Location $Location 6>&1)
 
         $output[-1] | Should -Be $false
         ($output -join "`n") | Should -Match 'CA certificates opt-in: False'
@@ -681,12 +738,16 @@ Describe 'CA refresh logging' {
         Assert-MockCalled Import-Certificate -Exactly -Times 0
     }
 
-    It 'throws for empty opted-in data with FailOnError without logging completion' {
+    It 'throws for empty required data in <Location> without logging completion' -TestCases @(
+        @{ Location = 'southcentralus' }
+        @{ Location = 'bleufrancesouth' }
+    ) {
+        param($Location)
         $script:rootResources = @()
         $script:intermediateResources = @()
         $script:capturedLogs = @()
 
-        { Get-CACertificates -Location 'southcentralus' -FailOnError -InformationVariable script:capturedLogs 6>$null } | Should -Throw '*No CA certificates were downloaded*'
+        { Get-CACertificates -Location $Location -FailOnError -InformationVariable script:capturedLogs 6>$null } | Should -Throw '*No CA certificates were downloaded*'
 
         ($script:capturedLogs -join "`n") | Should -Not -Match 'refresh completed:'
     }

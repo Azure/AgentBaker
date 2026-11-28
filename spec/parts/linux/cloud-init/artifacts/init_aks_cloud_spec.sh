@@ -74,6 +74,143 @@ Describe 'init-aks-cloud.sh refresh mode wiring'
     End
 End
 
+Describe 'init-aks-cloud.sh certificate bootstrap'
+    script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
+
+    setup_cert_bootstrap() {
+        __SOURCED__=1 . "$script_path"
+        OPT_IN_RESULT=1
+        RETRIEVE_RESULT=0
+        INSTALL_RESULT=0
+        is_opted_in_for_root_certs() {
+            echo 'public opt-in check'
+            return "$OPT_IN_RESULT"
+        }
+        logs_to_events() { shift; "$@"; }
+        emit_event() { :; }
+        mkdir() { :; }
+        rm() { :; }
+        find() { echo 'root.crt'; }
+        retrieve_legacy_certs() { echo 'legacy download'; }
+        retrieve_rcv1p_certs() {
+            echo 'operation-request download'
+            return "$RETRIEVE_RESULT"
+        }
+        install_certs_to_trust_store() {
+            echo 'trust store installation'
+            return "$INSTALL_RESULT"
+        }
+    }
+    BeforeEach 'setup_cert_bootstrap'
+
+    run_cert_bootstrap() {
+        refresh_location=$1
+        location_normalized=$1
+        . <(sed -n '/^cert_endpoint_mode=/,/^# In ca-refresh mode/p' "$script_path")
+        echo "refresh schedule: $install_ca_refresh_schedule"
+    }
+
+    Describe 'sovereign operation-request clouds'
+        Parameters
+            'bleufrancecentral'
+            'bleufrancesouth'
+            'delosgermanycentral'
+            'chinaeast2'
+            'usgovvirginia'
+            'usdodcentral'
+            'germanycentral'
+            'germanynortheast'
+            ' Bleu France South '
+        End
+
+        It "downloads and schedules refresh for '$1' without requiring opt-in"
+            When run run_cert_bootstrap "$1"
+            The status should be success
+            The stdout should include 'operation-request download'
+            The stdout should include 'trust store installation'
+            The stdout should include 'refresh schedule: 1'
+            The stdout should not include 'public opt-in check'
+            The stdout should not include 'legacy download'
+            The stderr should be blank
+        End
+    End
+
+    Describe 'legacy sovereign clouds'
+        Parameters
+            'ussecwest'
+            'usnateast'
+        End
+
+        It "preserves the legacy endpoint for '$1' without checking opt-in"
+            When run run_cert_bootstrap "$1"
+            The status should be success
+            The stdout should include 'legacy download'
+            The stdout should include 'trust store installation'
+            The stdout should include 'refresh schedule: 1'
+            The stdout should not include 'public opt-in check'
+            The stdout should not include 'operation-request download'
+            The stderr should be blank
+        End
+    End
+
+    Describe 'public and unknown locations'
+        Parameters
+            'eastus'
+            'francecentral'
+            'germanywestcentral'
+            'unknown'
+            ''
+        End
+
+        It "does not download or schedule refresh for '$1' without opt-in"
+            When run run_cert_bootstrap "$1"
+            The status should be success
+            The stdout should include 'public opt-in check'
+            The stdout should include 'refresh schedule: 0'
+            The stdout should not include 'operation-request download'
+            The stdout should not include 'trust store installation'
+            The stderr should be blank
+        End
+    End
+
+    It 'continues to download and schedule refresh for opted-in public nodes'
+        OPT_IN_RESULT=0
+        When run run_cert_bootstrap 'eastus'
+        The status should be success
+        The stdout should include 'public opt-in check'
+        The stdout should include 'operation-request download'
+        The stdout should include 'trust store installation'
+        The stdout should include 'refresh schedule: 1'
+        The stderr should be blank
+    End
+
+    It 'fails public provisioning when opt-in cannot be determined'
+        OPT_IN_RESULT=2
+        When run run_cert_bootstrap 'eastus'
+        The status should eq 1
+        The stdout should include 'ERROR: cannot provision node'
+        The stdout should not include 'operation-request download'
+        The stderr should be blank
+    End
+
+    It 'fails sovereign provisioning when certificate retrieval fails'
+        RETRIEVE_RESULT=1
+        When run run_cert_bootstrap 'bleufrancesouth'
+        The status should eq 1
+        The stdout should include 'ERROR: failed to retrieve rcv1p certificates'
+        The stdout should not include 'trust store installation'
+        The stderr should be blank
+    End
+
+    It 'fails sovereign provisioning when trust store installation fails'
+        INSTALL_RESULT=1
+        When run run_cert_bootstrap 'bleufrancesouth'
+        The status should eq 1
+        The stderr should include 'ERROR: failed to install rcv1p CA certificates'
+        The stdout should not include 'refresh schedule:'
+    End
+End
+
 Describe 'init-aks-cloud.sh repo initialization dispatch'
     script_path='./parts/linux/cloud-init/artifacts/init-aks-cloud.sh'
 
@@ -637,7 +774,7 @@ EOF
     # Cloud coverage:
     #   legacy : ussec (US Secret), usnat (US Nationwide), incl. suffixed regions
     #   rcv1p  : fairfax/usgovvirginia (US Gov), mooncake/chinaeast2 (China),
-    #            bleu/francesouth (France), and empty location
+    #            bleu/bleufrancesouth (France), and empty location
     Describe 'determine_cert_endpoint_mode'
         It 'returns legacy for ussec region'
             When call determine_cert_endpoint_mode "ussec"
@@ -670,7 +807,7 @@ EOF
         End
 
         It 'returns rcv1p for bleu (EU sovereign)'
-            When call determine_cert_endpoint_mode "francesouth"
+            When call determine_cert_endpoint_mode "bleufrancesouth"
             The output should eq "rcv1p"
         End
 

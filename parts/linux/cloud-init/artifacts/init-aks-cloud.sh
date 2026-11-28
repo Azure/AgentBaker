@@ -579,6 +579,23 @@ function determine_cert_endpoint_mode {
     echo "$mode"
 }
 
+function should_install_rcv1p_certs {
+    local location="$1"
+    local normalized="${location,,}"
+    normalized="${normalized//[[:space:]]/}"
+
+    # Match the sovereign locations in datamodel.GetCloudTargetEnv. WireServer
+    # uses opt-in to select certificate data, not to deny non-opted-in packages.
+    case "$normalized" in
+        china*|usgov*|usdod*|germanynortheast|germanycentral|bleu*|delos*|ussec*|usnat*)
+            echo "Retrieving sovereign cloud CA certificates without an opt-in prerequisite"
+            return 0
+            ;;
+    esac
+
+    is_opted_in_for_root_certs
+}
+
 # shellcheck disable=SC2317
 ${__SOURCED__:+return}
 
@@ -609,7 +626,7 @@ echo "Running on $NAME"
 
 # Certificate refresh behavior summary:
 # - legacy mode directly attempts certificate download from wireserver and only in ussec and usnat regions.
-# - rcv1p mode first checks IsOptedInForRootCerts, then downloads only when opted in.
+# - rcv1p mode always downloads for sovereign clouds; public clouds require opt-in.
 # - Wireserver failures are fatal — cert installation must succeed for the selected mode.
 
 refresh_location="${2:-${LOCATION}}"
@@ -636,7 +653,7 @@ if [ "$cert_endpoint_mode" = "legacy" ]; then
         exit 1
     fi
 elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
-    logs_to_events "AKS.CSE.rcv1p.isOptedIn" is_opted_in_for_root_certs
+    logs_to_events "AKS.CSE.rcv1p.shouldInstallCerts" should_install_rcv1p_certs "$refresh_location"
     opt_in_result=$?
     if [ $opt_in_result -eq 2 ]; then
         # Fatal: wireserver was unreachable after retries. We cannot determine whether
@@ -648,7 +665,7 @@ elif [ "$cert_endpoint_mode" = "rcv1p" ]; then
         exit 1
     elif [ $opt_in_result -eq 0 ]; then
         install_ca_refresh_schedule=1
-        emit_event "AKS.CSE.rcv1p.optedIn" "IsOptedInForRootCerts=true"
+        emit_event "AKS.CSE.rcv1p.certificatesRequired" "location=${location_normalized}"
         if logs_to_events "AKS.CSE.rcv1p.retrieveCerts" retrieve_rcv1p_certs; then
             cert_count=$(find /root/AzureCACertificates -name '*.crt' 2>/dev/null | wc -l)
             emit_event "AKS.CSE.rcv1p.certCount" "downloaded ${cert_count} certificates"

@@ -289,8 +289,20 @@ function Get-CertEndpointModeFromLocation {
         return "legacy"
     }
 
-    # All other regions use the rcv1p endpoint mode with opt-in gating.
+    # All other regions use the rcv1p endpoint mode.
     return "rcv1p"
+}
+
+function Test-SovereignCloudLocation {
+    Param(
+        [Parameter(Mandatory = $true)][string]
+        $Location
+    )
+
+    # Match datamodel.GetCloudTargetEnv rather than treating every unknown region
+    # as sovereign. WireServer selects the appropriate data using the VM opt-in.
+    $normalizedLocation = $Location.ToLowerInvariant() -replace '\s', ''
+    return ($normalizedLocation -match '^(china.*|usgov.*|usdod.*|germanynortheast|germanycentral|bleu.*|delos.*|ussec.*|usnat.*)$')
 }
 
 function Invoke-CACertificatesRequest {
@@ -333,7 +345,7 @@ function Should-InstallCACertificatesRefreshTask {
         return $true
     }
     $certEndpointMode = Get-CertEndpointModeFromLocation -Location $Location
-    if ($certEndpointMode -eq "legacy") {
+    if ($certEndpointMode -eq "legacy" -or (Test-SovereignCloudLocation -Location $Location)) {
         return $true
     }
 
@@ -438,15 +450,19 @@ function Get-CACertificates {
             return $true
         }
 
-        $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
-        # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
-        # TimeoutSec=30 bounds a stalled response so retries cannot exceed ~400s.
-        $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
-        $optInJson = $optInResponse.Content | ConvertFrom-Json
-        Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
-        if ($optInJson.IsOptedInForRootCerts -ne $true) {
-            Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
-            return $false
+        if (Test-SovereignCloudLocation -Location $Location) {
+            Write-Log "Retrieving sovereign cloud CA certificates without an opt-in prerequisite"
+        } else {
+            $optInUri = 'http://168.63.129.16/acms/isOptedInForRootCerts'
+            # Wireserver opt-in check: 10 retries to match Linux make_request_with_retry.
+            # TimeoutSec=30 bounds a stalled response so retries cannot exceed ~400s.
+            $optInResponse = Invoke-CACertificatesRequest -Command 'Invoke-WebRequest' -Args @{Uri=$optInUri; UseBasicParsing=$true; TimeoutSec=30} -Retries 10 -RetryDelaySeconds 10
+            $optInJson = $optInResponse.Content | ConvertFrom-Json
+            Write-Log "CA certificates opt-in: $($optInJson.IsOptedInForRootCerts -eq $true)"
+            if ($optInJson.IsOptedInForRootCerts -ne $true) {
+                Write-Log "Skipping custom cloud root cert installation because IsOptedInForRootCerts is not true"
+                return $false
+            }
         }
 
         $operationRequestTypes = @("operationrequestsroot", "operationrequestsintermediate")
@@ -507,7 +523,7 @@ function Get-CACertificates {
 
         if (-not $downloadedAny) {
             if ($FailOnError) {
-                throw "No CA certificates were downloaded in rcv1p mode despite IsOptedInForRootCerts=true"
+                throw "No CA certificates were downloaded in rcv1p mode"
             }
             Write-Log "Warning: no CA certificates were downloaded in rcv1p mode"
         }
