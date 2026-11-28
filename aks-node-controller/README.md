@@ -265,6 +265,18 @@ This does not add support for non-distro template conditions.
 ANC skips application when the local platform's YAML is absent; no separate
 activation flag is needed. Other payload read errors are logged.
 
+The hotfix workflow runs `hotfix/hotfix_generate.py` with
+`--use-anc-for-scripts`. For VHD bases from `202611.13` onward, script hotfixes
+set the `hotfixes` map to activate embedded delivery. All bases retain legacy
+CustomData entries and `scripts_version`. Earlier bases do not get an ANC map
+entry solely for script changes, although payloads are still rendered.
+Independent ANC code changes still set `hotfixes` for any base; if scripts also
+changed, that ANC package can apply the embedded payload even on an earlier base.
+Running the generator manually without the flag retains legacy pointer behavior
+(script changes set only `scripts_version`); embedded payloads are still rendered.
+Both payloads include all selected scripts changed since the immutable VHD
+baseline tag, not just the latest PR's changes.
+
 When a PR has no new script hotfix, generation leaves the existing rendered
 payload unchanged. The active ANC version pointer is likewise retained until it
 is retired explicitly.
@@ -280,7 +292,7 @@ hotfixes to preserve custom-image wrappers. Generation fails explicitly if this
 script differs from the VHD baseline, even when other scripts also changed.
 Wrapper fixes require a new node image until runtime eligibility is available.
 
-Script hotfix delivery is package-only. The existing base-to-version hotfix map
+Embedded script hotfix delivery is package-only. The existing base-to-version hotfix map
 selects the ANC package for the node's baked `YYYYMM.DD` version base; the package
 contains its corresponding rendered scripts. If the package cannot be installed,
 provisioning fails open to the original VHD scripts. The operational fallback is

@@ -2,7 +2,9 @@ import io
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -56,6 +58,177 @@ TRADITIONAL_TEMPLATE = """- path: {{GetCSEHelpersScriptFilepath}}
 
 
 class HotfixGenerateTests(unittest.TestCase):
+    def test_main_generates_cumulative_dual_delivery_and_preserves_legacy_mode(self):
+        repository = Path(__file__).resolve().parents[1]
+        run = subprocess.run
+        original_directory = Path.cwd()
+        legacy_payloads = {}
+
+        for base, use_anc in (
+            ("202611.12", False), ("202611.12", True),
+            ("202611.13", False), ("202611.13", True),
+        ):
+            with self.subTest(base=base, use_anc=use_anc), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+
+                def git(*args):
+                    return run(
+                        ["git", *args], cwd=root, check=True, capture_output=True,
+                        text=True,
+                    )
+
+                for relative in (
+                    hotfix_generate.TEMPLATE,
+                    hotfix_generate.LINUX_SIG_VERSION_FILE,
+                ):
+                    target = root / relative
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(repository / relative, target)
+                with mock.patch.object(
+                    hotfix_generate, "TEMPLATE", str(root / hotfix_generate.TEMPLATE)
+                ), mock.patch("sys.stderr", new_callable=io.StringIO):
+                    hotfix_generate.update_nodecustomdata(set())
+                generated = root / hotfix_generate.GENERATED_DIR
+                generated.mkdir(parents=True)
+                (generated / "README").write_text("No script hotfix payloads.\n")
+                (root / hotfix_generate.LINUX_SIG_VERSION_FILE).write_text(
+                    json.dumps({"version": f"{base}.0"}) + "\n"
+                )
+                (root / hotfix_generate.ARTIFACTS_DIR).mkdir()
+                sources = ("cse_helpers.sh", "cse_main.sh")
+                for source in sources:
+                    (root / hotfix_generate.ARTIFACTS_DIR / source).write_text(
+                        "#!/bin/bash\n"
+                    )
+                git("init", "--quiet")
+                git("config", "user.name", "Hotfix Test")
+                git("config", "user.email", "hotfix-test@example.invalid")
+                git("config", "commit.gpgsign", "false")
+                git("config", "tag.gpgsign", "false")
+                git("config", "core.autocrlf", "false")
+                git("add", ".")
+                git("commit", "--quiet", "-m", "VHD baseline")
+                baseline = f"v0.{base.replace('.', '')}.0"
+                git("tag", baseline)
+                original_template = (root / hotfix_generate.TEMPLATE).read_text()
+
+                def run_local(command, **kwargs):
+                    # Network/tag publication is never part of this fixture.
+                    if command[:2] == ["git", "fetch"]:
+                        return subprocess.CompletedProcess(command, 0)
+                    if command[0] == "go":
+                        command = list(command)
+                        for flag in ("--template", "--output-dir"):
+                            index = command.index(flag) + 1
+                            command[index] = str(root / command[index])
+                        kwargs["cwd"] = repository
+                        kwargs["capture_output"] = True
+                    return run(command, **kwargs)
+
+                def generate(base_ref):
+                    args = ["hotfix_generate.py", base_ref]
+                    if use_anc:
+                        args.append("--use-anc-for-scripts")
+                    with mock.patch.object(
+                        sys, "argv", args
+                    ), mock.patch.object(
+                        hotfix_generate.subprocess, "run", side_effect=run_local
+                    ), mock.patch(
+                        "sys.stdout", new_callable=io.StringIO
+                    ), mock.patch("sys.stderr", new_callable=io.StringIO):
+                        hotfix_generate.main()
+
+                def snapshot():
+                    paths = [
+                        root / hotfix_generate.TEMPLATE,
+                        root / hotfix_generate.TARGET_FILE,
+                        *(root / hotfix_generate.GENERATED_DIR).iterdir(),
+                    ]
+                    return {str(path.relative_to(root)): path.read_bytes()
+                            for path in paths if path.is_file()}
+
+                try:
+                    os.chdir(root)
+                    generate(baseline)
+                    self.assertFalse(Path(hotfix_generate.TARGET_FILE).exists())
+                    self.assertEqual(
+                        {"README"},
+                        {path.name for path in Path(hotfix_generate.GENERATED_DIR).iterdir()},
+                    )
+                    for patch, source in enumerate(sources, start=1):
+                        shutil.copyfile(
+                            repository / hotfix_generate.ARTIFACTS_DIR / source,
+                            root / hotfix_generate.ARTIFACTS_DIR / source,
+                        )
+                        generate("HEAD")
+                        version = f"{base}.{patch}"
+                        expected = {"scripts_version": version}
+                        if use_anc and base == "202611.13":
+                            expected["hotfixes"] = {base: version}
+                        self.assertEqual(
+                            expected,
+                            json.loads(Path(hotfix_generate.TARGET_FILE).read_text()),
+                        )
+                        generated = Path(hotfix_generate.GENERATED_DIR)
+                        self.assertEqual(
+                            {f"rendered_nodecustomdata_{os_name}.yml"
+                             for os_name in ("ubuntu", "mariner")},
+                            {path.name for path in generated.iterdir()},
+                        )
+                        for payload in generated.iterdir():
+                            content = payload.read_text()
+                            self.assertNotIn("{{", content)
+                            self.assertEqual(1, content.count(
+                                "- path: /opt/azure/containers/provision_source.sh"
+                            ))
+                            self.assertIn("ERR_SYSTEMCTL_START_FAIL=4", content)
+                            if patch == 2:
+                                self.assertEqual(1, content.count(
+                                    "- path: /opt/azure/containers/provision.sh"
+                                ))
+                                self.assertIn("ERR_FILE_WATCH_TIMEOUT=6", content)
+                        template = Path(hotfix_generate.TEMPLATE).read_text()
+                        injected = template.split(hotfix_generate.SCRIPTS_BEGIN, 1)[1]
+                        injected = injected.split(hotfix_generate.SCRIPTS_END, 1)[0]
+                        self.assertIn('"provisionSource"', injected)
+                        if patch == 2:
+                            self.assertIn('"provisionScript"', injected)
+                        before = snapshot()
+                        payloads = {path: content for path, content in before.items()
+                                    if path != str(Path(hotfix_generate.TARGET_FILE))}
+                        if use_anc:
+                            self.assertEqual(legacy_payloads[(base, patch)], payloads)
+                        else:
+                            legacy_payloads[(base, patch)] = payloads
+                        generate("HEAD")
+                        self.assertEqual(before, snapshot())
+                        git("add", ".")
+                        git("commit", "--quiet", "-m", f"Script hotfix {patch}")
+                        git("tag", f"v0.{base.replace('.', '')}.{patch}")
+                        generate("HEAD")
+                        self.assertEqual(before, snapshot())
+
+                    hotfix_generate.update_nodecustomdata(set())
+                    self.assertEqual(
+                        original_template, Path(hotfix_generate.TEMPLATE).read_text()
+                    )
+                finally:
+                    os.chdir(original_directory)
+
+    def test_workflow_enables_dual_script_delivery(self):
+        repository = Path(__file__).resolve().parents[1]
+        workflow = repository / ".github/workflows/hotfix-generate.yml"
+        commands = [
+            line.strip()
+            for line in workflow.read_text().splitlines()
+            if line.strip().startswith("python3 hotfix/hotfix_generate.py ")
+        ]
+        self.assertEqual(
+            ['python3 hotfix/hotfix_generate.py "origin/${GITHUB_BASE_REF}" '
+             '--use-anc-for-scripts'],
+            commands,
+        )
+
     def test_production_renderer_omits_empty_platform_payloads(self):
         repository = Path(__file__).resolve().parents[1]
         lines = (repository / hotfix_generate.TEMPLATE).read_text().splitlines(
@@ -564,30 +737,47 @@ write_files:
         with mock.patch.object(
             hotfix_generate,
             "bump_version",
-            return_value="202608.14.1",
+            return_value="202611.13.1",
         ):
             self.assertEqual(
-                ("", "202608.14.1"),
+                ("", "202611.13.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202608.14.0",
+                    "202611.13.0",
                     anc_changed=False,
                     script_hotfix_changed=True,
                     use_anc_for_scripts=False,
                 ),
             )
 
-    def test_resolve_hotfix_versions_adds_hotfix_for_anc_script_delivery(self):
+    def test_resolve_hotfix_versions_gates_script_anc_delivery_by_vhd_base(self):
+        for base, enabled in (
+            ("202607.10", False),
+            ("202611.12", False),
+            ("202611.13", True),
+            ("202611.14", True),
+            ("202701.01", True),
+        ):
+            with self.subTest(base=base), mock.patch.object(
+                hotfix_generate, "bump_version", return_value=f"{base}.1"
+            ):
+                self.assertEqual(
+                    (f"{base}.1" if enabled else "", f"{base}.1"),
+                    hotfix_generate.resolve_hotfix_versions(
+                        f"{base}.0",
+                        anc_changed=False,
+                        script_hotfix_changed=True,
+                        use_anc_for_scripts=True,
+                    ),
+                )
+
+    def test_old_vhd_keeps_independent_anc_hotfix_with_scripts(self):
         with mock.patch.object(
-            hotfix_generate,
-            "bump_version",
-            return_value="202608.14.1",
+            hotfix_generate, "bump_version", return_value="202611.12.1"
         ):
             self.assertEqual(
-                ("202608.14.1", "202608.14.1"),
+                ("202611.12.1", "202611.12.1"),
                 hotfix_generate.resolve_hotfix_versions(
-                    "202608.14.0",
-                    anc_changed=False,
-                    script_hotfix_changed=True,
+                    "202611.12.0", anc_changed=True, script_hotfix_changed=True,
                     use_anc_for_scripts=True,
                 ),
             )
