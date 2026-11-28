@@ -44,7 +44,23 @@ matchLocalSysext() {
 }
 
 matchRemoteSysext() {
-    local seURL=$1 desiredVer=$2 seArch=$3
+    local seName=$1 seURL=$2 desiredVer=$3 seArch=$4
+    case "${seName}:${seArch}" in
+        nvidia-*:x86-64)
+            # ACL AMD64 GPU tags are formatted as <VERSION_ID> (no architecture suffix).
+            echo "${desiredVer}"
+            return 0
+            ;;
+        nvidia-*:arm64)
+            # ACL ARM64 GPU tags are formatted as <VERSION_ID>-arm64.
+            echo "${desiredVer}-arm64"
+            return 0
+            ;;
+        nvidia-*:*)
+            echo "Unsupported ACL GPU sysext architecture: ${seArch}" >&2
+            return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
+            ;;
+    esac
     # Pinned tags also work with isolated registries that cannot enumerate tags.
     case "${desiredVer}" in
         *-azlinux3)
@@ -74,7 +90,7 @@ mergeSysexts() {
         if ! test -f "${seMatch}"; then
             echo "Failed to find valid ${seName} system extension for ${desiredVer} locally"
 
-            seMatch=$(matchRemoteSysext "${seURL}" "${desiredVer}" "${seArch}")
+            seMatch=$(matchRemoteSysext "${seName}" "${seURL}" "${desiredVer}" "${seArch}")
             if [ -z "${seMatch}" ]; then
                 echo "Failed to find valid ${seName} system extension for ${desiredVer} remotely"
                 return "${ERR_ORAS_PULL_SYSEXT_FAIL}"
@@ -178,13 +194,15 @@ getACLVersionID() {
 }
 
 # Pulls a GPU-related sysext by name using the ACL MCR registry.
-# Registry path uses major.minor (e.g. 3.0), tag uses full VERSION_ID (e.g. 3.0.20260304).
-# Example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda:3.0.20260304
+# Registry path uses the ACL major.minor version (e.g. 3.0).
+# Tags use <VERSION_ID> on AMD64 and <VERSION_ID>-arm64 on ARM64.
+# AMD64 example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open:3.0.20260304
+# ARM64 example: mcr.microsoft.com/azurelinux/3.0/azure-container-linux/nvidia-driver-cuda-open:3.0.20260304-arm64
 installACLGPUSysext() {
     local sysext_name=$1
     local version_id
     version_id=$(getACLVersionID) || exit $ERR_SYSEXT_VERSION_ID_NOT_FOUND
-    local mcr_base="${MCR_REPOSITORY_BASE:-mcr.microsoft.com}"
+    local mcr_base="${BOOTSTRAP_PROFILE_CONTAINER_REGISTRY_SERVER:-${MCR_REPOSITORY_BASE:-mcr.microsoft.com}}"
     local registry_base="${mcr_base%/}/azurelinux/${version_id%.*}/azure-container-linux"
     mergeSysexts "${sysext_name}" "${registry_base}/${sysext_name}" "${version_id}" \
         || exit $ERR_ORAS_PULL_SYSEXT_FAIL
