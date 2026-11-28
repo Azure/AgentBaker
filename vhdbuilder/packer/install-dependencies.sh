@@ -46,6 +46,18 @@ string_replace() {
   echo ${1//\*/$2}
 }
 
+configureNetworkdNetlinkTimeout() {
+  if isUbuntu "$OS" && [ "$OS_VERSION" = "24.04" ]; then
+    local drop_in_dir="/etc/systemd/system/systemd-networkd.service.d"
+    mkdir -p "$drop_in_dir" || return 1
+    tee "$drop_in_dir/10-netlink-timeout.conf" > /dev/null <<'EOF' || return 1
+[Service]
+Environment=SYSTEMD_NETLINK_DEFAULT_TIMEOUT=250s
+EOF
+    chmod 644 "$drop_in_dir/10-netlink-timeout.conf" || return 1
+  fi
+}
+
 configureServiceExecutionTelemetryForSystemdVersion() {
     local systemd_version="$1"
     local unit_dir="${2:-/etc/systemd/system}"
@@ -1463,6 +1475,7 @@ if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLin
   # Enable for deployed nodes, without running recovery on the build VM.
   systemctl enable aks-networkd-recovery.timer || exit 1
 fi
+configureNetworkdNetlinkTimeout || exit $ERR_PACKER_COPY_FILE
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
 systemctl daemon-reload
 
