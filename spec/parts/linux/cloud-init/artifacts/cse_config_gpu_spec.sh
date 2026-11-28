@@ -1925,4 +1925,136 @@ EOF
             The variable AMD_AMA_DRIVER_VERSION should equal "1.5.0"
         End
     End
+
+    Describe 'addGPUUUIDNodeLabels'
+        GPU0_LABEL="kubernetes.azure.com/gpu-0-uuid=GPU-117510f6-910b-4afe-a0bd-38fccc8e94a7"
+        GPU1_LABEL="kubernetes.azure.com/gpu-1-uuid=GPU-ffde1b53-f964-8b8e-4f88-04e7a2f09822"
+
+        # Fake gpu-uuid-node-labels.sh that records its arguments and replays canned output and exit status.
+        fake_labels_script_returns() {
+            printf '#!/bin/sh\necho "$@" > "%s/args"\nprintf "%%s" "%s"\nexit %s\n' "${GPU_UUID_TEST_DIR}" "$1" "$2" > "${GPU_UUID_NODE_LABELS_SCRIPT}"
+        }
+
+        setup_gpu_uuid_labels() {
+            GPU_UUID_TEST_DIR="$(command mktemp -d)"
+            GPU_UUID_NODE_LABELS_SCRIPT="${GPU_UUID_TEST_DIR}/gpu-uuid-node-labels.sh"
+            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=gpu"
+        }
+
+        cleanup_gpu_uuid_labels() {
+            command rm -rf "${GPU_UUID_TEST_DIR}"
+        }
+
+        BeforeEach 'setup_gpu_uuid_labels'
+        AfterEach 'cleanup_gpu_uuid_labels'
+
+        It 'adds the labels printed by gpu-uuid-node-labels.sh and keeps existing labels'
+            fake_labels_script_returns "${GPU0_LABEL}
+${GPU1_LABEL}
+" 0
+
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "added 2 GPU UUID node label(s)"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu,${GPU0_LABEL},${GPU1_LABEL}"
+            The contents of file "${GPU_UUID_TEST_DIR}/args" should equal "labels"
+        End
+
+        It 'adds nothing when the node has no physical GPUs to label'
+            fake_labels_script_returns "" 0
+
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "added 0 GPU UUID node label(s)"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu"
+        End
+
+        It 'skips without failing when gpu-uuid-node-labels.sh is not on the VHD'
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "gpu-uuid-node-labels.sh not found, skipping GPU UUID node labels"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu"
+        End
+
+        It 'skips without failing when nvidia-smi is not on the host'
+            fake_labels_script_returns "" 2
+
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "nvidia-smi is not on the host, skipping GPU UUID node labels"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu"
+        End
+
+        It 'adds no labels and does not fail provisioning when the GPU inventory is incomplete'
+            fake_labels_script_returns "${GPU0_LABEL}
+" 1
+
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "warning: could not read the complete GPU inventory, skipping GPU UUID node labels"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu"
+        End
+
+        It 'does not duplicate a GPU UUID label that is already present'
+            KUBELET_NODE_LABELS="kubernetes.azure.com/agentpool=gpu,${GPU0_LABEL}"
+            fake_labels_script_returns "${GPU0_LABEL}
+" 0
+
+            When call addGPUUUIDNodeLabels
+
+            The status should be success
+            The output should include "already present, nothing to add"
+            The variable KUBELET_NODE_LABELS should equal "kubernetes.azure.com/agentpool=gpu,${GPU0_LABEL}"
+        End
+    End
+
+    Describe 'enableGPUUUIDNodeLabelsReconciler'
+        systemctlEnableAndStartNoBlock() {
+            echo "systemctlEnableAndStartNoBlock $*"
+            return "${START_STATUS}"
+        }
+
+        systemctl() {
+            echo "systemctl $*"
+            return "${UNIT_STATUS}"
+        }
+
+        setup_reconciler() {
+            START_STATUS=0
+            UNIT_STATUS=0
+        }
+
+        BeforeEach 'setup_reconciler'
+
+        It 'enables and starts gpu-uuid-node-labels.service without blocking'
+            When call enableGPUUUIDNodeLabelsReconciler
+
+            The status should be success
+            The output should equal "systemctlEnableAndStartNoBlock gpu-uuid-node-labels 30"
+        End
+
+        It 'skips when the unit is not on the VHD'
+            UNIT_STATUS=1
+
+            When call enableGPUUUIDNodeLabelsReconciler
+
+            The status should be success
+            The output should include "gpu-uuid-node-labels.service not found on this VHD, skipping"
+            The output should not include "systemctlEnableAndStartNoBlock"
+        End
+
+        It 'does not fail provisioning when the unit cannot be started'
+            START_STATUS=1
+
+            When call enableGPUUUIDNodeLabelsReconciler
+
+            The status should be success
+            The output should include "warning: could not start gpu-uuid-node-labels.service"
+        End
+    End
 End

@@ -585,6 +585,13 @@ function nodePrep {
         logs_to_events "AKS.CSE.setupAmdAma" setupAmdAma
     fi
 
+    # Label each physical GPU's UUID before ensureKubelet so the labels are in --node-labels at registration.
+    # Read-only and skipped unless a driver is already loaded, so it also covers nodes that skip the AKS driver
+    # install. It is outside the GPU driver block above, which must not act on those nodes.
+    if [ "${GPU_NODE}" = "true" ]; then
+        logs_to_events "AKS.CSE.addGPUUUIDNodeLabels" addGPUUUIDNodeLabels
+    fi
+
 
     # Edge case scenarios:
     # high retry times to wait for new API server DNS record to replicate (e.g. stop and start cluster)
@@ -656,6 +663,11 @@ function nodePrep {
     fi
 
     logs_to_events "AKS.CSE.ensureKubelet" ensureKubelet
+
+    # Keep the GPU UUID labels correct on later boots; runs in the background and never blocks provisioning.
+    if [ "${GPU_NODE}" = "true" ]; then
+        logs_to_events "AKS.CSE.enableGPUUUIDNodeLabelsReconciler" enableGPUUUIDNodeLabelsReconciler
+    fi
 
     # Configure localdns metrics exporter socket after ensureKubelet.
     # This is optional observability — don't block provisioning if it fails.
