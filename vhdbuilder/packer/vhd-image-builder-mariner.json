@@ -910,6 +910,13 @@
       ]
     },
     {
+      "type": "shell",
+      "script": "vhdbuilder/packer/validate-kata-cc-uvm-version.sh",
+      "environment_vars": [
+        "FEATURE_FLAGS={{user `feature_flags`}}"
+      ]
+    },
+    {
       "type": "file",
       "direction": "download",
       "source": "/var/log/bcc_installation.log",
