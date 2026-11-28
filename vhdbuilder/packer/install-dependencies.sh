@@ -1459,10 +1459,6 @@ fi
 mkdir -p /var/log/azure/Microsoft.Azure.Extensions.CustomScript/events
 
 configureVulnerableKernelModuleDenyRules || exit $ERR_PACKER_COPY_FILE
-if isAzureLinux "$OS" "$OS_VARIANT" && [ "$OS_VERSION" = "3.0" ] && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
-  # Enable for deployed nodes, without running recovery on the build VM.
-  systemctl enable aks-networkd-recovery.timer || exit 1
-fi
 configureServiceExecutionTelemetryForSystemdVersion "$(systemctl --version | awk 'NR == 1 { print $2 }')" || exit $ERR_PACKER_COPY_FILE
 systemctl daemon-reload
 
