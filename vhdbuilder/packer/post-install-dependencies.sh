@@ -83,6 +83,11 @@ if [ $OS = $UBUNTU_OS_NAME ]; then
   capture_benchmark "${SCRIPT_NAME}_log_and_detach_ua"
 fi
 
+if isAzureLinux "$OS" "$OS_VARIANT" && ! isAzureLinuxOSGuard "$OS" "$OS_VARIANT"; then
+  removeOldAzureLinuxKernels || exit 1
+  capture_benchmark "${SCRIPT_NAME}_remove_old_azurelinux_kernels"
+fi
+
 # shellcheck disable=SC2129
 echo "kubelet/kubectl downloaded:" >> ${VHD_LOGS_FILEPATH}
 ls -ltr /opt/bin/kube* >> ${VHD_LOGS_FILEPATH}
