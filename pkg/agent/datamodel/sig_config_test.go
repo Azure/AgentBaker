@@ -2,6 +2,7 @@ package datamodel
 
 import (
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -55,6 +56,69 @@ var _ = Describe("GetMaintainedLinuxSIGImageConfigMap", func() {
 	})
 })
 
+var _ = Describe("Shared Extended Zone image catalog", func() {
+	DescribeTable("accepts only configured shared and legacy identities",
+		func(distro Distro, expected bool) {
+			Expect(IsEdgeZoneDistro(distro)).To(Equal(expected))
+		},
+		Entry("Ubuntu 22.04", AKSUbuntuContainerd2204, true),
+		Entry("Ubuntu 22.04 Gen2", AKSUbuntuContainerd2204Gen2, true),
+		Entry("Ubuntu 24.04", AKSUbuntuContainerd2404, true),
+		Entry("Ubuntu 24.04 Gen2", AKSUbuntuContainerd2404Gen2, true),
+		Entry("Azure Linux V3", AKSAzureLinuxV3, true),
+		Entry("Azure Linux V3 Gen2", AKSAzureLinuxV3Gen2, true),
+		Entry("legacy Ubuntu", AKSUbuntuEdgeZoneContainerd2404Gen2, true),
+		Entry("legacy Azure Linux", AKSAzureLinuxV3EdgeZoneGen2, true),
+		Entry("Ubuntu FIPS", AKSUbuntuFipsContainerd2204Gen2, false),
+		Entry("Ubuntu ARM64", AKSUbuntuArm64Containerd2404Gen2, false),
+		Entry("Ubuntu CVM", AKSUbuntuContainerd2404CVMGen2, false),
+		Entry("Ubuntu TL", AKSUbuntuContainerd2404TLGen2, false),
+		Entry("Ubuntu Minimal", AKSUbuntuMinimalContainerd2604Gen2, false),
+		Entry("Azure Linux V2", AKSAzureLinuxV2, false),
+		Entry("Azure Linux Kata", AKSAzureLinuxV3Gen2Kata, false),
+		Entry("unconfigured future release", Distro("aks-ubuntu-containerd-28.04-gen2"), false),
+		Entry("unknown legacy name", Distro("aks-ubuntu-edgezone-containerd-28.04-gen2"), false),
+		Entry("case mismatch", Distro("AKS-ubuntu-containerd-24.04-gen2"), false),
+		Entry("empty", Distro(""), false),
+	)
+
+	DescribeTable("checks the exact OS SKU and image definition",
+		func(osSKU, definition string, expected bool) {
+			Expect(IsEdgeZoneSIGImage(osSKU, definition)).To(Equal(expected))
+		},
+		Entry("Ubuntu", "Ubuntu", "2404gen2containerd", true),
+		Entry("Azure Linux", OSSKUAzureLinux, "V3gen2", true),
+		Entry("cross-family", OSSKUAzureLinux, "2404gen2containerd", false),
+		Entry("case mismatch", "ubuntu", "2404gen2containerd", false),
+		Entry("FIPS", "Ubuntu", "2204fipsgen2containerd", false),
+		Entry("unconfigured", "Ubuntu", "2804gen2containerd", false),
+	)
+
+	It("keeps future regional identities and metadata while changing only gallery routing", func() {
+		const future Distro = "aks-ubuntu-containerd-28.04-gen2"
+		regional := map[Distro]SigImageConfig{
+			future: {
+				SubscriptionID: "subscription",
+				SigImageConfigTemplate: SigImageConfigTemplate{
+					Gallery:       "regional",
+					ResourceGroup: "regional-rg",
+					Definition:    "2804gen2containerd",
+					Version:       "202611.09.0",
+				},
+			},
+			AKSUbuntuFipsContainerd2204Gen2: {},
+		}
+		actual := getSigEdgeZoneImageConfigMap(regional, nil)
+		Expect(actual).To(HaveLen(1))
+		expected := regional[future]
+		expected.Gallery = AKSUbuntuEdgeZoneGalleryName
+		expected.ResourceGroup = AKSUbuntuEdgeZoneResourceGroup
+		Expect(actual).To(HaveKeyWithValue(future, expected))
+		Expect(regional[future].Gallery).To(Equal("regional"))
+		Expect(regional[future].ResourceGroup).To(Equal("regional-rg"))
+	})
+})
+
 var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 	var (
 		config SIGConfig
@@ -100,6 +164,11 @@ var _ = Describe("GetSIGAzureCloudSpecConfig", func() {
 		Expect(sigConfig.CloudName).To(Equal("AzurePublicCloud"))
 		Expect(sigConfig.SigTenantID).To(Equal("sometenantid"))
 		Expect(sigConfig.SubscriptionID).To(Equal("somesubid"))
+		Expect(sigConfig.SigEdgeZoneImageConfig).To(HaveLen(6))
+		for distro, image := range sigConfig.SigEdgeZoneImageConfig {
+			Expect(IsEdgeZoneDistro(distro)).To(BeTrue())
+			Expect(image.SubscriptionID).To(Equal("somesubid"))
+		}
 
 		Expect(len(sigConfig.SigUbuntuImageConfig)).To(Equal(20))
 
