@@ -133,6 +133,11 @@ const (
 	// enabledFeaturesFilepath is the KEY=VALUE feature-flag file the aks-node-controller wrapper
 	// reads (its FEATURES_PATH). Scriptless custom data drops it only when a feature toggle is set.
 	enabledFeaturesFilepath = "/opt/azure/containers/enabled_features.sh"
+	// preferHostGAPluginFeature is the EnabledFeatures key that makes the VHD-baked
+	// aks-waagent-prefer-hostgaplugin.py switch WALinuxAgent to the HostGAPlugin download
+	// channel. It is read from enabled_features.sh (scriptless) or preferHostGAPluginMarkerFilepath.
+	preferHostGAPluginFeature        = "PREFER_HOSTGAPLUGIN"
+	preferHostGAPluginMarkerFilepath = "/opt/azure/containers/prefer_hostgaplugin"
 )
 
 const (

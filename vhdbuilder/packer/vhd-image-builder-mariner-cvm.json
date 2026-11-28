@@ -721,6 +721,16 @@
     },
     {
       "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-waagent-prefer-hostgaplugin.py",
+      "destination": "/home/packer/aks-waagent-prefer-hostgaplugin.py"
+    },
+    {
+      "type": "file",
+      "source": "parts/linux/cloud-init/artifacts/aks-waagent-prefer-hostgaplugin.conf",
+      "destination": "/home/packer/aks-waagent-prefer-hostgaplugin.conf"
+    },
+    {
+      "type": "file",
       "source": "parts/linux/cloud-init/artifacts/aks-logrotate.sh",
       "destination": "/home/packer/logrotate.sh"
     },
