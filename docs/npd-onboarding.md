@@ -38,6 +38,9 @@ rpm/tdnf on Azure Linux.
 
 ## VHD package pins (`components.json`)
 
+For the IG pressure diagnostics integration, see
+[Continuous IG diagnostics](#continuous-ig-diagnostics).
+
 `node-problem-detector-kubernetes` and `node-problem-detector-aks-config` follow the
 same convention as other package-backed components (see
 `parts/linux/cloud-init/artifacts/README-COMPONENTS.md`): entries are revisionless
@@ -57,6 +60,145 @@ upstream versions, for example `0.8.25` and `1.0.0`.
 
 This governs only what a new VHD bakes. It goes through the normal VHD build,
 validation, and release process.
+
+## Continuous IG diagnostics
+
+Continuous diagnostics starts by default on Ubuntu and standard Azure Linux 3
+images carrying capability version `1`, amd64/arm64, on cgroup v2. Older images,
+unsupported variants and cgroup v1 retain their current behavior. No opt-in
+marker, RP rollout field or in-place IG updater is introduced.
+
+AgentBaker owns `ig-diagnostics.service`, `/etc/ig.d/diagnostics.yaml` and
+`/usr/share/inspektor-gadget/diagnostics.sh`, plus the recovery script and
+`ig-diagnostics-recovery.service`/`.timer`. Packer installs these alongside the
+existing IG baseline. `install-ig.sh` stops diagnostics/recovery and disables the
+daemon and timer for capture, then writes
+`/etc/ig.d/diagnostics-version` containing `1`. No live reports or collector
+definitions may be captured. The import service remains separate;
+stopping it is not part of the diagnostics lifecycle.
+
+`nodePrep` arms the recovery timer independently, before checking daemon
+prerequisites, then enables/starts diagnostics when they are present. Activation
+is bounded and nonfatal to provisioning; NPD and kubelet do not depend on these
+optional units. Enabled units return after reboot without another CSE run.
+systemd retries failed daemon starts after ten seconds, at most three starts
+within ten minutes; every start reconciles the three owned collectors.
+
+The timer checks every five minutes. On an active daemon, it invokes the
+packaged reader against `collectors.json`. Unavailable reports alone do not
+cause a restart: bounded `gadgetctl show` calls must confirm a missing collector
+or an explicit `Error` state. Running collectors with stale reports, unknown
+states, client timeouts and ongoing service transitions are left unchanged with
+an explicit diagnostic message.
+
+For confirmed failures or inactive/failed services, recovery rechecks
+prerequisites and waits fifteen minutes from the first observed eligible failure.
+It allows at most two additional recovery batches per boot, at least fifteen
+minutes apart. Each batch reserves its budget before `reset-failed` and a
+nonblocking start/restart that refuses conflicting systemd jobs. Recovery also
+defers if the service changed state in the last ten minutes or changed generation
+during the check. The timer may request only two additional starts/restarts;
+the daemon's existing automatic restart policy still applies. The root-only
+budget in `/run/ig-diagnostics-recovery` survives daemon and recovery-unit
+restarts and resets on reboot. Healthy reports clear a pending failure's
+cooldown but never replenish the consumed batch count. Budget exhaustion or
+ambiguous failures require operator investigation. These are conservative
+starting limits, not validated pressure-performance guarantees.
+
+`Running` alone is not readiness: IG can report it before gadget initialization
+finishes. After creating the collectors, the bootstrap invokes the packaged
+reader with `--check-startup` and a private candidate manifest. It waits up to
+30 seconds for fresh, non-initial reports from all three current instances
+(including an empty throttle report). Only then is `collectors.json` published.
+The reader command has a 35-second timeout, within the unit's existing overall
+120-second startup limit. Missing/incompatible readers or unavailable reports
+fail `ExecStartPost`, so systemd stops the daemon and applies its restart policy.
+Every recovery start must pass this same startup gate. The periodic recovery
+check does not add a cold-start fallback to NPD.
+
+The root-only socket is `/run/ig-diagnostics/ig.socket`. The daemon uses its own
+persistent definitions directory, bind-mounted over IG's fixed
+`/var/lib/ig/gadgets` path inside the service mount namespace. Imported images
+remain shared. Reconciliation replaces only `aks-npd-cpu-v1`,
+`aks-npd-memory-v1` and `aks-npd-throttle-v1`, with no registry pulls. The initial
+settings are five-second reports and fifteen server-limited entries per
+collector. CPU and memory use separate process sorts; throttle uses its own
+cgroup datasource. These settings and the combined resource budget still need
+representative AKS validation with the pinned IG 0.57.0 package.
+
+Reports are root-restricted at `/run/ig-diagnostics/reports.ndjson`, with a 1 MiB
+active file and one uncompressed backup, maximum age one day. The buffer uses
+the host's `/run` tmpfs and is removed when the service stops or the node reboots;
+it is not persistent troubleshooting history. Rotation limits retention, not
+the size of the shared tmpfs, and cleanup can temporarily retain an extra backup.
+The reader also supports older images' `/var/log/ig-diagnostics/gadget.log` when
+no runtime report files exist. It reads at most 8 MiB across the selected active
+file and up to two rotations, matching the file's suffix.
+`/run/ig-diagnostics/collectors.json` atomically identifies
+the boot, reconciliation generation and exact instance IDs. Initial, incomplete,
+stale (over ten seconds), future or mismatched reports are rejected. Fresh empty
+throttle data stays empty. Successful telemetry is explicitly described as
+recent pre-trigger history; it may not include a newly started workload.
+
+### Companion NPD package and compatibility
+
+The companion source changes are in `aks-vm-extension`:
+`config/node-problem-detector/plugin/pressure_common.sh` and
+`ig_report_reader.py`. The reader uses Python 3's standard library; activation
+checks Python 3 and jq rather than installing dependencies at first boot.
+The package must deliver the reader beside the pressure helper under
+`/etc/node-problem-detector.d/plugin`. AgentBaker must not overlay package-owned
+plugins. The daemon's startup check also requires this reader, including its
+`--check-startup` mode and runtime `.ndjson` path/rotation support; publish and bake
+the compatible package before shipping the image that starts the daemon by default.
+
+**Publication gate:** local companion changes do not update the PMC
+`node-problem-detector-aks-config` package. The extension's checked-in
+`dependencies/node-problem-detector/npd.mk` packages its `baseline/`, not the
+`config/` plugin tree. Coordinate the actual PMC config-package source/revision
+with its release owner and include both changed plugins before releasing images
+with this feature. No package publication or revision change is made
+here. The existing `npdConfig` updater can deliver the compatible NPD reader, but
+cannot deliver the IG daemon, binary and images as an atomic feature update.
+
+Absent capability, NPD intentionally uses the one-shot IG path (with its minimum
+version check for CPU throttling). Legacy process collection selects the CPU and
+memory sort fields for the installed IG version: `cpuUsageRelative` and
+`memoryRelative` before 0.57.0, `cpuRelative` and `memRelative` from 0.57.0 onward.
+Failed or unrecognized version queries warn and skip legacy IG collection rather
+than guessing a schema. On supported, capable images, an unavailable
+or stale collector produces
+an explicit diagnostic warning, **not** a hidden cold-IG fallback. Pressure
+thresholds, event names, redaction, chunking and diagnostic-only exit semantics
+are unchanged.
+
+### Runtime verification
+
+On a provisioned supported node, verify capability `1`, the compatible reader,
+Python 3/jq and the automatically started unit:
+
+```sh
+test "$(cat /etc/ig.d/diagnostics-version)" = 1
+test -f /etc/node-problem-detector.d/plugin/ig_report_reader.py
+command -v python3
+command -v jq
+sudo systemctl status ig-diagnostics.service --no-pager
+sudo cat /run/ig-diagnostics/collectors.json
+```
+
+The common Linux E2E validators include `ValidateIGDiagnostics`. On supported
+capability-1, cgroup-v2 nodes it requires the service to be enabled, waits for it
+to become active, and uses the packaged reader to verify fresh reports from all
+three current collectors. Older images and unsupported environments are skipped.
+The validator does not start or repair the service.
+
+NPD rechecks capability at each diagnostic invocation. Stopping or failing the
+daemon does not silently select cold collection on a capable image; it produces
+an explicit unavailable warning. Normal VHD releases and node-image upgrades
+deliver the baseline. Reboot/PIS/offline behavior, service mount isolation,
+collector failures,
+package update/recovery, end-to-end guest-agent telemetry and the aggregate
+three-collector overhead must be validated before merging and releasing.
 
 ## Releases that share a config package
 

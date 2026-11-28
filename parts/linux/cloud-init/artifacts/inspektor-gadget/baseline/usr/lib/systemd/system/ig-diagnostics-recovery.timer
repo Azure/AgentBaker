@@ -1,0 +1,11 @@
+[Unit]
+Description=Check AKS continuous Inspektor Gadget diagnostics
+ConditionPathExists=/etc/ig.d/skip_vhd_ig
+ConditionPathExists=/sys/fs/cgroup/cgroup.controllers
+
+[Timer]
+OnActiveSec=5min
+OnUnitInactiveSec=5min
+
+[Install]
+WantedBy=timers.target
