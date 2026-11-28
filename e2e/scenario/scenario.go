@@ -83,6 +83,7 @@ var _ = Register(&Scenario{
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
 				ValidateFileDoesNotExist(ctx, s, "/etc/extensions/artifact-streaming.raw"),
+				validateACLDefaultSnapshotter(ctx, s),
 				ValidateSystemdUnitIsNotRunning(ctx, s, "artifact-streaming-setup.service"),
 				ValidateSystemdUnitIsNotRunning(ctx, s, "acr-mirror.service"),
 				ValidateSystemdUnitIsNotRunning(ctx, s, "overlaybd-tcmu.service"),
@@ -199,6 +200,7 @@ var _ = Register(&Scenario{
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "ID=azurelinux"),
 				ValidateFileHasContent(ctx, s, "/etc/os-release", "VARIANT_ID=azurecontainerlinux"),
 				ValidateFileExists(ctx, s, "/etc/ssl/certs/ca-certificates.crt"),
+				validateACLDefaultSnapshotter(ctx, s),
 			)
 		},
 	},
